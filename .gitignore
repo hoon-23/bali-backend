@@ -47,7 +47,7 @@ bin/
 ### Personal notes (not for public repo) ###
 NOTES.md
 PROGRESS.md
-/docs
+/docs/plans
 
 ### Superpowers subagent-driven-development scratch workspace ###
 .superpowers/
