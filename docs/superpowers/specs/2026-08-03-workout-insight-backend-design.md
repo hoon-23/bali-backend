@@ -90,7 +90,8 @@ domain/
 ## API 설계
 
 ```
-POST   /api/v1/auth/google/login          # OAuth 콜백 처리, JWT 발급
+GET    /oauth2/authorization/google       # 로그인 시작 (Spring Security 기본 제공, 커스텀 컨트롤러 없음)
+                                           # Google 콜백(/login/oauth2/code/google) 처리 후 JWT를 JSON으로 응답
 DELETE /api/v1/users/me                   # 회원 탈퇴 (soft delete)
 
 GET    /api/v1/exercises                  # 종목 카탈로그 조회 (글로벌+본인 개인 종목)
