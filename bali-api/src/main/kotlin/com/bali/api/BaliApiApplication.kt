@@ -5,6 +5,7 @@ import org.springframework.boot.autoconfigure.domain.EntityScan
 import org.springframework.boot.runApplication
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories
 
+// bali-api Spring Boot 애플리케이션 진입점.
 @SpringBootApplication(scanBasePackages = ["com.bali"])
 @EntityScan("com.bali.infra")
 @EnableJpaRepositories("com.bali.infra")
