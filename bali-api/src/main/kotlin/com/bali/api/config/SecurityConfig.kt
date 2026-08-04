@@ -3,10 +3,14 @@ package com.bali.api.config
 import com.bali.api.auth.CustomOAuth2UserService
 import com.bali.api.auth.JwtAuthenticationFilter
 import com.bali.api.auth.OAuth2LoginSuccessHandler
+import jakarta.servlet.http.HttpServletRequest
+import jakarta.servlet.http.HttpServletResponse
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
 import org.springframework.security.config.annotation.web.invoke
+import org.springframework.security.core.AuthenticationException
+import org.springframework.security.web.AuthenticationEntryPoint
 import org.springframework.security.web.SecurityFilterChain
 
 // Spring Security 설정 - Google OAuth2 로그인 플로우와 인가 규칙을 구성
@@ -16,6 +20,22 @@ class SecurityConfig(
     private val oAuth2LoginSuccessHandler: OAuth2LoginSuccessHandler,
     private val jwtAuthenticationFilter: JwtAuthenticationFilter,
 ) {
+
+    // REST API 요청에 대해 401을 반환하는 인증 엔트리 포인트
+    @Bean
+    fun restApiAuthenticationEntryPoint(): AuthenticationEntryPoint {
+        return AuthenticationEntryPoint { request: HttpServletRequest, response: HttpServletResponse, _: AuthenticationException ->
+            // REST API 경로의 인증되지 않은 요청은 401 Unauthorized를 반환
+            if (request.requestURI.startsWith("/api/")) {
+                response.status = HttpServletResponse.SC_UNAUTHORIZED
+                response.contentType = "application/json"
+                response.writer.write("{\"error\": \"Unauthorized\"}")
+            } else {
+                // 다른 경로는 기본 동작 (리다이렉트)
+                response.sendRedirect("/login")
+            }
+        }
+    }
 
     // 보안 필터 체인을 정의 - 헬스체크와 OAuth2 경로는 공개, 나머지는 인증 필요
     @Bean
@@ -27,6 +47,10 @@ class SecurityConfig(
             sessionManagement { sessionCreationPolicy = org.springframework.security.config.http.SessionCreationPolicy.STATELESS }
             // UsernamePasswordAuthenticationFilter 이전에 JWT 필터를 실행하여 토큰 기반 인증 처리
             addFilterBefore<org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter>(jwtAuthenticationFilter)
+            // REST API 요청에 대해 401 응답을 반환하도록 설정
+            exceptionHandling {
+                authenticationEntryPoint = restApiAuthenticationEntryPoint()
+            }
             authorizeHttpRequests {
                 authorize("/actuator/health", permitAll)
                 authorize("/oauth2/**", permitAll)
