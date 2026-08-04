@@ -18,6 +18,7 @@ class JwtAuthenticationFilterTest {
     )
     private val filter = JwtAuthenticationFilter(jwtTokenProvider)
 
+    // 유효한 Bearer 토큰이 있으면 SecurityContext에 인증된 사용자 ID가 설정되는지 확인
     @Test
     fun `valid bearer token sets the authenticated user id in the security context`() {
         SecurityContextHolder.clearContext()
@@ -34,6 +35,7 @@ class JwtAuthenticationFilterTest {
         assertEquals(userId.toString(), SecurityContextHolder.getContext().authentication?.name)
     }
 
+    // Authorization 헤더가 없으면 SecurityContext가 비어있는 채로 유지되는지 확인
     @Test
     fun `missing header leaves security context empty`() {
         SecurityContextHolder.clearContext()
@@ -46,6 +48,7 @@ class JwtAuthenticationFilterTest {
         assertNull(SecurityContextHolder.getContext().authentication)
     }
 
+    // 유효하지 않은 토큰이면 SecurityContext가 비어있는 채로 유지되는지 확인
     @Test
     fun `invalid token leaves security context empty`() {
         SecurityContextHolder.clearContext()
