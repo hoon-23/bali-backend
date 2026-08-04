@@ -12,6 +12,7 @@ import org.springframework.security.config.annotation.web.invoke
 import org.springframework.security.core.AuthenticationException
 import org.springframework.security.web.AuthenticationEntryPoint
 import org.springframework.security.web.SecurityFilterChain
+import org.springframework.security.web.util.matcher.AntPathRequestMatcher
 
 // Spring Security 설정 - Google OAuth2 로그인 플로우와 인가 규칙을 구성
 @Configuration
@@ -21,19 +22,13 @@ class SecurityConfig(
     private val jwtAuthenticationFilter: JwtAuthenticationFilter,
 ) {
 
-    // REST API 요청에 대해 401을 반환하는 인증 엔트리 포인트
+    // REST API 엔드포인트의 인증 실패시 401 JSON 응답을 반환하는 엔트리 포인트
     @Bean
     fun restApiAuthenticationEntryPoint(): AuthenticationEntryPoint {
-        return AuthenticationEntryPoint { request: HttpServletRequest, response: HttpServletResponse, _: AuthenticationException ->
-            // REST API 경로의 인증되지 않은 요청은 401 Unauthorized를 반환
-            if (request.requestURI.startsWith("/api/")) {
-                response.status = HttpServletResponse.SC_UNAUTHORIZED
-                response.contentType = "application/json"
-                response.writer.write("{\"error\": \"Unauthorized\"}")
-            } else {
-                // 다른 경로는 기본 동작 (리다이렉트)
-                response.sendRedirect("/login")
-            }
+        return AuthenticationEntryPoint { _: HttpServletRequest, response: HttpServletResponse, _: AuthenticationException ->
+            response.status = HttpServletResponse.SC_UNAUTHORIZED
+            response.contentType = "application/json"
+            response.writer.write("{\"error\": \"Unauthorized\"}")
         }
     }
 
@@ -47,9 +42,12 @@ class SecurityConfig(
             sessionManagement { sessionCreationPolicy = org.springframework.security.config.http.SessionCreationPolicy.STATELESS }
             // UsernamePasswordAuthenticationFilter 이전에 JWT 필터를 실행하여 토큰 기반 인증 처리
             addFilterBefore<org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter>(jwtAuthenticationFilter)
-            // REST API 요청에 대해 401 응답을 반환하도록 설정
+            // /api/** 경로의 REST API 요청에 대해서만 401 JSON 응답을 반환하도록 설정
             exceptionHandling {
-                authenticationEntryPoint = restApiAuthenticationEntryPoint()
+                defaultAuthenticationEntryPointFor(
+                    restApiAuthenticationEntryPoint(),
+                    AntPathRequestMatcher("/api/**")
+                )
             }
             authorizeHttpRequests {
                 authorize("/actuator/health", permitAll)
