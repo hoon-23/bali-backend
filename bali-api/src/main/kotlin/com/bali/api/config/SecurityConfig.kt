@@ -30,9 +30,10 @@ class SecurityConfig(
                 authorize(anyRequest, authenticated)
             }
             oauth2Login {
-                // Google로부터 받은 사용자 정보를 커스텀 서비스로 처리
+                // Google scope에 openid가 포함되어 OIDC 프로바이더로 취급되므로
+                // (일반 OAuth2용) userService가 아닌 oidcUserService 슬롯에 연결해야 실제로 호출됨
                 userInfoEndpoint {
-                    userService = customOAuth2UserService
+                    oidcUserService = customOAuth2UserService
                 }
                 // 로그인 성공 시 JWT를 발급하는 핸들러로 응답 작성
                 authenticationSuccessHandler = oAuth2LoginSuccessHandler
