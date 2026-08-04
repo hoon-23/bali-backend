@@ -1,0 +1,20 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: bali-api
+  datasource:
+    url: jdbc:postgresql://localhost:5432/bali
+    username: bali
+    password: bali
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
