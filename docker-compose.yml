@@ -1,0 +1,22 @@
+name: bali
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: bali-postgres
+    environment:
+      POSTGRES_DB: bali
+      POSTGRES_USER: bali
+      POSTGRES_PASSWORD: bali
+    ports:
+      - "5432:5432"
+    volumes:
+      - bali_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bali"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  bali_postgres_data:
