@@ -1,0 +1,61 @@
+package com.bali.api.auth
+
+import jakarta.servlet.FilterChain
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Test
+import org.springframework.mock.web.MockHttpServletRequest
+import org.springframework.mock.web.MockHttpServletResponse
+import org.springframework.security.core.context.SecurityContextHolder
+import java.util.UUID
+
+// JWT 토큰 헤더를 파싱하고 SecurityContext에 인증 정보를 설정하는 필터의 동작을 검증
+class JwtAuthenticationFilterTest {
+
+    private val jwtTokenProvider = JwtTokenProvider(
+        secret = "test-secret-key-must-be-at-least-32-bytes-long!!",
+        expirationMillis = 3600_000,
+    )
+    private val filter = JwtAuthenticationFilter(jwtTokenProvider)
+
+    @Test
+    fun `valid bearer token sets the authenticated user id in the security context`() {
+        SecurityContextHolder.clearContext()
+        val userId = UUID.randomUUID()
+        val token = jwtTokenProvider.generateToken(userId, "test@example.com")
+
+        val request = MockHttpServletRequest()
+        request.addHeader("Authorization", "Bearer $token")
+        val response = MockHttpServletResponse()
+        val chain = FilterChain { _, _ -> }
+
+        filter.doFilter(request, response, chain)
+
+        assertEquals(userId.toString(), SecurityContextHolder.getContext().authentication?.name)
+    }
+
+    @Test
+    fun `missing header leaves security context empty`() {
+        SecurityContextHolder.clearContext()
+        val request = MockHttpServletRequest()
+        val response = MockHttpServletResponse()
+        val chain = FilterChain { _, _ -> }
+
+        filter.doFilter(request, response, chain)
+
+        assertNull(SecurityContextHolder.getContext().authentication)
+    }
+
+    @Test
+    fun `invalid token leaves security context empty`() {
+        SecurityContextHolder.clearContext()
+        val request = MockHttpServletRequest()
+        request.addHeader("Authorization", "Bearer garbage")
+        val response = MockHttpServletResponse()
+        val chain = FilterChain { _, _ -> }
+
+        filter.doFilter(request, response, chain)
+
+        assertNull(SecurityContextHolder.getContext().authentication)
+    }
+}

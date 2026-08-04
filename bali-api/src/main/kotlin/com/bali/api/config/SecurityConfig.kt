@@ -1,6 +1,7 @@
 package com.bali.api.config
 
 import com.bali.api.auth.CustomOAuth2UserService
+import com.bali.api.auth.JwtAuthenticationFilter
 import com.bali.api.auth.OAuth2LoginSuccessHandler
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -13,6 +14,7 @@ import org.springframework.security.web.SecurityFilterChain
 class SecurityConfig(
     private val customOAuth2UserService: CustomOAuth2UserService,
     private val oAuth2LoginSuccessHandler: OAuth2LoginSuccessHandler,
+    private val jwtAuthenticationFilter: JwtAuthenticationFilter,
 ) {
 
     // 보안 필터 체인을 정의 - 헬스체크와 OAuth2 경로는 공개, 나머지는 인증 필요
@@ -23,6 +25,8 @@ class SecurityConfig(
             csrf { disable() }
             // 세션을 사용하지 않고 매 요청마다 JWT로 인증
             sessionManagement { sessionCreationPolicy = org.springframework.security.config.http.SessionCreationPolicy.STATELESS }
+            // UsernamePasswordAuthenticationFilter 이전에 JWT 필터를 실행하여 토큰 기반 인증 처리
+            addFilterBefore<org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter>(jwtAuthenticationFilter)
             authorizeHttpRequests {
                 authorize("/actuator/health", permitAll)
                 authorize("/oauth2/**", permitAll)
