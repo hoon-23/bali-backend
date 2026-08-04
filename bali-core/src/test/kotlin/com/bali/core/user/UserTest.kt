@@ -7,7 +7,7 @@ import java.util.UUID
 
 class UserTest : StringSpec({
 
-    // Creates a new User instance with default test values
+    // 테스트용 기본값으로 새 User 인스턴스를 생성
     fun newUser() = User(
         id = UUID.randomUUID(),
         email = "test@example.com",

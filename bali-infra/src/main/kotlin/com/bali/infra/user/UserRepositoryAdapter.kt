@@ -6,23 +6,23 @@ import com.bali.core.user.UserRepository
 import org.springframework.stereotype.Repository
 import java.util.UUID
 
-// Spring repository adapter implementing UserRepository port with JPA backend.
+// JPA 백엔드로 UserRepository 포트를 구현하는 Spring 리포지토리 어댑터.
 @Repository
 class UserRepositoryAdapter(
     private val jpaRepository: UserJpaRepository,
 ) : UserRepository {
 
-    // Retrieve user by unique identifier.
+    // 고유 식별자로 사용자를 조회.
     override fun findById(id: UUID): User? =
         jpaRepository.findById(id).orElse(null)?.toDomain()
 
-    // Query user by OAuth provider and remote ID.
+    // OAuth 프로바이더와 원격 ID로 사용자를 조회.
     override fun findByProviderAndProviderId(provider: AuthProvider, providerId: String): User? =
         jpaRepository.findByProviderAndProviderId(provider, providerId)?.toDomain()
 
-    // Persist user and return domain entity with assigned ID.
+    // 사용자를 저장하고 ID가 할당된 도메인 엔티티를 반환.
     override fun save(user: User): User {
-        // Assign new UUID if not present; otherwise use existing.
+        // ID가 없으면 새 UUID 할당, 있으면 기존 값 사용.
         val entity = UserJpaEntity(
             id = user.id ?: UUID.randomUUID(),
             email = user.email,
@@ -34,7 +34,7 @@ class UserRepositoryAdapter(
         return jpaRepository.save(entity).toDomain()
     }
 
-    // Convert JPA entity to domain model.
+    // JPA 엔티티를 도메인 모델로 변환.
     private fun UserJpaEntity.toDomain() = User(
         id = id,
         email = email,

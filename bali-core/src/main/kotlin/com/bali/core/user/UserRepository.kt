@@ -2,14 +2,14 @@ package com.bali.core.user
 
 import java.util.UUID
 
-// Port interface for user persistence - abstracts repository implementation details
+// 사용자 영속성을 위한 포트 인터페이스 - 리포지토리 구현 세부사항을 추상화
 interface UserRepository {
-    // Retrieves a user by their unique identifier, returns null if not found
+    // 고유 식별자로 사용자를 조회, 없으면 null 반환
     fun findById(id: UUID): User?
 
-    // Retrieves a user by their auth provider and provider-specific ID, returns null if not found
+    // 인증 프로바이더와 프로바이더별 ID로 사용자를 조회, 없으면 null 반환
     fun findByProviderAndProviderId(provider: AuthProvider, providerId: String): User?
 
-    // Persists or updates a user in the repository, returning the saved user
+    // 사용자를 저장하거나 갱신하고, 저장된 사용자를 반환
     fun save(user: User): User
 }

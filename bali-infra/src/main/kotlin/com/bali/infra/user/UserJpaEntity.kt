@@ -11,7 +11,7 @@ import jakarta.persistence.UniqueConstraint
 import java.time.Instant
 import java.util.UUID
 
-// JPA entity for User domain model persistence.
+// User 도메인 모델 영속성을 위한 JPA 엔티티.
 @Entity
 @Table(
     name = "users",
