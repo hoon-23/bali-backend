@@ -48,6 +48,7 @@ bin/
 NOTES.md
 PROGRESS.md
 /docs/plans
+/docs/review
 
 ### Superpowers subagent-driven-development scratch workspace ###
 .superpowers/
