@@ -29,7 +29,7 @@
 ## 모듈 구조
 
 ```
-bali_backend/
+bali-backend/
 ├── bali-core/     # 도메인 모델, 유스케이스, 포트 인터페이스
 ├── bali-infra/    # JPA 구현체, Claude API 어댑터
 ├── bali-api/      # REST API 서버 (인증, 컨트롤러)

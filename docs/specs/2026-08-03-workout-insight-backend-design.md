@@ -41,7 +41,7 @@
 적용하는 라이트 헥사고날 구조. Gradle 멀티모듈로 배치와 API 서버를 독립 배포 가능하게 분리한다.
 
 ```
-bali_backend/
+bali-backend/
 ├── settings.gradle.kts
 ├── bali-core/     # 도메인 모델 + 유스케이스 + 필요한 포트 인터페이스만
 │                  # (Repository 인터페이스, AnalysisPort 등)

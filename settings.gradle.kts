@@ -2,6 +2,6 @@ plugins {
     id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
 }
 
-rootProject.name = "bali_backend"
+rootProject.name = "bali-backend"
 
 include("bali-core", "bali-infra", "bali-api")
