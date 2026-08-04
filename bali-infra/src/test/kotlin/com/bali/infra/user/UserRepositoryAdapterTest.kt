@@ -25,7 +25,7 @@ class UserRepositoryAdapterTest {
         @DynamicPropertySource
         @JvmStatic
         fun props(registry: DynamicPropertyRegistry) {
-            // docker-compose로 띄운 로컬 PostgreSQL을 사용.
+            // Use docker-compose PostgreSQL on localhost:5432 due to Mac Docker Desktop docker-java compatibility issue.
             registry.add("spring.datasource.url") { "jdbc:postgresql://localhost:5432/bali" }
             registry.add("spring.datasource.username") { "bali" }
             registry.add("spring.datasource.password") { "bali" }

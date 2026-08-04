@@ -1,1 +1,0 @@
-docker.client.strategy=com.github.dockerjava.core.DockerClientImpl
