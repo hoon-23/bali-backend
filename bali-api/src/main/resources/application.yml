@@ -1,6 +1,11 @@
 server:
   port: 8080
 
+bali:
+  jwt:
+    secret: ${JWT_SECRET:dev-only-secret-change-me-in-prod-32bytes!!}
+    expiration-millis: 3600000
+
 spring:
   application:
     name: bali-api
