@@ -95,4 +95,27 @@ class ExerciseRepositoryAdapterTest {
         assertTrue(visible.any { it.name == "내전용종목" })
         assertTrue(visible.none { it.name == "남의전용종목" })
     }
+
+    @Test
+    fun `suggest includes own personal exercise but not another user's`() {
+        val ownerId = UUID.randomUUID()
+        val otherOwnerId = UUID.randomUUID()
+        adapter.save(
+            Exercise(
+                id = null, name = "테스트전용종목", variant = null, muscleGroup = MuscleGroup.LEGS,
+                type = ExerciseType.STRENGTH, scope = ExerciseScope.PERSONAL, ownerId = ownerId,
+            )
+        )
+        adapter.save(
+            Exercise(
+                id = null, name = "테스트전용종목", variant = null, muscleGroup = MuscleGroup.LEGS,
+                type = ExerciseType.STRENGTH, scope = ExerciseScope.PERSONAL, ownerId = otherOwnerId,
+            )
+        )
+
+        val suggestions = adapter.suggest("테스트전용종목", ownerId, 10)
+
+        assertTrue(suggestions.any { it.name == "테스트전용종목" && it.ownerId == ownerId })
+        assertTrue(suggestions.none { it.name == "테스트전용종목" && it.ownerId == otherOwnerId })
+    }
 }
