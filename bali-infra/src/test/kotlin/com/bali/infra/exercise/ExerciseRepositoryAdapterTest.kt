@@ -52,6 +52,16 @@ class ExerciseRepositoryAdapterTest {
         assertTrue(suggestions.any { it.name == "바벨로우" })
     }
 
+    // pg_trgm은 2~3글자 한글 짧은 단어를 자모 분해 없이 음절 단위로 트라이그램화하기 때문에
+    // "밴치"(오타)와 "벤치프레스"의 유사도가 정확히 0.0이 되어 어떤 임계값으로도 잡히지 않는다.
+    // 이 한계를 문서화하고, 추후 접근법이 바뀌면 이 테스트가 깨져 변경을 알리도록 한다.
+    @Test
+    fun `suggest는 짧은 한글 오타(밴치-벤치프레스)를 trigram 한계로 인해 잡지 못한다`() {
+        val suggestions = adapter.suggest("밴치", UUID.randomUUID(), 10)
+
+        assertTrue(suggestions.none { it.name == "벤치프레스" })
+    }
+
     @Test
     fun `save then findById returns a personal exercise with the same owner`() {
         val ownerId = UUID.randomUUID()
