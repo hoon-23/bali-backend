@@ -3,6 +3,7 @@ package com.bali.infra.exercise
 import com.bali.core.exercise.Exercise
 import com.bali.core.exercise.ExerciseRepository
 import org.springframework.stereotype.Repository
+import org.springframework.transaction.annotation.Transactional
 import java.util.UUID
 
 // JPA 백엔드로 ExerciseRepository 포트를 구현하는 Spring 리포지토리 어댑터.
@@ -19,9 +20,13 @@ class ExerciseRepositoryAdapter(
     override fun findVisibleTo(userId: UUID): List<Exercise> =
         jpaRepository.findVisibleTo(userId).map { it.toDomain() }
 
-    // 이름 유사도 기준 상위 종목 제안.
-    override fun suggest(query: String, userId: UUID, limit: Int): List<Exercise> =
-        jpaRepository.suggest(query, userId, limit).map { it.toDomain() }
+    // 이름 유사도 기준 상위 종목 제안. SET LOCAL(트랜잭션 범위 임계값 설정)과 조회 쿼리가
+    // 반드시 같은 트랜잭션/커넥션에서 실행되도록 이 메서드 전체를 하나의 트랜잭션으로 묶는다.
+    @Transactional
+    override fun suggest(query: String, userId: UUID, limit: Int): List<Exercise> {
+        jpaRepository.setSuggestSimilarityThreshold()
+        return jpaRepository.suggest(query, userId, limit).map { it.toDomain() }
+    }
 
     // 종목을 저장하고 ID가 할당된 도메인 엔티티를 반환.
     override fun save(exercise: Exercise): Exercise {

@@ -52,6 +52,18 @@ class ExerciseRepositoryAdapterTest {
         assertTrue(suggestions.any { it.name == "바벨로우" })
     }
 
+    // 재검토에서 발견된 회귀 버그 재현 케이스: 쿼리 플래너의 row 추정치가 1일 때
+    // (예: "레그"처럼 매칭 후보가 적은 짧은 쿼리) FROM절 서브쿼리로 set_limit()을 호출하던
+    // 이전 방식은 join 순서가 뒤바뀌어 일부 행이 set_limit(0.2) 적용 전(즉 기본 임계값
+    // 상태)에 평가되면서 "레그프레스"(유사도 0.2857, 0.2보다 높아 포함되어야 함)가 간헐적으로
+    // 누락됐다. SET LOCAL을 별도 문으로 먼저 실행하는 현재 방식은 이 순서 문제가 없다.
+    @Test
+    fun `suggest는 레그 쿼리에서 레그프레스를 안정적으로 포함한다 (플래너 순서 버그 회귀 테스트)`() {
+        val suggestions = adapter.suggest("레그", UUID.randomUUID(), 10)
+
+        assertTrue(suggestions.any { it.name == "레그프레스" })
+    }
+
     // pg_trgm은 2~3글자 한글 짧은 단어를 자모 분해 없이 음절 단위로 트라이그램화하기 때문에
     // "밴치"(오타)와 "벤치프레스"의 유사도가 정확히 0.0이 되어 어떤 임계값으로도 잡히지 않는다.
     // 이 한계를 문서화하고, 추후 접근법이 바뀌면 이 테스트가 깨져 변경을 알리도록 한다.
