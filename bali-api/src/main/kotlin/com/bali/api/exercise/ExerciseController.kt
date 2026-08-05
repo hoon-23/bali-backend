@@ -4,6 +4,7 @@ import com.bali.core.exercise.Exercise
 import com.bali.core.exercise.ExerciseRepository
 import com.bali.core.exercise.ExerciseScope
 import com.bali.core.exercise.MuscleGroup
+import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
 import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.web.bind.annotation.GetMapping
@@ -38,7 +39,7 @@ class ExerciseController(
     // 개인 종목 등록 (scope=PERSONAL 자동, ownerId는 인증 컨텍스트에서)
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    fun create(@RequestBody request: ExerciseCreateRequest): ExerciseResponse {
+    fun create(@Valid @RequestBody request: ExerciseCreateRequest): ExerciseResponse {
         val saved = exerciseRepository.save(
             Exercise(
                 id = null,

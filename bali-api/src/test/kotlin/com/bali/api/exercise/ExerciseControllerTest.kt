@@ -114,4 +114,42 @@ class ExerciseControllerTest {
             .andExpect(jsonPath("$.name").value("나만의종목"))
             .andExpect(jsonPath("$.scope").value("PERSONAL"))
     }
+
+    // POST /api/v1/exercises 호출시 name이 공백이면 400을 반환하는지 확인
+    @Test
+    fun `POST exercises 호출시 name이 공백이면 400 반환`() {
+        val token = issueTokenForNewUser()
+        val body = """{"name":"   ","variant":null,"muscleGroup":"BACK","type":"STRENGTH"}"""
+
+        mockMvc.perform(
+            post("/api/v1/exercises")
+                .header("Authorization", "Bearer $token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body)
+        )
+            .andExpect(status().isBadRequest)
+    }
+
+    // POST /api/v1/exercises 호출시 name이 255자를 초과하면 400을 반환하는지 확인
+    @Test
+    fun `POST exercises 호출시 name이 255자 초과면 400 반환`() {
+        val token = issueTokenForNewUser()
+        val tooLongName = "가".repeat(256)
+        val body = objectMapper.writeValueAsString(
+            ExerciseCreateRequest(
+                name = tooLongName,
+                variant = null,
+                muscleGroup = com.bali.core.exercise.MuscleGroup.BACK,
+                type = com.bali.core.exercise.ExerciseType.STRENGTH,
+            )
+        )
+
+        mockMvc.perform(
+            post("/api/v1/exercises")
+                .header("Authorization", "Bearer $token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body)
+        )
+            .andExpect(status().isBadRequest)
+    }
 }
