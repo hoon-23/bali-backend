@@ -1,5 +1,6 @@
-package com.bali.api.auth
+package com.bali.api.auth.oauth2
 
+import com.bali.api.auth.jwt.JwtTokenProvider
 import com.bali.core.user.AuthProvider
 import com.bali.core.user.UserRepository
 import com.fasterxml.jackson.databind.ObjectMapper

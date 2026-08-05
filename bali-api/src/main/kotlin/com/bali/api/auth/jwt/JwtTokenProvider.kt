@@ -1,4 +1,4 @@
-package com.bali.api.auth
+package com.bali.api.auth.jwt
 
 import io.jsonwebtoken.Jwts
 import io.jsonwebtoken.security.Keys

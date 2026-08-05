@@ -1,6 +1,6 @@
 package com.bali.api.user
 
-import com.bali.api.auth.JwtTokenProvider
+import com.bali.api.auth.jwt.JwtTokenProvider
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc

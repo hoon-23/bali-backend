@@ -1,6 +1,6 @@
 package com.bali.api.config
 
-import com.bali.api.auth.CustomOAuth2UserService
+import com.bali.api.auth.oauth2.CustomOAuth2UserService
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired

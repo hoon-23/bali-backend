@@ -1,4 +1,4 @@
-package com.bali.api.auth
+package com.bali.api.auth.jwt
 
 import jakarta.servlet.FilterChain
 import org.junit.jupiter.api.Assertions.assertEquals

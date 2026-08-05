@@ -1,4 +1,4 @@
-package com.bali.api.auth
+package com.bali.api.auth.oauth2
 
 import com.bali.core.user.AuthProvider
 import com.bali.core.user.User

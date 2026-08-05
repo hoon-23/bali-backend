@@ -1,8 +1,8 @@
 package com.bali.api.config
 
-import com.bali.api.auth.CustomOAuth2UserService
-import com.bali.api.auth.JwtAuthenticationFilter
-import com.bali.api.auth.OAuth2LoginSuccessHandler
+import com.bali.api.auth.jwt.JwtAuthenticationFilter
+import com.bali.api.auth.oauth2.CustomOAuth2UserService
+import com.bali.api.auth.oauth2.OAuth2LoginSuccessHandler
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
 import org.springframework.context.annotation.Bean

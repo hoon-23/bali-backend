@@ -1,4 +1,4 @@
-package com.bali.api.auth
+package com.bali.api.auth.jwt
 
 import jakarta.servlet.FilterChain
 import jakarta.servlet.http.HttpServletRequest
