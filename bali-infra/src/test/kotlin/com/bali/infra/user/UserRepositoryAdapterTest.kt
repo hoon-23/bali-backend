@@ -29,7 +29,7 @@ class UserRepositoryAdapterTest {
             registry.add("spring.datasource.url") { "jdbc:postgresql://localhost:5432/bali" }
             registry.add("spring.datasource.username") { "bali" }
             registry.add("spring.datasource.password") { "bali" }
-            registry.add("spring.jpa.hibernate.ddl-auto") { "create-drop" }
+            registry.add("spring.jpa.hibernate.ddl-auto") { "validate" }
         }
     }
 
