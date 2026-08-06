@@ -23,6 +23,7 @@ import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
@@ -107,5 +108,77 @@ class SessionControllerTest {
 
         mockMvc.perform(get("/api/v1/sessions/$sessionId").header("Authorization", "Bearer $otherToken"))
             .andExpect(status().isNotFound)
+    }
+
+    @Test
+    fun `PATCH sessions id addItems로 즉흥 추가하면 target null이 허용된다`() {
+        val (token, _) = issueTokenForNewUser()
+        val exerciseId = savedStrengthExerciseId()
+        val created = mockMvc.perform(post("/api/v1/sessions").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON).content("""{"date":"2026-08-06","templateId":null}"""))
+            .andExpect(status().isCreated).andReturn().response.contentAsString
+        val sessionId = objectMapper.readTree(created).get("id").asText()
+
+        val patchBody = """{"addItems":[{"exerciseId":"$exerciseId","sortOrder":0,"targetSets":null,"targetReps":null,"targetWeight":null,"targetDurationSeconds":null,"targetPace":null}],"updateItems":[],"removeLogIds":[]}"""
+
+        mockMvc.perform(patch("/api/v1/sessions/$sessionId").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON).content(patchBody))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.logs.length()").value(1))
+            .andExpect(jsonPath("$.logs[0].targetSets").value(org.hamcrest.Matchers.nullValue()))
+    }
+
+    @Test
+    fun `PATCH sessions id updateItems로 exerciseId를 바꾸면 같은 logId가 유지된 채 종목만 바뀐다`() {
+        val (token, _) = issueTokenForNewUser()
+        val originalExerciseId = savedStrengthExerciseId()
+        val substituteExerciseId = savedStrengthExerciseId()
+        val created = mockMvc.perform(post("/api/v1/sessions").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON).content("""{"date":"2026-08-06","templateId":null}"""))
+            .andExpect(status().isCreated).andReturn().response.contentAsString
+        val sessionId = objectMapper.readTree(created).get("id").asText()
+        val addBody = """{"addItems":[{"exerciseId":"$originalExerciseId","sortOrder":0,"targetSets":3,"targetReps":10,"targetWeight":60.0,"targetDurationSeconds":null,"targetPace":null}],"updateItems":[],"removeLogIds":[]}"""
+        val afterAdd = mockMvc.perform(patch("/api/v1/sessions/$sessionId").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON).content(addBody))
+            .andExpect(status().isOk).andReturn().response.contentAsString
+        val logId = objectMapper.readTree(afterAdd).get("logs").get(0).get("id").asText()
+
+        val patchBody = """{"addItems":[],"updateItems":[{"logId":"$logId","exerciseId":"$substituteExerciseId","sortOrder":0,"targetSets":5,"targetReps":5,"targetWeight":80.0,"targetDurationSeconds":null,"targetPace":null}],"removeLogIds":[]}"""
+
+        mockMvc.perform(patch("/api/v1/sessions/$sessionId").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON).content(patchBody))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.logs.length()").value(1))
+            .andExpect(jsonPath("$.logs[0].id").value(logId))
+            .andExpect(jsonPath("$.logs[0].exerciseId").value(substituteExerciseId.toString()))
+            .andExpect(jsonPath("$.logs[0].targetSets").value(5))
+    }
+
+    @Test
+    fun `PATCH sessions id removeLogIds로 삭제하면 목록에서 사라진다`() {
+        val (token, _) = issueTokenForNewUser()
+        val exerciseId = savedStrengthExerciseId()
+        val created = mockMvc.perform(post("/api/v1/sessions").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON).content("""{"date":"2026-08-06","templateId":null}"""))
+            .andExpect(status().isCreated).andReturn().response.contentAsString
+        val sessionId = objectMapper.readTree(created).get("id").asText()
+
+        val addBody = """{"addItems":[{"exerciseId":"$exerciseId","sortOrder":0,"targetSets":3,"targetReps":10,"targetWeight":60.0,"targetDurationSeconds":null,"targetPace":null}],"updateItems":[],"removeLogIds":[]}"""
+        val afterAdd = mockMvc.perform(patch("/api/v1/sessions/$sessionId").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON).content(addBody))
+            .andExpect(status().isOk).andReturn().response.contentAsString
+        val logId = objectMapper.readTree(afterAdd).get("logs").get(0).get("id").asText()
+
+        val removeBody = """{"addItems":[],"updateItems":[],"removeLogIds":["$logId"]}"""
+        mockMvc.perform(patch("/api/v1/sessions/$sessionId").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON).content(removeBody))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.logs.length()").value(0))
+    }
+
+    @Test
+    fun `PATCH sessions id updateItems에 세션에 속하지 않는 logId를 넣으면 400 반환`() {
+        val (token, _) = issueTokenForNewUser()
+        val exerciseId = savedStrengthExerciseId()
+        val created = mockMvc.perform(post("/api/v1/sessions").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON).content("""{"date":"2026-08-06","templateId":null}"""))
+            .andExpect(status().isCreated).andReturn().response.contentAsString
+        val sessionId = objectMapper.readTree(created).get("id").asText()
+
+        val patchBody = """{"addItems":[],"updateItems":[{"logId":"${UUID.randomUUID()}","exerciseId":"$exerciseId","sortOrder":0,"targetSets":3,"targetReps":10,"targetWeight":60.0,"targetDurationSeconds":null,"targetPace":null}],"removeLogIds":[]}"""
+
+        mockMvc.perform(patch("/api/v1/sessions/$sessionId").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON).content(patchBody))
+            .andExpect(status().isBadRequest)
     }
 }
