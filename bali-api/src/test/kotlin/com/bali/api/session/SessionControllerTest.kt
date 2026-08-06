@@ -21,6 +21,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.http.MediaType
+import org.springframework.test.context.transaction.TestTransaction
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch
@@ -180,5 +181,48 @@ class SessionControllerTest {
 
         mockMvc.perform(patch("/api/v1/sessions/$sessionId").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON).content(patchBody))
             .andExpect(status().isBadRequest)
+    }
+
+    @Test
+    fun `PATCH sessions id removeLogIds에 세션에 속하지 않는 logId를 넣으면 400 반환`() {
+        val (token, _) = issueTokenForNewUser()
+        val created = mockMvc.perform(post("/api/v1/sessions").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON).content("""{"date":"2026-08-06","templateId":null}"""))
+            .andExpect(status().isCreated).andReturn().response.contentAsString
+        val sessionId = objectMapper.readTree(created).get("id").asText()
+
+        val patchBody = """{"addItems":[],"updateItems":[],"removeLogIds":["${UUID.randomUUID()}"]}"""
+
+        mockMvc.perform(patch("/api/v1/sessions/$sessionId").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON).content(patchBody))
+            .andExpect(status().isBadRequest)
+    }
+
+    @Test
+    fun `PATCH sessions id 같은 요청에서 updateItems 검증에 실패하면 addItems도 커밋되지 않는다`() {
+        val (token, _) = issueTokenForNewUser()
+        val exerciseId = savedStrengthExerciseId()
+        val created = mockMvc.perform(post("/api/v1/sessions").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON).content("""{"date":"2026-08-06","templateId":null}"""))
+            .andExpect(status().isCreated).andReturn().response.contentAsString
+        val sessionId = objectMapper.readTree(created).get("id").asText()
+
+        // 클래스 레벨 @Transactional 롤백에 기대지 않고 실제 커밋/롤백 경계를 만들어야
+        // PATCH 내부에서 setRollbackOnly()된 트랜잭션의 실제 반영 여부를 관찰할 수 있다
+        TestTransaction.flagForCommit()
+        TestTransaction.end()
+        TestTransaction.start()
+
+        val patchBody = """{"addItems":[{"exerciseId":"$exerciseId","sortOrder":0,"targetSets":3,"targetReps":10,"targetWeight":60.0,"targetDurationSeconds":null,"targetPace":null}],"updateItems":[{"logId":"${UUID.randomUUID()}","exerciseId":"$exerciseId","sortOrder":0,"targetSets":3,"targetReps":10,"targetWeight":60.0,"targetDurationSeconds":null,"targetPace":null}],"removeLogIds":[]}"""
+
+        mockMvc.perform(patch("/api/v1/sessions/$sessionId").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON).content(patchBody))
+            .andExpect(status().isBadRequest)
+
+        // PATCH 트랜잭션은 require() 실패로 rollback-only 상태가 됐을 뿐 아직 물리적으로 롤백되지 않았다.
+        // flagForCommit() 없이 end()를 호출하면 기본값(롤백)으로 종료되어 addItems insert가 실제로 버려진다
+        // (반대로 flagForCommit()을 호출하면 이미 rollback-only인 트랜잭션에 커밋을 시도하다 UnexpectedRollbackException이 발생한다)
+        TestTransaction.end()
+        TestTransaction.start()
+
+        mockMvc.perform(get("/api/v1/sessions/$sessionId").header("Authorization", "Bearer $token"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.logs.length()").value(0))
     }
 }

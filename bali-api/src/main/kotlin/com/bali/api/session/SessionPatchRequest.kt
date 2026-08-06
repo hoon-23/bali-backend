@@ -11,7 +11,7 @@ data class SessionPatchRequest(
     val removeLogIds: List<UUID> = emptyList(),
 )
 
-// 기존 log를 logId 기준으로 전체 교체하는 항목 (actual*/completed는 이 바디에 없으므로 항상 보존됨)
+// 기존 log를 logId 기준으로 전체 교체하는 항목 (exerciseId 변경 시 completed/actual*는 초기화됨 — 종목이 바뀌면 이전 수행 기록은 무효해짐. 언급되지 않은 log만 보존됨)
 data class SessionLogUpdateItem(
     val logId: UUID,
     val exerciseId: UUID,
