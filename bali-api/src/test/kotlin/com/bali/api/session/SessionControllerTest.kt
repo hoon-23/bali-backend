@@ -225,4 +225,72 @@ class SessionControllerTest {
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.logs.length()").value(0))
     }
+
+    @Test
+    fun `PATCH sessions id logs logId 호출하면 actual값과 completed를 기록한다`() {
+        val (token, _) = issueTokenForNewUser()
+        val exerciseId = savedStrengthExerciseId()
+        val created = mockMvc.perform(post("/api/v1/sessions").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON).content("""{"date":"2026-08-06","templateId":null}"""))
+            .andExpect(status().isCreated).andReturn().response.contentAsString
+        val sessionId = objectMapper.readTree(created).get("id").asText()
+        val addBody = """{"addItems":[{"exerciseId":"$exerciseId","sortOrder":0,"targetSets":null,"targetReps":null,"targetWeight":null,"targetDurationSeconds":null,"targetPace":null}],"updateItems":[],"removeLogIds":[]}"""
+        val afterAdd = mockMvc.perform(patch("/api/v1/sessions/$sessionId").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON).content(addBody))
+            .andExpect(status().isOk).andReturn().response.contentAsString
+        val logId = objectMapper.readTree(afterAdd).get("logs").get(0).get("id").asText()
+
+        val patchLogBody = """{"completed":true,"actualSets":5,"actualReps":8,"actualWeight":70.0,"actualDurationSeconds":null,"actualPace":null}"""
+        mockMvc.perform(patch("/api/v1/sessions/$sessionId/logs/$logId").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON).content(patchLogBody))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.completed").value(true))
+            .andExpect(jsonPath("$.actualSets").value(5))
+    }
+
+    @Test
+    fun `PATCH sessions id logs logId 호출시 STRENGTH 종목에 actualDurationSeconds를 넣으면 400 반환`() {
+        val (token, _) = issueTokenForNewUser()
+        val exerciseId = savedStrengthExerciseId()
+        val created = mockMvc.perform(post("/api/v1/sessions").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON).content("""{"date":"2026-08-06","templateId":null}"""))
+            .andExpect(status().isCreated).andReturn().response.contentAsString
+        val sessionId = objectMapper.readTree(created).get("id").asText()
+        val addBody = """{"addItems":[{"exerciseId":"$exerciseId","sortOrder":0,"targetSets":null,"targetReps":null,"targetWeight":null,"targetDurationSeconds":null,"targetPace":null}],"updateItems":[],"removeLogIds":[]}"""
+        val afterAdd = mockMvc.perform(patch("/api/v1/sessions/$sessionId").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON).content(addBody))
+            .andExpect(status().isOk).andReturn().response.contentAsString
+        val logId = objectMapper.readTree(afterAdd).get("logs").get(0).get("id").asText()
+
+        val patchLogBody = """{"completed":true,"actualSets":null,"actualReps":null,"actualWeight":null,"actualDurationSeconds":600,"actualPace":null}"""
+        mockMvc.perform(patch("/api/v1/sessions/$sessionId/logs/$logId").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON).content(patchLogBody))
+            .andExpect(status().isBadRequest)
+    }
+
+    // Task 10의 updateItems(exerciseId 교체)와 이 태스크의 PATCH .../logs/{logId}(actual 기록)가
+    // 함께 있어야 검증 가능한 회귀 시나리오: 완료 기록 후 종목을 변형하면 completed/actual이 초기화되는지
+    @Test
+    fun `PATCH sessions id updateItems로 종목을 변형하면 이전에 기록한 completed와 actual값이 초기화된다`() {
+        val (token, userId) = issueTokenForNewUser()
+        val originalExerciseId = savedStrengthExerciseId()
+        val substituteExerciseId = savedStrengthExerciseId()
+        val template = templateRepository.save(
+            WorkoutTemplate(
+                id = null, userId = userId, category = TemplateCategory.PUSH, name = "템플릿",
+                items = listOf(TemplateItem.create(ExerciseType.STRENGTH, originalExerciseId, 0, targetSets = 3, targetReps = 10, targetWeight = BigDecimal("60.0"))),
+            )
+        )
+        val created = mockMvc.perform(post("/api/v1/sessions").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON).content("""{"date":"2026-08-06","templateId":"${template.id}"}"""))
+            .andExpect(status().isCreated).andReturn().response.contentAsString
+        val sessionJson = objectMapper.readTree(created)
+        val sessionId = sessionJson.get("id").asText()
+        val logId = sessionJson.get("logs").get(0).get("id").asText()
+
+        mockMvc.perform(patch("/api/v1/sessions/$sessionId/logs/$logId").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON)
+            .content("""{"completed":true,"actualSets":3,"actualReps":10,"actualWeight":60.0,"actualDurationSeconds":null,"actualPace":null}"""))
+            .andExpect(status().isOk)
+
+        val patchBody = """{"addItems":[],"updateItems":[{"logId":"$logId","exerciseId":"$substituteExerciseId","sortOrder":0,"targetSets":3,"targetReps":10,"targetWeight":60.0,"targetDurationSeconds":null,"targetPace":null}],"removeLogIds":[]}"""
+
+        mockMvc.perform(patch("/api/v1/sessions/$sessionId").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON).content(patchBody))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.logs[0].exerciseId").value(substituteExerciseId.toString()))
+            .andExpect(jsonPath("$.logs[0].completed").value(false))
+            .andExpect(jsonPath("$.logs[0].actualSets").value(org.hamcrest.Matchers.nullValue()))
+    }
 }

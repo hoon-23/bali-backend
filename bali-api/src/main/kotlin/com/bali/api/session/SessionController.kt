@@ -108,6 +108,31 @@ class SessionController(
         return ResponseEntity.ok(SessionResponse.from(updated))
     }
 
+    // 실제 수행값 기록 + 완료 체크. 종목 타입에 맞는 actual 필드 조합인지 검증 후 반영
+    @PatchMapping("/{id}/logs/{logId}")
+    fun patchLog(
+        @PathVariable id: UUID,
+        @PathVariable logId: UUID,
+        @RequestBody request: SessionLogPatchRequest,
+    ): ResponseEntity<SessionLogResponse> {
+        val session = findOwnedOrNull(id) ?: return ResponseEntity.notFound().build()
+        val log = session.logs.find { it.id == logId } ?: return ResponseEntity.notFound().build()
+
+        val exercise = exerciseRepository.findById(log.exerciseId)!!
+        SessionLog.validateActualFields(
+            exerciseType = exercise.type,
+            actualSets = request.actualSets, actualReps = request.actualReps, actualWeight = request.actualWeight,
+            actualDurationSeconds = request.actualDurationSeconds, actualPace = request.actualPace,
+        )
+
+        val updated = sessionRepository.recordActual(
+            logId = logId, completed = request.completed,
+            actualSets = request.actualSets, actualReps = request.actualReps, actualWeight = request.actualWeight,
+            actualDurationSeconds = request.actualDurationSeconds, actualPace = request.actualPace,
+        )!!
+        return ResponseEntity.ok(SessionLogResponse.from(updated))
+    }
+
     // TemplateItemRequest를 즉흥 추가 SessionLog로 변환 (target null 허용)
     private fun TemplateItemRequest.toSessionLog(): SessionLog {
         val exercise = exerciseRepository.findById(exerciseId)
