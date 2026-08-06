@@ -19,14 +19,14 @@ class WorkoutTemplateRepositoryAdapter(
     override fun findById(id: UUID): WorkoutTemplate? {
         val entity = templateJpaRepository.findById(id).orElse(null) ?: return null
         if (entity.deleted) return null
-        return entity.toDomain(itemJpaRepository.findByTemplateId(id))
+        return entity.toDomain(itemJpaRepository.findByTemplateIdOrderBySortOrderAsc(id))
     }
 
     // 특정 유저의 소프트 삭제되지 않은 템플릿 목록을 items와 함께 조회
     @Transactional
     override fun findAllByUserId(userId: UUID): List<WorkoutTemplate> =
         templateJpaRepository.findAllByUserIdAndDeletedFalse(userId).map { entity ->
-            entity.toDomain(itemJpaRepository.findByTemplateId(entity.id))
+            entity.toDomain(itemJpaRepository.findByTemplateIdOrderBySortOrderAsc(entity.id))
         }
 
     // 템플릿을 저장하고 items를 전체 삭제 후 재삽입 (신규 생성과 PUT 전체교체를 동일 로직으로 처리)

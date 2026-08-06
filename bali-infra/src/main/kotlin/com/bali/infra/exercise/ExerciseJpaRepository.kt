@@ -12,6 +12,10 @@ interface ExerciseJpaRepository : JpaRepository<ExerciseJpaEntity, UUID> {
     @Query("SELECT e FROM ExerciseJpaEntity e WHERE e.scope = 'GLOBAL' OR (e.scope = 'PERSONAL' AND e.ownerId = :userId)")
     fun findVisibleTo(@Param("userId") userId: UUID): List<ExerciseJpaEntity>
 
+    // 고유 식별자로 조회하되 userId가 볼 수 있는(GLOBAL 전체 + 본인 PERSONAL) 종목만 대상으로 함
+    @Query("SELECT e FROM ExerciseJpaEntity e WHERE e.id = :id AND (e.scope = 'GLOBAL' OR (e.scope = 'PERSONAL' AND e.ownerId = :userId))")
+    fun findVisibleTo(@Param("id") id: UUID, @Param("userId") userId: UUID): ExerciseJpaEntity?
+
     // 트라이그램 유사도 임계값을 현재 트랜잭션(커넥션) 범위로만 설정한다. SET LOCAL은
     // 트랜잭션이 끝나면 자동으로 이전 값으로 복귀하므로 커넥션 풀에 부작용이 남지 않는다.
     // 반드시 ExerciseRepositoryAdapter.suggest()의 같은 @Transactional 안에서, suggest()

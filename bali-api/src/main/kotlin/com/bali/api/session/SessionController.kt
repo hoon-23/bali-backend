@@ -40,8 +40,10 @@ class SessionController(
                 ?: return ResponseEntity.notFound().build()
             if (template.userId != currentUserId()) return ResponseEntity.notFound().build()
             template.items.map { item ->
+                val exercise = exerciseRepository.findVisibleTo(item.exerciseId, currentUserId())
+                    ?: throw IllegalArgumentException("존재하지 않는 exerciseId: ${item.exerciseId}")
                 SessionLog.create(
-                    exerciseType = exerciseRepository.findById(item.exerciseId)!!.type,
+                    exerciseType = exercise.type,
                     exerciseId = item.exerciseId, sortOrder = item.sortOrder,
                     targetSets = item.targetSets, targetReps = item.targetReps, targetWeight = item.targetWeight,
                     targetDurationSeconds = item.targetDurationSeconds, targetPace = item.targetPace,
@@ -86,13 +88,27 @@ class SessionController(
         if (request.updateItems.isNotEmpty()) {
             val updatedLogs = request.updateItems.map { update ->
                 require(update.logId in existingLogIds) { "세션에 속하지 않는 logId: ${update.logId}" }
-                val exercise = exerciseRepository.findById(update.exerciseId)
+                val existing = session.logs.first { it.id == update.logId }
+                val exercise = exerciseRepository.findVisibleTo(update.exerciseId, currentUserId())
                     ?: throw IllegalArgumentException("존재하지 않는 exerciseId: ${update.exerciseId}")
-                SessionLog.create(
+                val replacement = SessionLog.create(
                     exerciseType = exercise.type, exerciseId = update.exerciseId, sortOrder = update.sortOrder,
                     targetSets = update.targetSets, targetReps = update.targetReps, targetWeight = update.targetWeight,
                     targetDurationSeconds = update.targetDurationSeconds, targetPace = update.targetPace,
                 ).copy(id = update.logId)
+                // exerciseId가 그대로면 종목 변경이 아니므로 completed/actual*를 보존한다 (바뀌었으면 이전 수행 기록은 무효)
+                if (update.exerciseId == existing.exerciseId) {
+                    replacement.copy(
+                        completed = existing.completed,
+                        actualSets = existing.actualSets,
+                        actualReps = existing.actualReps,
+                        actualWeight = existing.actualWeight,
+                        actualDurationSeconds = existing.actualDurationSeconds,
+                        actualPace = existing.actualPace,
+                    )
+                } else {
+                    replacement
+                }
             }
             sessionRepository.updateLogs(id, updatedLogs)
         }
@@ -118,7 +134,8 @@ class SessionController(
         val session = findOwnedOrNull(id) ?: return ResponseEntity.notFound().build()
         val log = session.logs.find { it.id == logId } ?: return ResponseEntity.notFound().build()
 
-        val exercise = exerciseRepository.findById(log.exerciseId)!!
+        val exercise = exerciseRepository.findVisibleTo(log.exerciseId, currentUserId())
+            ?: throw IllegalArgumentException("존재하지 않는 exerciseId: ${log.exerciseId}")
         SessionLog.validateActualFields(
             exerciseType = exercise.type,
             actualSets = request.actualSets, actualReps = request.actualReps, actualWeight = request.actualWeight,
@@ -133,9 +150,9 @@ class SessionController(
         return ResponseEntity.ok(SessionLogResponse.from(updated))
     }
 
-    // TemplateItemRequest를 즉흥 추가 SessionLog로 변환 (target null 허용)
+    // TemplateItemRequest를 즉흥 추가 SessionLog로 변환 (target null 허용, 본인이 볼 수 없는 종목이면 미존재로 취급)
     private fun TemplateItemRequest.toSessionLog(): SessionLog {
-        val exercise = exerciseRepository.findById(exerciseId)
+        val exercise = exerciseRepository.findVisibleTo(exerciseId, currentUserId())
             ?: throw IllegalArgumentException("존재하지 않는 exerciseId: $exerciseId")
         return SessionLog.create(
             exerciseType = exercise.type, exerciseId = exerciseId, sortOrder = sortOrder,

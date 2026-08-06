@@ -67,9 +67,9 @@ class TemplateController(
         return ResponseEntity.noContent().build()
     }
 
-    // exerciseId로 Exercise를 조회해 타입을 확인하고, 그 타입에 맞는 TemplateItem을 생성
+    // exerciseId로 Exercise를 조회해 타입을 확인하고, 그 타입에 맞는 TemplateItem을 생성 (본인이 볼 수 없는 종목이면 미존재로 취급)
     private fun TemplateItemRequest.toDomainItem(): TemplateItem {
-        val exercise = exerciseRepository.findById(exerciseId)
+        val exercise = exerciseRepository.findVisibleTo(exerciseId, currentUserId())
             ?: throw IllegalArgumentException("존재하지 않는 exerciseId: $exerciseId")
         return TemplateItem.create(
             exerciseType = exercise.type, exerciseId = exerciseId, sortOrder = sortOrder,

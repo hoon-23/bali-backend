@@ -7,8 +7,8 @@ import org.springframework.data.repository.query.Param
 import java.util.UUID
 
 interface TemplateItemJpaRepository : JpaRepository<TemplateItemJpaEntity, UUID> {
-    // 특정 템플릿에 속한 모든 항목
-    fun findByTemplateId(templateId: UUID): List<TemplateItemJpaEntity>
+    // 특정 템플릿에 속한 모든 항목을 sortOrder 오름차순으로 조회
+    fun findByTemplateIdOrderBySortOrderAsc(templateId: UUID): List<TemplateItemJpaEntity>
 
     // 전체 교체(PUT)를 위해 기존 항목을 모두 삭제
     @Modifying

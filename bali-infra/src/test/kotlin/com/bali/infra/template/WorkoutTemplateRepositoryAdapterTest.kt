@@ -95,4 +95,20 @@ class WorkoutTemplateRepositoryAdapterTest {
         assertTrue(adapter.findAllByUserId(userId).none { it.name == "삭제될템플릿" })
         assertEquals(null, adapter.findById(saved.id!!))
     }
+
+    // Fix 2 회귀 테스트: items가 물리적 row 순서가 아니라 sortOrder 오름차순으로 반환돼야 한다
+    @Test
+    fun `findById returns items ordered by sortOrder ascending regardless of insertion order`() {
+        val userId = UUID.randomUUID()
+        val itemWithHighSortOrder = templateItem(sortOrder = 5)
+        val itemWithLowSortOrder = templateItem(sortOrder = 1)
+        // 일부러 sortOrder가 큰 항목을 먼저 삽입해 물리적 row 순서와 sortOrder 순서가 다르게 만든다
+        val saved = adapter.save(
+            WorkoutTemplate(id = null, userId = userId, category = TemplateCategory.PUSH, name = "정렬테스트", items = listOf(itemWithHighSortOrder, itemWithLowSortOrder))
+        )
+
+        val found = adapter.findById(saved.id!!)
+
+        assertEquals(listOf(1, 5), found?.items?.map { it.sortOrder })
+    }
 }

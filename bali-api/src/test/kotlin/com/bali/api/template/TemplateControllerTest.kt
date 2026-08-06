@@ -104,6 +104,23 @@ class TemplateControllerTest {
             .andExpect(jsonPath("$.items.length()").value(1))
     }
 
+    // Fix 4 회귀 테스트: 다른 유저의 PERSONAL 종목 id를 참조하면 미존재와 동일하게 400 처리돼야 한다 (존재 노출 방지)
+    @Test
+    fun `POST templates 호출시 다른 유저의 PERSONAL 종목을 참조하면 400 반환`() {
+        val userAToken = issueTokenForNewUser()
+        val userBEntity = userJpaRepository.save(
+            UserJpaEntity(email = "template-test-userB@example.com", provider = AuthProvider.GOOGLE, providerId = "sub-template-b-${System.nanoTime()}")
+        )
+        val userBPersonalExerciseId = exerciseRepository.save(
+            Exercise(id = null, name = "B의개인종목", variant = null, muscleGroup = MuscleGroup.CHEST, type = ExerciseType.STRENGTH, scope = ExerciseScope.PERSONAL, ownerId = userBEntity.id)
+        ).id!!
+
+        val body = """{"category":"PUSH","name":"침입시도","items":[{"exerciseId":"$userBPersonalExerciseId","sortOrder":0,"targetSets":3,"targetReps":10,"targetWeight":60.0,"targetDurationSeconds":null,"targetPace":null}]}"""
+
+        mockMvc.perform(post("/api/v1/templates").header("Authorization", "Bearer $userAToken").contentType(MediaType.APPLICATION_JSON).content(body))
+            .andExpect(status().isBadRequest)
+    }
+
     @Test
     fun `DELETE templates id 호출하면 목록 조회에서 제외된다`() {
         val token = issueTokenForNewUser()

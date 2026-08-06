@@ -20,14 +20,17 @@ class WorkoutSessionRepositoryAdapter(
     @Transactional
     override fun findById(id: UUID): WorkoutSession? {
         val entity = sessionJpaRepository.findById(id).orElse(null) ?: return null
-        return entity.toDomain(logJpaRepository.findBySessionId(id))
+        return entity.toDomain(logJpaRepository.findBySessionIdOrderBySortOrderAsc(id))
     }
 
     // 특정 유저의 기간 내 세션 목록을 logs와 함께 조회 (logs는 배치 조회로 N+1 방지)
     @Transactional
     override fun findAllByUserId(userId: UUID, from: LocalDate, to: LocalDate): List<WorkoutSession> {
         val sessions = sessionJpaRepository.findAllByUserIdAndDateBetween(userId, from, to)
-        val logsBySessionId = logJpaRepository.findBySessionIdIn(sessions.map { it.id }).groupBy { it.sessionId }
+        // findBySessionIdInOrderBySortOrderAsc가 sortOrder 오름차순으로 반환하고,
+        // Kotlin의 groupBy는 원본 순서(encounter order)를 그룹 내에 그대로 보존하므로
+        // 그룹핑 이후에도 세션별 logs 리스트는 sortOrder 순서를 유지한다.
+        val logsBySessionId = logJpaRepository.findBySessionIdInOrderBySortOrderAsc(sessions.map { it.id }).groupBy { it.sessionId }
         return sessions.map { it.toDomain(logsBySessionId[it.id] ?: emptyList()) }
     }
 

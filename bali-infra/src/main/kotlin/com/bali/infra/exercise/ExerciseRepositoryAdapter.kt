@@ -20,6 +20,10 @@ class ExerciseRepositoryAdapter(
     override fun findVisibleTo(userId: UUID): List<Exercise> =
         jpaRepository.findVisibleTo(userId).map { it.toDomain() }
 
+    // 고유 식별자로 종목을 조회하되, userId가 볼 수 있는 종목이 아니면 null 반환.
+    override fun findVisibleTo(id: UUID, userId: UUID): Exercise? =
+        jpaRepository.findVisibleTo(id, userId)?.toDomain()
+
     // 이름 유사도 기준 상위 종목 제안. SET LOCAL(트랜잭션 범위 임계값 설정)과 조회 쿼리가
     // 반드시 같은 트랜잭션/커넥션에서 실행되도록 이 메서드 전체를 하나의 트랜잭션으로 묶는다.
     @Transactional

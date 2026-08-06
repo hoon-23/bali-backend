@@ -42,3 +42,8 @@ CREATE TABLE session_logs (
     actual_duration_seconds INT,
     actual_pace VARCHAR(255)
 );
+
+CREATE INDEX idx_templates_user_id ON templates(user_id);
+CREATE INDEX idx_template_items_template_id ON template_items(template_id);
+CREATE INDEX idx_sessions_user_id_date ON sessions(user_id, date);
+CREATE INDEX idx_session_logs_session_id ON session_logs(session_id);

@@ -293,4 +293,37 @@ class SessionControllerTest {
             .andExpect(jsonPath("$.logs[0].completed").value(false))
             .andExpect(jsonPath("$.logs[0].actualSets").value(org.hamcrest.Matchers.nullValue()))
     }
+
+    // Fix 1 회귀 테스트: updateItems에서 exerciseId가 그대로면(sortOrder/target*만 변경) completed/actual*가 보존돼야 한다
+    @Test
+    fun `PATCH sessions id updateItems로 exerciseId가 그대로인 항목을 수정하면 completed와 actual값이 보존된다`() {
+        val (token, userId) = issueTokenForNewUser()
+        val exerciseId = savedStrengthExerciseId()
+        val template = templateRepository.save(
+            WorkoutTemplate(
+                id = null, userId = userId, category = TemplateCategory.PUSH, name = "템플릿",
+                items = listOf(TemplateItem.create(ExerciseType.STRENGTH, exerciseId, 0, targetSets = 3, targetReps = 10, targetWeight = BigDecimal("60.0"))),
+            )
+        )
+        val created = mockMvc.perform(post("/api/v1/sessions").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON).content("""{"date":"2026-08-06","templateId":"${template.id}"}"""))
+            .andExpect(status().isCreated).andReturn().response.contentAsString
+        val sessionJson = objectMapper.readTree(created)
+        val sessionId = sessionJson.get("id").asText()
+        val logId = sessionJson.get("logs").get(0).get("id").asText()
+
+        mockMvc.perform(patch("/api/v1/sessions/$sessionId/logs/$logId").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON)
+            .content("""{"completed":true,"actualSets":3,"actualReps":10,"actualWeight":60.0,"actualDurationSeconds":null,"actualPace":null}"""))
+            .andExpect(status().isOk)
+
+        // exerciseId는 동일하게 유지한 채 sortOrder만 변경
+        val patchBody = """{"addItems":[],"updateItems":[{"logId":"$logId","exerciseId":"$exerciseId","sortOrder":1,"targetSets":3,"targetReps":10,"targetWeight":60.0,"targetDurationSeconds":null,"targetPace":null}],"removeLogIds":[]}"""
+
+        mockMvc.perform(patch("/api/v1/sessions/$sessionId").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON).content(patchBody))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.logs[0].sortOrder").value(1))
+            .andExpect(jsonPath("$.logs[0].completed").value(true))
+            .andExpect(jsonPath("$.logs[0].actualSets").value(3))
+            .andExpect(jsonPath("$.logs[0].actualReps").value(10))
+            .andExpect(jsonPath("$.logs[0].actualWeight").value(60.0))
+    }
 }
