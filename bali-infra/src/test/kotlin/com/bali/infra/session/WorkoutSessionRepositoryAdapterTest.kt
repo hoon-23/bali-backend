@@ -5,7 +5,6 @@ import com.bali.core.session.SessionLog
 import com.bali.core.session.WorkoutSession
 import com.bali.infra.InfraTestConfig
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -55,15 +54,22 @@ class WorkoutSessionRepositoryAdapterTest {
     }
 
     @Test
-    fun `findAllByUserId only returns sessions within the date range`() {
+    fun `findAllByUserId only returns sessions within the date range, each with its own logs`() {
         val userId = UUID.randomUUID()
-        adapter.save(WorkoutSession(id = null, userId = userId, date = LocalDate.of(2026, 8, 6), templateId = null, logs = emptyList()))
-        adapter.save(WorkoutSession(id = null, userId = userId, date = LocalDate.of(2026, 1, 1), templateId = null, logs = emptyList()))
+        val firstExerciseId = UUID.randomUUID()
+        val secondExerciseId = UUID.randomUUID()
+        val outOfRangeExerciseId = UUID.randomUUID()
+        val first = adapter.save(WorkoutSession(id = null, userId = userId, date = LocalDate.of(2026, 8, 6), templateId = null, logs = listOf(log(firstExerciseId))))
+        val second = adapter.save(WorkoutSession(id = null, userId = userId, date = LocalDate.of(2026, 8, 10), templateId = null, logs = listOf(log(secondExerciseId))))
+        adapter.save(WorkoutSession(id = null, userId = userId, date = LocalDate.of(2026, 1, 1), templateId = null, logs = listOf(log(outOfRangeExerciseId))))
 
         val inRange = adapter.findAllByUserId(userId, LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 31))
 
-        assertEquals(1, inRange.size)
-        assertEquals(LocalDate.of(2026, 8, 6), inRange[0].date)
+        assertEquals(2, inRange.size)
+        val firstResult = inRange.single { it.id == first.id }
+        val secondResult = inRange.single { it.id == second.id }
+        assertEquals(listOf(firstExerciseId), firstResult.logs.map { it.exerciseId })
+        assertEquals(listOf(secondExerciseId), secondResult.logs.map { it.exerciseId })
     }
 
     @Test
@@ -95,6 +101,15 @@ class WorkoutSessionRepositoryAdapterTest {
         val saved = adapter.save(WorkoutSession(id = null, userId = userId, date = LocalDate.of(2026, 8, 6), templateId = null, logs = listOf(log())))
         val logId = saved.logs[0].id!!
 
+        // first call establishes a non-null actualDurationSeconds baseline
+        adapter.recordActual(
+            logId = logId, completed = false,
+            actualSets = null, actualReps = null, actualWeight = null,
+            actualDurationSeconds = 120, actualPace = null,
+        )
+
+        // second call passes actualDurationSeconds = null; if the implementation clobbers
+        // instead of skipping null params, the previously-set value of 120 would be lost
         val updated = adapter.recordActual(
             logId = logId, completed = true,
             actualSets = 3, actualReps = 10, actualWeight = BigDecimal("60.0"),
@@ -103,6 +118,6 @@ class WorkoutSessionRepositoryAdapterTest {
 
         assertEquals(true, updated?.completed)
         assertEquals(3, updated?.actualSets)
-        assertNull(updated?.actualDurationSeconds)
+        assertEquals(120, updated?.actualDurationSeconds)
     }
 }
