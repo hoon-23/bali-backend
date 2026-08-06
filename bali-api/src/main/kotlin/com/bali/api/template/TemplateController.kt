@@ -8,9 +8,11 @@ import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.security.core.context.SecurityContextHolder
+import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.PutMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.ResponseStatus
@@ -46,6 +48,23 @@ class TemplateController(
     fun get(@PathVariable id: UUID): ResponseEntity<TemplateResponse> {
         val template = findOwnedOrNull(id) ?: return ResponseEntity.notFound().build()
         return ResponseEntity.ok(TemplateResponse.from(template))
+    }
+
+    // 템플릿 전체 교체 (items 포함). 없거나 다른 유저 소유면 404
+    @PutMapping("/{id}")
+    fun update(@PathVariable id: UUID, @Valid @RequestBody request: TemplateCreateRequest): ResponseEntity<TemplateResponse> {
+        val existing = findOwnedOrNull(id) ?: return ResponseEntity.notFound().build()
+        val items = request.items.map { it.toDomainItem() }
+        val saved = templateRepository.save(existing.copy(category = request.category, name = request.name, items = items))
+        return ResponseEntity.ok(TemplateResponse.from(saved))
+    }
+
+    // 템플릿 소프트 삭제. 없거나 다른 유저 소유면 404
+    @DeleteMapping("/{id}")
+    fun delete(@PathVariable id: UUID): ResponseEntity<Void> {
+        findOwnedOrNull(id) ?: return ResponseEntity.notFound().build()
+        templateRepository.softDelete(id)
+        return ResponseEntity.noContent().build()
     }
 
     // exerciseId로 Exercise를 조회해 타입을 확인하고, 그 타입에 맞는 TemplateItem을 생성

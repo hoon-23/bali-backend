@@ -16,8 +16,10 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import org.springframework.transaction.annotation.Transactional
@@ -83,5 +85,38 @@ class TemplateControllerTest {
 
         mockMvc.perform(get("/api/v1/templates/$templateId").header("Authorization", "Bearer $otherToken"))
             .andExpect(status().isNotFound)
+    }
+
+    @Test
+    fun `PUT templates id 호출하면 items를 전체 교체한다`() {
+        val token = issueTokenForNewUser()
+        val exerciseId = savedStrengthExerciseId()
+        val createBody = """{"category":"PUSH","name":"원본","items":[{"exerciseId":"$exerciseId","sortOrder":0,"targetSets":3,"targetReps":10,"targetWeight":60.0,"targetDurationSeconds":null,"targetPace":null}]}"""
+        val created = mockMvc.perform(post("/api/v1/templates").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON).content(createBody))
+            .andExpect(status().isCreated).andReturn().response.contentAsString
+        val templateId = objectMapper.readTree(created).get("id").asText()
+
+        val updateBody = """{"category":"PULL","name":"수정됨","items":[{"exerciseId":"$exerciseId","sortOrder":0,"targetSets":5,"targetReps":5,"targetWeight":80.0,"targetDurationSeconds":null,"targetPace":null}]}"""
+        mockMvc.perform(put("/api/v1/templates/$templateId").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON).content(updateBody))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.name").value("수정됨"))
+            .andExpect(jsonPath("$.items[0].targetSets").value(5))
+            .andExpect(jsonPath("$.items.length()").value(1))
+    }
+
+    @Test
+    fun `DELETE templates id 호출하면 목록 조회에서 제외된다`() {
+        val token = issueTokenForNewUser()
+        val exerciseId = savedStrengthExerciseId()
+        val createBody = """{"category":"PUSH","name":"삭제될템플릿","items":[{"exerciseId":"$exerciseId","sortOrder":0,"targetSets":3,"targetReps":10,"targetWeight":60.0,"targetDurationSeconds":null,"targetPace":null}]}"""
+        val created = mockMvc.perform(post("/api/v1/templates").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON).content(createBody))
+            .andExpect(status().isCreated).andReturn().response.contentAsString
+        val templateId = objectMapper.readTree(created).get("id").asText()
+
+        mockMvc.perform(delete("/api/v1/templates/$templateId").header("Authorization", "Bearer $token"))
+            .andExpect(status().isNoContent)
+
+        mockMvc.perform(get("/api/v1/templates").header("Authorization", "Bearer $token"))
+            .andExpect(jsonPath("$[?(@.id=='$templateId')]").isEmpty)
     }
 }
