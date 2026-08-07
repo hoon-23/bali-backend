@@ -60,4 +60,19 @@ class UserRepositoryAdapterTest {
         val found = adapter.findByProviderAndProviderId(AuthProvider.GOOGLE, "does-not-exist")
         assertNull(found)
     }
+
+    @Test
+    fun `findAllByStatus는 해당 상태의 유저만 반환한다`() {
+        val active = adapter.save(
+            User(id = null, email = "active-${System.nanoTime()}@example.com", provider = AuthProvider.GOOGLE, providerId = "sub-active-${System.nanoTime()}", status = UserStatus.ACTIVE, createdAt = Instant.now())
+        )
+        adapter.save(
+            User(id = null, email = "withdrawn-${System.nanoTime()}@example.com", provider = AuthProvider.GOOGLE, providerId = "sub-withdrawn-${System.nanoTime()}", status = UserStatus.WITHDRAWN, createdAt = Instant.now())
+        )
+
+        val activeUsers = adapter.findAllByStatus(UserStatus.ACTIVE)
+
+        assertEquals(true, activeUsers.any { it.id == active.id })
+        assertEquals(true, activeUsers.none { it.status == UserStatus.WITHDRAWN })
+    }
 }

@@ -3,6 +3,7 @@ package com.bali.infra.user
 import com.bali.core.user.AuthProvider
 import com.bali.core.user.User
 import com.bali.core.user.UserRepository
+import com.bali.core.user.UserStatus
 import org.springframework.stereotype.Repository
 import java.util.UUID
 
@@ -33,6 +34,10 @@ class UserRepositoryAdapter(
         )
         return jpaRepository.save(entity).toDomain()
     }
+
+    // 특정 상태의 사용자 전체 목록을 조회
+    override fun findAllByStatus(status: UserStatus): List<User> =
+        jpaRepository.findAllByStatus(status).map { it.toDomain() }
 
     // JPA 엔티티를 도메인 모델로 변환.
     private fun UserJpaEntity.toDomain() = User(

@@ -12,4 +12,7 @@ interface UserRepository {
 
     // 사용자를 저장하거나 갱신하고, 저장된 사용자를 반환
     fun save(user: User): User
+
+    // 특정 상태의 사용자 전체 목록을 조회
+    fun findAllByStatus(status: UserStatus): List<User>
 }
