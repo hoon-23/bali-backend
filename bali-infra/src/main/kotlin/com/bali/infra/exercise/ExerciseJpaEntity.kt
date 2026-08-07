@@ -32,3 +32,4 @@ class ExerciseJpaEntity(
 
     var ownerId: UUID? = null,
 )
+
