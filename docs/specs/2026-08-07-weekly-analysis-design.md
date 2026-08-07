@@ -44,10 +44,13 @@ bali-batch/                              # 신규 Gradle 모듈, 독립 main() (
 `java -jar bali-batch.jar` (또는 `./gradlew :bali-batch:run`)를 매주 월요일 실행하고, 러너가
 직접 DB에 접근해 집계·저장까지 끝낸다 — 트리거용 HTTP 엔드포인트는 두지 않는다.
 
-이번에도 `bali-core`에 usecase/서비스 레이어는 두지 않는다
-([[project_no_usecase_layer_rationale]]). `WeeklyAnalysisRunner`가 오케스트레이션(유저 순회,
-실패 격리, 저장)을 직접 맡는다 — 이 배치가 바로 "genuine multi-step orchestration"에 해당하는
-예외 케이스로, 이미 문서화된 usecase-없음 원칙의 "언제 예외를 두는지"에 정확히 들어맞는다.
+`bali-core`에 별도 usecase/서비스 레이어를 새로 만들지는 않는다. 대신 `WeeklyAnalysisRunner`
+자체가 오케스트레이션(유저 순회, 실패 격리, 저장)을 맡는다. 지금까지 컨트롤러들은 리포지토리
+1~2개를 얇게 호출하는 수준이라 서비스 레이어 없이도 충분했는데, 이 배치는 집계 계산 → 규칙 평가
+→ 저장을 유저별 실패 격리까지 곁들여 실제로 조율해야 하는 다단계 작업이다. 이런 작업은 어차피
+HTTP 요청/응답과 무관한 배치 전용 진입점이라 컨트롤러에 둘 수도 없으므로, `WeeklyAnalysisRunner`가
+그 조율 역할을 맡는 게 자연스럽다 — 서비스 레이어가 필요해지면 언제든 추가할 수 있고, 지금 이
+경우엔 오케스트레이터 클래스 자체가 그 역할을 겸한다.
 
 ## 도메인 모델
 
@@ -60,10 +63,10 @@ data class WeeklyAnalysis(
     val userId: UUID,
     val weekOf: LocalDate,           // 해당 주 월요일 날짜
     val status: AnalysisStatus,
-    val aggregatedStats: AggregatedStats?,  // FAILED/NO_ACTIVITY면 null
+    val summary: AnalysisSummary?,  // FAILED/NO_ACTIVITY면 null
 )
 
-data class AggregatedStats(
+data class AnalysisSummary(
     val totalWorkoutMinutes: Int,
     val volumeByExercise: Map<UUID, BigDecimal>,       // exerciseId -> 무게*횟수*세트 합
     val volumeByMuscleGroup: Map<MuscleGroup, BigDecimal>,
@@ -81,7 +84,7 @@ data class Insight(
 
 - `WeeklyAnalysis` 1—N `Insight` (같은 부모-자식 관계인 `WorkoutTemplate`—`TemplateItem`,
   `WorkoutSession`—`SessionLog`와 동일하게, `@OneToMany` 없이 어댑터에서 명시적으로 조합)
-- `AggregatedStats`는 JPA 엔티티에서 JSONB 컬럼 하나로 직렬화되어 저장된다 (조회 전용 요약값이라
+- `AnalysisSummary`는 JPA 엔티티에서 JSONB 컬럼 하나로 직렬화되어 저장된다 (조회 전용 요약값이라
   정규화하지 않음)
 - `(userId, weekOf)` 유니크 — 재실행 시 기존 레코드를 지우고 다시 만드는 전체 재계산 방식으로
   멱등성을 보장한다 (부분 병합이 아니라 always-full-replace — `WorkoutTemplate`의 PUT 전체교체와
@@ -117,11 +120,11 @@ GET /api/v1/analysis/weekly/{weekOf}   # 특정 주 분석 (weekOf=ISO 날짜, �
 data class WeeklyAnalysisResponse(
     val weekOf: LocalDate,
     val status: AnalysisStatus,
-    val aggregatedStats: AggregatedStatsResponse?,  // FAILED/NO_ACTIVITY면 null
+    val summary: AnalysisSummaryResponse?,  // FAILED/NO_ACTIVITY면 null
     val insights: List<String>,
 )
 
-data class AggregatedStatsResponse(
+data class AnalysisSummaryResponse(
     val totalWorkoutMinutes: Int,
     val volumeByExercise: Map<UUID, BigDecimal>,
     val volumeByMuscleGroup: Map<MuscleGroup, BigDecimal>,
@@ -144,7 +147,7 @@ CREATE TABLE weekly_analyses (
     user_id UUID NOT NULL,
     week_of DATE NOT NULL,
     status VARCHAR(255) NOT NULL,
-    aggregated_stats JSONB
+    summary JSONB
 );
 
 CREATE TABLE insights (
@@ -162,7 +165,7 @@ CREATE INDEX idx_insights_analysis_id ON insights(analysis_id);
 
 ## 에러 처리
 
-- `status=FAILED`인 주도 200으로 반환하되 `aggregatedStats`는 `null`, `insights`는 빈 배열 —
+- `status=FAILED`인 주도 200으로 반환하되 `summary`는 `null`, `insights`는 빈 배열 —
   프론트에서 "이번 주 분석 실패"로 표시 가능
 - 배치 자체의 유저별 실패 처리는 위 배치 흐름에 있음 (FAILED 저장 후 다음 유저 계속, 배치 전체는
   중단되지 않음)
