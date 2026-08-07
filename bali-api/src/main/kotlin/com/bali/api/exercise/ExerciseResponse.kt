@@ -12,6 +12,7 @@ data class ExerciseResponse(
     val name: String,
     val variant: String?,
     val muscleGroup: MuscleGroup,
+    val muscleGroupDisplayName: String,
     val type: ExerciseType,
     val scope: ExerciseScope,
 ) {
@@ -22,6 +23,7 @@ data class ExerciseResponse(
             name = exercise.name,
             variant = exercise.variant,
             muscleGroup = exercise.muscleGroup,
+            muscleGroupDisplayName = exercise.muscleGroup.displayName,
             type = exercise.type,
             scope = exercise.scope,
         )
