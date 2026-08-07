@@ -37,6 +37,7 @@ class OAuth2LoginSuccessHandlerTest {
             override fun findById(id: UUID) = null
             override fun findByProviderAndProviderId(provider: AuthProvider, providerId: String) = user
             override fun save(user: User) = user
+            override fun findAllByStatus(status: UserStatus) = emptyList<User>()
         }
 
         val jwtTokenProvider = JwtTokenProvider(

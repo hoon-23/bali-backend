@@ -54,5 +54,9 @@ class CustomOAuth2UserServiceTest {
             store[toSave.id!!] = toSave
             return toSave
         }
+
+        // 특정 상태의 사용자 전체 목록을 조회
+        override fun findAllByStatus(status: UserStatus): List<User> =
+            store.values.filter { it.status == status }
     }
 }
