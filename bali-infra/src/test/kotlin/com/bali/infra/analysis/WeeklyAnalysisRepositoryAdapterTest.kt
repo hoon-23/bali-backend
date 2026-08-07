@@ -40,9 +40,9 @@ class WeeklyAnalysisRepositoryAdapterTest {
     @Autowired
     lateinit var adapter: WeeklyAnalysisRepositoryAdapter
 
-    private fun summary() = AnalysisSummary(
+    private fun summary(exerciseId: UUID = UUID.randomUUID()) = AnalysisSummary(
         totalWorkoutMinutes = 60,
-        volumeByExercise = mapOf(UUID.randomUUID() to BigDecimal("1800.0")),
+        volumeByExercise = mapOf(exerciseId to BigDecimal("1800.0")),
         volumeByMuscleGroup = mapOf(MuscleGroup.CHEST to BigDecimal("1800.0")),
         cardioTotalMinutes = 10,
         completionRate = BigDecimal("80.0"),
@@ -52,15 +52,19 @@ class WeeklyAnalysisRepositoryAdapterTest {
     @Test
     fun `save 후 findByUserIdAndWeekOf는 summary와 insights를 함께 반환한다`() {
         val userId = UUID.randomUUID()
+        val exerciseId = UUID.randomUUID()
         val analysis = WeeklyAnalysis(
             id = null, userId = userId, weekOf = LocalDate.of(2026, 8, 3), status = AnalysisStatus.SUCCESS,
-            summary = summary(), insights = listOf(Insight(id = null, summaryText = "완료율이 낮아요")),
+            summary = summary(exerciseId), insights = listOf(Insight(id = null, summaryText = "완료율이 낮아요")),
         )
 
         adapter.save(analysis)
         val found = adapter.findByUserIdAndWeekOf(userId, LocalDate.of(2026, 8, 3))
 
         assertEquals(BigDecimal("80.0"), found?.summary?.completionRate)
+        // Map<UUID, BigDecimal>/Map<MuscleGroup, BigDecimal>가 JSONB round-trip 후에도 키/값을 정확히 보존하는지 확인
+        assertEquals(BigDecimal("1800.0"), found?.summary?.volumeByExercise?.get(exerciseId))
+        assertEquals(BigDecimal("1800.0"), found?.summary?.volumeByMuscleGroup?.get(MuscleGroup.CHEST))
         assertEquals(listOf("완료율이 낮아요"), found?.insights?.map { it.summaryText })
     }
 

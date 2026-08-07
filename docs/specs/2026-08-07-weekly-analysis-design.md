@@ -101,7 +101,10 @@ data class Insight(
 
 ```
 WeeklyAnalysisRunner.main()
-├── ACTIVE 유저 페이징 조회 (findAllByStatus(ACTIVE, pageable), 100명 단위)
+├── ACTIVE 유저 전체 조회 (findAllByStatus(ACTIVE): List<User>, 페이징 없음 —
+│     bali-core는 Spring 의존성이 전혀 없어 Pageable을 포트에 넣으면 프레임워크가
+│     새고, 이 프로젝트 규모(유저 수백~수천)에서는 페이징 없이도 문제없음. 기존
+│     UserRepository/ExerciseRepository 등 다른 포트에도 페이징 전례가 없어 일관성 유지)
 └── 유저별로:
     ├── 최근 7일 WorkoutSession/SessionLog 조회
     ├── 세션이 하나도 없으면 → status=NO_ACTIVITY 저장, 다음 유저
