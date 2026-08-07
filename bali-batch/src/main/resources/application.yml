@@ -1,0 +1,11 @@
+spring:
+  application:
+    name: bali-batch
+  datasource:
+    url: jdbc:postgresql://localhost:5432/bali
+    username: bali
+    password: bali
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false

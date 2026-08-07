@@ -4,4 +4,4 @@ plugins {
 
 rootProject.name = "bali-backend"
 
-include("bali-core", "bali-infra", "bali-api")
+include("bali-core", "bali-infra", "bali-api", "bali-batch")
