@@ -26,7 +26,25 @@
 
 ## 모듈 구조
 
-기존 `exercise` 도메인과 동일한 라이트 헥사고날 패턴을 따른다.
+기존 `exercise` 도메인과 동일한 라이트 헥사고날 패턴을 따른다. Application service(usecase) 레이어는
+두지 않는다 — Phase 1 스펙(`docs/specs/2026-08-03-workout-insight-backend-design.md`)이 정의한
+"라이트 헥사고날"은 모든 레이어(domain/application/infra/interface)를 기계적으로 두는 게 아니라,
+**테스트 격리가 실제로 필요한 지점(DB, Claude API)에만** 포트/어댑터를 적용하는 것이다. 지금 컨트롤러가
+하는 일(연관 엔티티 조회 → 도메인 팩토리 호출 → 저장)은 리포지토리 1~2개를 얇게 오케스트레이션하는
+수준이라, usecase 클래스를 두면 리포지토리 호출을 그대로 감싸기만 하는 빈 껍데기가 된다. 실제 비즈니스
+판단(STRENGTH/CARDIO 필드 검증 등)은 이미 도메인 팩토리(`TemplateItem.create()`, `SessionLog.create()`)에
+있으므로 usecase가 없어도 컨트롤러로 비즈니스 로직이 새는 문제는 없다.
+
+**트레이드오프**: usecase/서비스 레이어가 없다 보니, 컨트롤러가 순수 인터페이스 어댑터를 넘어서는
+오케스트레이션(여러 리포지토리 호출을 묶는 트랜잭션 경계 등)을 떠안는 경우가 생긴다. 예를 들어
+`PATCH /sessions/{id}`(addItems/updateItems/removeLogIds)는 여러 리포지토리 호출을 한 요청으로
+묶어야 하는데, 서비스 레이어가 있었다면 거기 자연스럽게 `@Transactional`을 붙였을 것을, 대신
+컨트롤러 메서드에 직접 붙이는 방식으로 처리한다 (2026-08-06 Task 10 리뷰에서 실제로 발견된 케이스).
+
+**usecase가 정당화되는 시점**: 여러 애그리거트를 넘나드는 진짜 멀티스텝 오케스트레이션이 필요해지면
+(예: Phase 1 스펙의 주간 배치 분석 — 세션 집계 → Claude API 호출 → WeeklyAnalysis/Insight 저장) 그때는
+별도 클래스(혹은 Spring Batch의 `ItemProcessor` 자체)가 그 역할을 맡는 게 맞다. CRUD 수준에서
+선제적으로 두기보다 필요해지는 시점에 추가한다.
 
 ```
 bali-core/template/
