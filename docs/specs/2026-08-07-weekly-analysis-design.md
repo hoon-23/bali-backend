@@ -63,11 +63,12 @@ data class WeeklyAnalysis(
     val userId: UUID,
     val weekOf: LocalDate,           // 해당 주 월요일 날짜
     val status: AnalysisStatus,
-    val summary: AnalysisSummary?,  // FAILED/NO_ACTIVITY면 null
+    val summary: AnalysisSummary?,   // FAILED/NO_ACTIVITY면 null
+    val insights: List<Insight>,
 )
 
 data class AnalysisSummary(
-    val totalWorkoutMinutes: Int,
+    val totalWorkoutMinutes: Int,      // STRENGTH 완료 로그 수 * 12분(추정) + cardioTotalMinutes, 아래 참고
     val volumeByExercise: Map<UUID, BigDecimal>,       // exerciseId -> 무게*횟수*세트 합
     val volumeByMuscleGroup: Map<MuscleGroup, BigDecimal>,
     val cardioTotalMinutes: Int,
@@ -77,13 +78,19 @@ data class AnalysisSummary(
 
 data class Insight(
     val id: UUID? = null,
-    val analysisId: UUID,
-    val summaryText: String,          // 규칙 하나당 문장 하나
+    val summaryText: String,          // 규칙 하나당 문장 하나. WeeklyAnalysis에 종속되므로 자체 analysisId는 없음
+                                       // (TemplateItem/SessionLog와 동일 패턴 — 부모 참조는 어댑터가 영속화 시점에 부여)
 )
 ```
 
 - `WeeklyAnalysis` 1—N `Insight` (같은 부모-자식 관계인 `WorkoutTemplate`—`TemplateItem`,
-  `WorkoutSession`—`SessionLog`와 동일하게, `@OneToMany` 없이 어댑터에서 명시적으로 조합)
+  `WorkoutSession`—`SessionLog`와 동일하게, `@OneToMany` 없이 어댑터에서 명시적으로 조합, `Insight`는
+  `WeeklyAnalysis.insights` 필드로 임베드되고 자체 `analysisId`는 갖지 않음)
+- **`totalWorkoutMinutes` 추정 근거**: STRENGTH 운동은 세트/반복/무게만 기록하고 소요 시간을 저장하지
+  않는다 (실시간 타이머 기능은 별도 아이디어로 기록, [[project_next_step_set_timer_idea]]). 사용자의
+  실제 3년치 기록 기준 "세트 사이 휴식 제외하고 종목당 평균 10~15분"이라는 데이터가 있어, 중간값인
+  **완료된 STRENGTH 로그 1개당 12분**으로 추정하고 CARDIO는 `actualDurationSeconds` 합산을 그대로
+  더한다. 타이머 기능이 생기면 이 추정치를 실측값으로 교체한다.
 - `AnalysisSummary`는 JPA 엔티티에서 JSONB 컬럼 하나로 직렬화되어 저장된다 (조회 전용 요약값이라
   정규화하지 않음)
 - `(userId, weekOf)` 유니크 — 재실행 시 기존 레코드를 지우고 다시 만드는 전체 재계산 방식으로
