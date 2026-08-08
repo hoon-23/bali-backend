@@ -4,6 +4,8 @@ import com.bali.core.exercise.ExerciseRepository
 import com.bali.core.template.TemplateItem
 import com.bali.core.template.WorkoutTemplate
 import com.bali.core.template.WorkoutTemplateRepository
+import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.tags.Tag
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
@@ -22,12 +24,14 @@ import java.util.UUID
 // 운동 템플릿 CRUD API 엔드포인트를 처리하는 REST 컨트롤러
 @RestController
 @RequestMapping("/api/v1/templates")
+@Tag(name = "Template", description = "운동 템플릿 CRUD API")
 class TemplateController(
     private val templateRepository: WorkoutTemplateRepository,
     private val exerciseRepository: ExerciseRepository,
 ) {
 
     // 템플릿 등록 (items의 각 exerciseId 타입을 조회해 STRENGTH/CARDIO 필드 검증 후 저장)
+    @Operation(summary = "템플릿 등록", description = "items의 각 exerciseId 타입을 조회해 STRENGTH/CARDIO 필드를 검증한 뒤 저장한다")
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     fun create(@Valid @RequestBody request: TemplateCreateRequest): TemplateResponse {
@@ -39,11 +43,13 @@ class TemplateController(
     }
 
     // 내 템플릿 목록 조회 (소프트 삭제된 템플릿 제외)
+    @Operation(summary = "템플릿 목록 조회", description = "본인의 템플릿 목록을 조회한다 (소프트 삭제된 템플릿 제외)")
     @GetMapping
     fun list(): List<TemplateResponse> =
         templateRepository.findAllByUserId(currentUserId()).map { TemplateResponse.from(it) }
 
     // 템플릿 단건 조회. 없거나 다른 유저 소유면 404 (존재 노출 방지)
+    @Operation(summary = "템플릿 단건 조회", description = "없거나 다른 유저 소유면 404 (존재 노출 방지)")
     @GetMapping("/{id}")
     fun get(@PathVariable id: UUID): ResponseEntity<TemplateResponse> {
         val template = findOwnedOrNull(id) ?: return ResponseEntity.notFound().build()
@@ -51,6 +57,7 @@ class TemplateController(
     }
 
     // 템플릿 전체 교체 (items 포함). 없거나 다른 유저 소유면 404
+    @Operation(summary = "템플릿 전체 교체", description = "items를 포함해 템플릿을 통째로 교체한다. 없거나 다른 유저 소유면 404")
     @PutMapping("/{id}")
     fun update(@PathVariable id: UUID, @Valid @RequestBody request: TemplateCreateRequest): ResponseEntity<TemplateResponse> {
         val existing = findOwnedOrNull(id) ?: return ResponseEntity.notFound().build()
@@ -60,6 +67,7 @@ class TemplateController(
     }
 
     // 템플릿 소프트 삭제. 없거나 다른 유저 소유면 404
+    @Operation(summary = "템플릿 삭제", description = "소프트 삭제 처리한다. 없거나 다른 유저 소유면 404")
     @DeleteMapping("/{id}")
     fun delete(@PathVariable id: UUID): ResponseEntity<Void> {
         findOwnedOrNull(id) ?: return ResponseEntity.notFound().build()

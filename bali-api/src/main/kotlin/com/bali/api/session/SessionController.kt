@@ -6,6 +6,8 @@ import com.bali.core.session.SessionLog
 import com.bali.core.session.WorkoutSession
 import com.bali.core.session.WorkoutSessionRepository
 import com.bali.core.template.WorkoutTemplateRepository
+import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.tags.Tag
 import org.springframework.format.annotation.DateTimeFormat
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
@@ -26,6 +28,7 @@ import java.util.UUID
 // 운동 세션 기록 API 엔드포인트를 처리하는 REST 컨트롤러
 @RestController
 @RequestMapping("/api/v1/sessions")
+@Tag(name = "Session", description = "운동 세션 기록 API")
 class SessionController(
     private val sessionRepository: WorkoutSessionRepository,
     private val templateRepository: WorkoutTemplateRepository,
@@ -33,6 +36,7 @@ class SessionController(
 ) {
 
     // 세션 생성. templateId가 있으면 그 템플릿의 items를 target 스냅샷으로 복사, 없으면 빈 세션
+    @Operation(summary = "세션 생성", description = "templateId가 있으면 해당 템플릿의 items를 target 스냅샷으로 복사하고, 없으면 빈 세션으로 생성한다")
     @PostMapping
     fun create(@RequestBody request: SessionCreateRequest): ResponseEntity<SessionResponse> {
         val logs = if (request.templateId != null) {
@@ -59,6 +63,7 @@ class SessionController(
     }
 
     // 기간별(from~to, inclusive) 세션 조회
+    @Operation(summary = "기간별 세션 조회", description = "from~to(inclusive) 기간 내 본인 세션 목록을 조회한다")
     @GetMapping
     fun list(
         @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) from: LocalDate,
@@ -67,6 +72,7 @@ class SessionController(
         sessionRepository.findAllByUserId(currentUserId(), from, to).map { SessionResponse.from(it) }
 
     // 세션 단건 조회. 없거나 다른 유저 소유면 404
+    @Operation(summary = "세션 단건 조회", description = "없거나 다른 유저 소유면 404")
     @GetMapping("/{id}")
     fun get(@PathVariable id: UUID): ResponseEntity<SessionResponse> {
         val session = findOwnedOrNull(id) ?: return ResponseEntity.notFound().build()
@@ -76,6 +82,10 @@ class SessionController(
     // 세션 아이템 구조 변경: addItems(즉흥 추가, target null 허용)/updateItems(logId 기준 전체 교체)/removeLogIds(삭제)
     // 언급되지 않은 log의 actual*/completed는 그대로 보존된다
     // @Transactional: 세 리스트 처리 중 하나라도 실패(require 예외)하면 전체가 롤백되어야 함 (부분 커밋 방지)
+    @Operation(
+        summary = "세션 아이템 구조 변경",
+        description = "addItems(즉흥 추가)/updateItems(logId 기준 전체 교체)/removeLogIds(삭제)를 처리한다. 언급되지 않은 log의 actual*/completed는 보존된다",
+    )
     @Transactional
     @PatchMapping("/{id}")
     fun patch(@PathVariable id: UUID, @RequestBody request: SessionPatchRequest): ResponseEntity<SessionResponse> {
@@ -125,6 +135,7 @@ class SessionController(
     }
 
     // 실제 수행값 기록 + 완료 체크. 종목 타입에 맞는 actual 필드 조합인지 검증 후 반영
+    @Operation(summary = "세션 로그 실제 수행값 기록", description = "완료 체크와 함께 실제 수행값을 기록한다. 종목 타입에 맞는 actual 필드 조합인지 검증 후 반영")
     @PatchMapping("/{id}/logs/{logId}")
     fun patchLog(
         @PathVariable id: UUID,

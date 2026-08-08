@@ -9,10 +9,8 @@ bali:
 spring:
   application:
     name: bali-api
-  datasource:
-    url: jdbc:postgresql://localhost:5432/bali
-    username: bali
-    password: bali
+  profiles:
+    active: local
   jpa:
     hibernate:
       ddl-auto: validate

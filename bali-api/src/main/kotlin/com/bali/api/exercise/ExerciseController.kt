@@ -4,6 +4,8 @@ import com.bali.core.exercise.Exercise
 import com.bali.core.exercise.ExerciseRepository
 import com.bali.core.exercise.ExerciseScope
 import com.bali.core.exercise.MuscleGroup
+import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.tags.Tag
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
 import org.springframework.security.core.context.SecurityContextHolder
@@ -19,11 +21,13 @@ import java.util.UUID
 // 운동 종목 카탈로그 관련 API 엔드포인트를 처리하는 REST 컨트롤러
 @RestController
 @RequestMapping("/api/v1/exercises")
+@Tag(name = "Exercise", description = "운동 종목 카탈로그 API")
 class ExerciseController(
     private val exerciseRepository: ExerciseRepository,
 ) {
 
     // 카탈로그 조회 (GLOBAL 전체 + 본인 PERSONAL), muscleGroup으로 선택적 필터링
+    @Operation(summary = "종목 카탈로그 조회", description = "GLOBAL 전체 + 본인 PERSONAL 종목을 조회한다. muscleGroup으로 선택적 필터링 가능")
     @GetMapping
     fun list(@RequestParam(required = false) muscleGroup: MuscleGroup?): List<ExerciseResponse> {
         val visible = exerciseRepository.findVisibleTo(currentUserId())
@@ -32,11 +36,13 @@ class ExerciseController(
     }
 
     // 유사 종목 제안 (trigram 유사도 정렬, 상위 10개 고정)
+    @Operation(summary = "유사 종목 제안", description = "trigram 유사도 기준으로 정렬된 상위 10개 종목을 제안한다")
     @GetMapping("/suggest")
     fun suggest(@RequestParam q: String): List<ExerciseResponse> =
         exerciseRepository.suggest(q, currentUserId(), limit = 10).map { ExerciseResponse.from(it) }
 
     // 개인 종목 등록 (scope=PERSONAL 자동, ownerId는 인증 컨텍스트에서)
+    @Operation(summary = "개인 종목 등록", description = "scope=PERSONAL로 자동 등록되며 ownerId는 인증 컨텍스트에서 채워진다")
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     fun create(@Valid @RequestBody request: ExerciseCreateRequest): ExerciseResponse {

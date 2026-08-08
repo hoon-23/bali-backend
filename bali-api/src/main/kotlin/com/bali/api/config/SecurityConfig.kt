@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.core.env.Environment
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
 import org.springframework.security.config.annotation.web.invoke
 import org.springframework.security.core.AuthenticationException
@@ -20,6 +21,7 @@ class SecurityConfig(
     private val customOAuth2UserService: CustomOAuth2UserService,
     private val oAuth2LoginSuccessHandler: OAuth2LoginSuccessHandler,
     private val jwtAuthenticationFilter: JwtAuthenticationFilter,
+    private val environment: Environment,
 ) {
 
     // REST API 엔드포인트의 인증 실패시 401 JSON 응답을 반환하는 엔트리 포인트
@@ -53,6 +55,11 @@ class SecurityConfig(
                 authorize("/actuator/health", permitAll)
                 authorize("/oauth2/**", permitAll)
                 authorize("/login/oauth2/**", permitAll)
+                // Swagger 문서는 local/dev에서만 공개, prod는 인증 필요 상태 유지
+                if (environment.activeProfiles.any { it in setOf("local", "dev") }) {
+                    authorize("/swagger-ui/**", permitAll)
+                    authorize("/v3/api-docs/**", permitAll)
+                }
                 authorize(anyRequest, authenticated)
             }
             oauth2Login {

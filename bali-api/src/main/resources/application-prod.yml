@@ -1,0 +1,6 @@
+# 스토어 출시 시점에 dev와 분리해서 실값을 채울 것 (지금은 dev와 동일 구조의 껍데기)
+spring:
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
