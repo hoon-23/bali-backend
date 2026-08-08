@@ -1,6 +1,7 @@
 package com.bali.batch
 
 import kotlin.system.exitProcess
+import org.springframework.beans.factory.getBean
 import org.springframework.boot.ExitCodeGenerator
 import org.springframework.boot.SpringApplication
 import org.springframework.boot.WebApplicationType
@@ -20,7 +21,7 @@ fun main(args: Array<String>) {
     val context = SpringApplicationBuilder(BaliBatchApplication::class.java)
         .web(WebApplicationType.NONE)
         .run(*args)
-    val exitCode = context.getBean(WeeklyAnalysisRunner::class.java).run()
+    val exitCode = context.getBean<WeeklyAnalysisRunner>().run()
     SpringApplication.exit(context, ExitCodeGenerator { exitCode })
     exitProcess(exitCode)
 }
