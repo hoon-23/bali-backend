@@ -18,4 +18,7 @@ interface ExerciseRepository {
 
     // 종목을 저장하고 저장된 종목을 반환
     fun save(exercise: Exercise): Exercise
+
+    // 종목을 삭제
+    fun deleteById(id: UUID)
 }

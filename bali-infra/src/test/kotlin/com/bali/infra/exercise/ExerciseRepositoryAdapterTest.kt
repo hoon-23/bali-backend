@@ -140,4 +140,19 @@ class ExerciseRepositoryAdapterTest {
         assertTrue(suggestions.any { it.name == "테스트전용종목" && it.ownerId == ownerId })
         assertTrue(suggestions.none { it.name == "테스트전용종목" && it.ownerId == otherOwnerId })
     }
+
+    @Test
+    fun `deleteById로 종목을 삭제하면 findById가 null을 반환한다`() {
+        val ownerId = UUID.randomUUID()
+        val saved = adapter.save(
+            Exercise(
+                id = null, name = "삭제될종목", variant = null, muscleGroup = MuscleGroup.BACK,
+                type = ExerciseType.STRENGTH, scope = ExerciseScope.PERSONAL, ownerId = ownerId,
+            )
+        )
+
+        adapter.deleteById(saved.id!!)
+
+        assertEquals(null, adapter.findById(saved.id!!))
+    }
 }

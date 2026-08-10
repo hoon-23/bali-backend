@@ -47,6 +47,11 @@ class ExerciseRepositoryAdapter(
         return jpaRepository.save(entity).toDomain()
     }
 
+    // 종목을 삭제.
+    override fun deleteById(id: UUID) {
+        jpaRepository.deleteExerciseById(id)
+    }
+
     // JPA 엔티티를 도메인 모델로 변환.
     private fun ExerciseJpaEntity.toDomain() = Exercise(
         id = id,

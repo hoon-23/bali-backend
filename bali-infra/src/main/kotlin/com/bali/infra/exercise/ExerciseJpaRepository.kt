@@ -51,4 +51,10 @@ interface ExerciseJpaRepository : JpaRepository<ExerciseJpaEntity, UUID> {
         @Param("userId") userId: UUID,
         @Param("limit") limit: Int,
     ): List<ExerciseJpaEntity>
+
+    // 종목을 삭제. bulk delete는 영속성 컨텍스트를 갱신하지 않아 이미 캐시된 entity가
+    // 스테일하게 조회될 수 있으므로 clearAutomatically로 1차 캐시를 비운다
+    @Modifying(clearAutomatically = true)
+    @Query("DELETE FROM ExerciseJpaEntity e WHERE e.id = :id")
+    fun deleteExerciseById(@Param("id") id: UUID)
 }
