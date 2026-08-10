@@ -1,6 +1,7 @@
 package com.bali.infra.session
 
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 import java.time.LocalDate
@@ -14,4 +15,10 @@ interface WorkoutSessionJpaRepository : JpaRepository<WorkoutSessionJpaEntity, U
         @Param("from") from: LocalDate,
         @Param("to") to: LocalDate,
     ): List<WorkoutSessionJpaEntity>
+
+    // 세션을 삭제. bulk delete는 영속성 컨텍스트를 갱신하지 않아 DB cascade로 사라진
+    // session_logs가 캐시에 남을 수 있으므로 clearAutomatically로 1차 캐시를 비운다
+    @Modifying(clearAutomatically = true)
+    @Query("DELETE FROM WorkoutSessionJpaEntity s WHERE s.id = :id")
+    fun deleteSessionById(@Param("id") id: UUID)
 }

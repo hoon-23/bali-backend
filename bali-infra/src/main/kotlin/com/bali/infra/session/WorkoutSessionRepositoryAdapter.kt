@@ -85,6 +85,12 @@ class WorkoutSessionRepositoryAdapter(
         return logJpaRepository.save(entity).toDomain()
     }
 
+    // 세션을 삭제. session_logs는 DB cascade(ON DELETE CASCADE)로 함께 제거된다
+    @Transactional
+    override fun deleteById(id: UUID) {
+        sessionJpaRepository.deleteSessionById(id)
+    }
+
     // JPA 엔티티(+logs)를 도메인 모델로 변환
     private fun WorkoutSessionJpaEntity.toDomain(logs: List<SessionLogJpaEntity>) = WorkoutSession(
         id = id, userId = userId, date = date, templateId = templateId, logs = logs.map { it.toDomain() },

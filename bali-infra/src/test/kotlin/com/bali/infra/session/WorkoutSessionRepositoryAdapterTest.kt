@@ -120,4 +120,16 @@ class WorkoutSessionRepositoryAdapterTest {
         assertEquals(3, updated?.actualSets)
         assertEquals(120, updated?.actualDurationSeconds)
     }
+
+    @Test
+    fun `deleteById로 세션을 삭제하면 소속 logs도 DB cascade로 함께 제거된다`() {
+        val userId = UUID.randomUUID()
+        val saved = adapter.save(WorkoutSession(id = null, userId = userId, date = LocalDate.of(2026, 8, 6), templateId = null, logs = listOf(log())))
+        val logId = saved.logs[0].id!!
+
+        adapter.deleteById(saved.id!!)
+
+        assertEquals(null, adapter.findById(saved.id!!))
+        assertEquals(null, adapter.findLogById(logId))
+    }
 }

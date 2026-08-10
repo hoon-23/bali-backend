@@ -34,4 +34,7 @@ interface WorkoutSessionRepository {
         actualSets: Int?, actualReps: Int?, actualWeight: BigDecimal?,
         actualDurationSeconds: Int?, actualPace: String?,
     ): SessionLog?
+
+    // 세션을 삭제 (session_logs는 DB의 ON DELETE CASCADE로 함께 제거됨)
+    fun deleteById(id: UUID)
 }
