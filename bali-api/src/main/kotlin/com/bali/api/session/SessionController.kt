@@ -13,6 +13,7 @@ import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PatchMapping
 import org.springframework.web.bind.annotation.PathVariable
@@ -159,6 +160,15 @@ class SessionController(
             actualDurationSeconds = request.actualDurationSeconds, actualPace = request.actualPace,
         )!!
         return ResponseEntity.ok(SessionLogResponse.from(updated))
+    }
+
+    // 세션 삭제. 없거나 다른 유저 소유면 404. session_logs는 DB cascade로 함께 제거됨
+    @Operation(summary = "세션 삭제", description = "없거나 다른 유저 소유면 404. session_logs는 DB cascade로 함께 제거된다")
+    @DeleteMapping("/{id}")
+    fun delete(@PathVariable id: UUID): ResponseEntity<Void> {
+        findOwnedOrNull(id) ?: return ResponseEntity.notFound().build()
+        sessionRepository.deleteById(id)
+        return ResponseEntity.noContent().build()
     }
 
     // TemplateItemRequest를 즉흥 추가 SessionLog로 변환 (target null 허용, 본인이 볼 수 없는 종목이면 미존재로 취급)

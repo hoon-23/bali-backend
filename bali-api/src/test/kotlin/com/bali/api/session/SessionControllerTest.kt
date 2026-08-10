@@ -23,6 +23,7 @@ import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.http.MediaType
 import org.springframework.test.context.transaction.TestTransaction
 import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
@@ -325,5 +326,42 @@ class SessionControllerTest {
             .andExpect(jsonPath("$.logs[0].actualSets").value(3))
             .andExpect(jsonPath("$.logs[0].actualReps").value(10))
             .andExpect(jsonPath("$.logs[0].actualWeight").value(60.0))
+    }
+
+    @Test
+    fun `DELETE sessions id 호출하면 세션을 삭제하고 204를 반환한다`() {
+        val (token, _) = issueTokenForNewUser()
+        val created = mockMvc.perform(post("/api/v1/sessions").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON).content("""{"date":"2026-08-06","templateId":null}"""))
+            .andExpect(status().isCreated).andReturn().response.contentAsString
+        val sessionId = objectMapper.readTree(created).get("id").asText()
+
+        mockMvc.perform(delete("/api/v1/sessions/$sessionId").header("Authorization", "Bearer $token"))
+            .andExpect(status().isNoContent)
+
+        mockMvc.perform(get("/api/v1/sessions/$sessionId").header("Authorization", "Bearer $token"))
+            .andExpect(status().isNotFound)
+    }
+
+    @Test
+    fun `DELETE sessions id 호출시 다른 유저 소유 세션이면 404 반환하고 삭제되지 않는다`() {
+        val (ownerToken, _) = issueTokenForNewUser()
+        val (otherToken, _) = issueTokenForNewUser()
+        val created = mockMvc.perform(post("/api/v1/sessions").header("Authorization", "Bearer $ownerToken").contentType(MediaType.APPLICATION_JSON).content("""{"date":"2026-08-06","templateId":null}"""))
+            .andExpect(status().isCreated).andReturn().response.contentAsString
+        val sessionId = objectMapper.readTree(created).get("id").asText()
+
+        mockMvc.perform(delete("/api/v1/sessions/$sessionId").header("Authorization", "Bearer $otherToken"))
+            .andExpect(status().isNotFound)
+
+        mockMvc.perform(get("/api/v1/sessions/$sessionId").header("Authorization", "Bearer $ownerToken"))
+            .andExpect(status().isOk)
+    }
+
+    @Test
+    fun `DELETE sessions id 호출시 존재하지 않는 id면 404 반환한다`() {
+        val (token, _) = issueTokenForNewUser()
+
+        mockMvc.perform(delete("/api/v1/sessions/${UUID.randomUUID()}").header("Authorization", "Bearer $token"))
+            .andExpect(status().isNotFound)
     }
 }
