@@ -69,6 +69,10 @@ class WorkoutTemplateRepositoryAdapter(
         templateJpaRepository.save(entity)
     }
 
+    // exerciseId가 소프트 삭제되지 않은 템플릿의 items에서 참조되고 있는지 확인
+    override fun existsActiveReferenceToExercise(exerciseId: UUID): Boolean =
+        itemJpaRepository.existsActiveReferenceToExercise(exerciseId)
+
     // JPA 엔티티(+items)를 도메인 모델로 변환
     private fun WorkoutTemplateJpaEntity.toDomain(items: List<TemplateItemJpaEntity>) = WorkoutTemplate(
         id = id, userId = userId, category = category, name = name, deleted = deleted,

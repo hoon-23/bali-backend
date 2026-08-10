@@ -111,4 +111,28 @@ class WorkoutTemplateRepositoryAdapterTest {
 
         assertEquals(listOf(1, 5), found?.items?.map { it.sortOrder })
     }
+
+    @Test
+    fun `existsActiveReferenceToExercise는 활성 템플릿이 참조하면 true를 반환한다`() {
+        val userId = UUID.randomUUID()
+        val exerciseId = UUID.randomUUID()
+        adapter.save(WorkoutTemplate(id = null, userId = userId, category = TemplateCategory.PUSH, name = "참조템플릿", items = listOf(templateItem(exerciseId))))
+
+        assertTrue(adapter.existsActiveReferenceToExercise(exerciseId))
+    }
+
+    @Test
+    fun `existsActiveReferenceToExercise는 소프트 삭제된 템플릿만 참조하면 false를 반환한다`() {
+        val userId = UUID.randomUUID()
+        val exerciseId = UUID.randomUUID()
+        val saved = adapter.save(WorkoutTemplate(id = null, userId = userId, category = TemplateCategory.PUSH, name = "삭제될템플릿", items = listOf(templateItem(exerciseId))))
+        adapter.softDelete(saved.id!!)
+
+        assertTrue(!adapter.existsActiveReferenceToExercise(exerciseId))
+    }
+
+    @Test
+    fun `existsActiveReferenceToExercise는 아무도 참조하지 않으면 false를 반환한다`() {
+        assertTrue(!adapter.existsActiveReferenceToExercise(UUID.randomUUID()))
+    }
 }

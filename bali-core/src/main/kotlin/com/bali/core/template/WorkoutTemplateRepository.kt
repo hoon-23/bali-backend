@@ -15,4 +15,7 @@ interface WorkoutTemplateRepository {
 
     // 템플릿을 소프트 삭제 (deleted=true)
     fun softDelete(id: UUID)
+
+    // exerciseId가 소프트 삭제되지 않은 템플릿의 items에서 참조되고 있는지 확인
+    fun existsActiveReferenceToExercise(exerciseId: UUID): Boolean
 }

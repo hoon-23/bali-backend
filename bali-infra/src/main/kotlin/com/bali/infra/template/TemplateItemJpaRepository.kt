@@ -14,4 +14,18 @@ interface TemplateItemJpaRepository : JpaRepository<TemplateItemJpaEntity, UUID>
     @Modifying
     @Query("DELETE FROM TemplateItemJpaEntity i WHERE i.templateId = :templateId")
     fun deleteByTemplateId(@Param("templateId") templateId: UUID)
+
+    // exerciseId가 소프트 삭제되지 않은 템플릿의 template_items에서 참조되고 있는지 확인.
+    // template_items/templates 사이에 JPA 연관관계가 없어 조인이 필요하므로 네이티브 쿼리로 작성
+    @Query(
+        value = """
+            SELECT EXISTS (
+                SELECT 1 FROM template_items ti
+                JOIN templates t ON ti.template_id = t.id
+                WHERE ti.exercise_id = :exerciseId AND t.deleted = false
+            )
+        """,
+        nativeQuery = true,
+    )
+    fun existsActiveReferenceToExercise(@Param("exerciseId") exerciseId: UUID): Boolean
 }
