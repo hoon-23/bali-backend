@@ -75,4 +75,24 @@ class UserRepositoryAdapterTest {
         assertEquals(true, activeUsers.any { it.id == active.id })
         assertEquals(true, activeUsers.none { it.status == UserStatus.WITHDRAWN })
     }
+
+    @Test
+    fun `NAVER, KAKAO, APPLE provider로도 저장과 조회가 가능하다`() {
+        listOf(AuthProvider.NAVER, AuthProvider.KAKAO, AuthProvider.APPLE).forEach { provider ->
+            val saved = adapter.save(
+                User(
+                    id = null,
+                    email = "test-${provider.name.lowercase()}@example.com",
+                    provider = provider,
+                    providerId = "sub-${provider.name.lowercase()}",
+                    status = UserStatus.ACTIVE,
+                    createdAt = Instant.now(),
+                )
+            )
+
+            val found = adapter.findByProviderAndProviderId(provider, "sub-${provider.name.lowercase()}")
+
+            assertEquals(saved.id, found?.id)
+        }
+    }
 }
