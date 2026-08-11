@@ -37,6 +37,50 @@ class RestClientNaverUserInfoClientTest {
     }
 
     @Test
+    fun `email이 없는 response 응답도 정상 파싱한다`() {
+        val builder = RestClient.builder()
+        val mockServer = MockRestServiceServer.bindTo(builder).build()
+        val restClient = builder.build()
+
+        mockServer.expect(requestTo("https://openapi.naver.com/v1/nid/me"))
+            .andExpect(header("Authorization", "Bearer test-access-token"))
+            .andRespond(
+                withSuccess(
+                    """{"resultcode": "00", "message": "success", "response": {"id": "naver-user-2", "email": null}}""",
+                    MediaType.APPLICATION_JSON,
+                )
+            )
+
+        val client = RestClientNaverUserInfoClient(restClient)
+        val response = client.fetchMe("test-access-token")
+
+        assertEquals("naver-user-2", response.id)
+        assertEquals(null, response.email)
+        mockServer.verify()
+    }
+
+    @Test
+    fun `response 객체가 없는 2xx 응답을 받으면 IllegalArgumentException을 던진다`() {
+        val builder = RestClient.builder()
+        val mockServer = MockRestServiceServer.bindTo(builder).build()
+        val restClient = builder.build()
+
+        mockServer.expect(requestTo("https://openapi.naver.com/v1/nid/me"))
+            .andExpect(header("Authorization", "Bearer test-access-token"))
+            .andRespond(
+                withSuccess(
+                    """{"resultcode": "024", "message": "Authentication failed"}""",
+                    MediaType.APPLICATION_JSON,
+                )
+            )
+
+        val client = RestClientNaverUserInfoClient(restClient)
+
+        assertThrows(IllegalArgumentException::class.java) { client.fetchMe("test-access-token") }
+        mockServer.verify()
+    }
+
+    @Test
     fun `만료 무효 토큰으로 401을 받으면 IllegalArgumentException을 던진다`() {
         val builder = RestClient.builder()
         val mockServer = MockRestServiceServer.bindTo(builder).build()
