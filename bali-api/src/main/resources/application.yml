@@ -20,15 +20,6 @@ spring:
     hibernate:
       ddl-auto: validate
     show-sql: false
-  # SecurityConfig의 oauth2Login{}이 ClientRegistrationRepository 빈을 필요로 해서 아직 못 지움
-  # (Task 10에서 SecurityConfig의 oauth2Login 코드를 걷어낼 때 이 블록도 함께 제거 예정)
-  security:
-    oauth2:
-      client:
-        registration:
-          google:
-            client-id: ${GOOGLE_CLIENT_ID}
-            scope: openid, email, profile
 
 management:
   endpoints:
