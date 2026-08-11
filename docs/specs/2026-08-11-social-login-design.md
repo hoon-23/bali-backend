@@ -58,13 +58,23 @@ provider는 URL 경로가 아니라 요청 바디의 필드로 받는다. 클라
 다른 provider는 토큰(Google) 또는 User-Info API 응답(Kakao/Naver)에 `email`이 항상 포함되므로
 이 필드를 쓰지 않는다.
 
-**Apple 최초 로그인인데 `email`이 없으면 400으로 거부하는 이유:** iOS의 `Sign in with Apple`
-표준 동의 화면에는 "이메일 공유 거부" 옵션이 없다 — 실제 이메일 또는 릴레이(가림) 이메일 중
-하나는 항상 온다. 그래서 최초 로그인에 `email`이 비어있다는 건 정상 사용자 시나리오가 아니라
-클라이언트 버그이거나, 클라이언트가 Apple로부터 토큰은 받았지만 그 직후 우리 서버 호출이
-실패해 계정 생성이 안 된 채로 재시도된 타이밍 문제다(Apple은 한 번 내려준 `email`을 재로그인
-시 다시 주지 않으므로 재시도해도 복구 불가). 업계 표준대로 이 경우 계정을 만들지 않고 400으로
-거부한다. `User.email`은 계속 non-null로 유지한다.
+**최초 로그인인데 `email`을 못 얻으면 placeholder 이메일로 가입을 허용하는 이유:** 처음에는
+Apple처럼 email이 정상적으로 안 오는 상황(iOS 클라이언트 버그, 또는 Apple 토큰은 받았지만
+직후 서버 호출이 실패해 계정 생성이 안 된 채로 재시도되는 타이밍 문제 — Apple은 한 번 내려준
+`email`을 재로그인 시 다시 주지 않으므로 재시도로 복구 불가)을 400으로 거부하는 방향을
+검토했으나, 다음 이유로 방향을 바꿨다: 400 거부는 그 상황을 겪은 유저를 **그 Apple 계정으로
+영구히 가입 불가능하게 만든다**(Apple 정책상 서버가 나중에 손쓸 방법이 없음). 반면 placeholder
+허용의 단점("나중에 email에 실제 기능을 붙이면 이 유저들만 비어있다")은, 그 시점에 클라이언트가
+"이메일을 등록해주세요" 플로우를 한 번 태우면 되는 **나중에 고칠 수 있는 문제**다. 지금 `email`
+컬럼은 실제 통신 용도로 쓰이는 곳이 전혀 없고(`UserResponse` 표시, JWT claim 용도뿐 —
+`bali-api/.../user/UserResponse.kt:15`, `JwtTokenProvider` 호출부 참고) 표시/식별 용도뿐이라,
+지금 당장 감수할 단점이 적다. 그래서 영구히 못 고치는 문제보다 나중에 고칠 수 있는 문제를
+택한다.
+
+이 fallback은 Apple 전용이 아니라 `createUser`에 provider 공통으로 둔다 — 카카오도 비즈니스
+앱 전환/검수 전에는 `kakao_account.email`이 계속 null일 수 있는데(아래 "향후 고려사항" 참고),
+같은 fallback이 그 경우도 자연히 커버한다. `User.email`은 계속 non-null 컬럼으로 유지하되,
+"항상 진짜 연락 가능한 이메일"이라는 보장은 이번 결정으로 깨진다는 걸 명시적으로 인지한다.
 
 **기존 Google 리다이렉트 코드를 전량 제거하고 Google도 토큰 검증 방식으로 통일하는 이유:** 이
 프로젝트는 웹 사용처가 없고 모바일 앱만 쓸 예정이라 리다이렉트 방식을 남겨둘 이유가 없다. 4개
@@ -81,7 +91,7 @@ Body: {
   "email": string?       // Apple 최초 로그인에만 클라이언트가 채움. 다른 provider는 무시됨
 }
 → 200 OK { "accessToken": "<JWT>" }
-→ 400 Bad Request (토큰 검증 실패, 잘못된 provider 값, Apple 최초 로그인인데 email 누락)
+→ 400 Bad Request (토큰 검증 실패, 잘못된 provider 값)
 ```
 
 인증이 필요 없는 로그인 엔드포인트이므로 `SecurityConfig`에서 `/api/v1/auth/login`을
@@ -97,7 +107,7 @@ interface SocialTokenVerifier {
     fun verify(token: String): SocialUserInfo
 }
 
-// 검증된 신원 정보. email은 Apple 재로그인 시 비어있을 수 있어 nullable
+// 검증된 신원 정보. email은 Apple 재로그인, 카카오 비즈 미검수 등으로 비어있을 수 있어 nullable
 data class SocialUserInfo(val providerId: String, val email: String?)
 ```
 
@@ -126,10 +136,9 @@ class SocialLoginService(
         return jwtTokenProvider.generateToken(user.id!!, user.email)
     }
 
-    // 최초 로그인 생성. email은 토큰 안 값(Google/Kakao/Naver) 또는 요청 바디 값(Apple) 순으로 사용
+    // 최초 로그인 생성. email 우선순위: 토큰/API 응답값 > 요청 바디 값(Apple 최초 로그인) > placeholder
     private fun createUser(provider: AuthProvider, info: SocialUserInfo, requestEmail: String?): User {
-        val email = info.email ?: requestEmail
-            ?: throw IllegalArgumentException("최초 로그인에는 email이 필요합니다")
+        val email = info.email ?: requestEmail ?: placeholderEmail(provider, info.providerId)
 
         return userRepository.save(
             User(
@@ -142,6 +151,10 @@ class SocialLoginService(
             )
         )
     }
+
+    // provider가 email을 못 준 경우를 위한 내부 전용 값. 실제 이메일이 아니므로 발송 용도로 쓰면 안 됨
+    private fun placeholderEmail(provider: AuthProvider, providerId: String): String =
+        "$providerId@${provider.name.lowercase()}.bali.internal"
 }
 ```
 
@@ -168,8 +181,8 @@ data class SocialLoginRequest(
 `SocialTokenVerifier.verify`는 검증 실패 시 `IllegalArgumentException`을 던지고, 기존
 `ApiExceptionHandler`(`bali-api/.../common/ApiExceptionHandler.kt`)가 이를 400으로 매핑한다 —
 `Exercise` 도메인 검증 실패 등과 동일한 전역 예외 처리를 그대로 재사용하는 것이며, 이번 작업에서
-`ApiExceptionHandler` 자체는 수정하지 않는다. `SocialLoginService.createUser`의 email 누락
-예외도 같은 타입이라 동일하게 400으로 처리된다.
+`ApiExceptionHandler` 자체는 수정하지 않는다. `createUser`는 email을 못 얻어도 placeholder로
+대체해 항상 성공하므로 이 경로에서 별도로 400을 낼 일은 없다.
 
 `JwtTokenProvider`/`JwtAuthenticationFilter`는 provider와 완전히 무관하므로 변경 없음.
 
@@ -229,13 +242,18 @@ bali:
 - **REST 기반 검증기(Kakao/Naver)**: User-Info API 호출 부분을 작은 인터페이스로 분리해 fake
   응답을 주입. 정상 응답, email 누락 응답(카카오 비즈 미검수 상황 시뮬레이션) 케이스 포함.
 - **`SocialLoginServiceTest`**: 기존 `InMemoryUserRepository` 패턴 재사용. 신규 유저 생성,
-  기존 유저 재로그인(같은 id 반환), Apple 최초 로그인 email 누락 시 예외 케이스.
+  기존 유저 재로그인(같은 id 반환), email을 못 얻은 최초 로그인에 placeholder 이메일로 생성되는
+  케이스(`{providerId}@{provider}.bali.internal` 형태 검증).
 - **`AuthControllerTest`**: 전체 흐름 통합 테스트 — provider별 성공 케이스, 검증 실패 시 400.
 
 ## 향후 고려사항
 
-- 카카오 비즈니스 앱 전환/검수 완료 전까지는 `email`이 null로 올 수 있다 — 운영 설정 이슈이며,
-  실제로 겪으면 그때 `createUser`의 email 필수 검증을 어떻게 완화할지 다시 판단한다.
+- 카카오 비즈니스 앱 전환/검수 완료 전까지는 `email`이 null로 올 수 있는데, `createUser`의
+  placeholder fallback이 이 경우도 그대로 커버하므로 가입 자체가 막히지는 않는다.
+- **가드레일**: 나중에 이메일 발송 기능(리포트, 캠페인 등)을 붙일 때는 반드시 발송 대상에서
+  placeholder 도메인(`*.bali.internal`)을 걸러내야 한다 — 실제 수신자가 없는 주소이므로 발송
+  시도 자체가 무의미하다. 그 시점에 해당 유저에게 실제 이메일을 등록받는 플로우를 클라이언트에
+  추가하는 것도 함께 고려한다.
 - 소셜 provider의 access/id token 자체의 만료·재발급 정책은 이번 범위 밖이다 — 로그인 시점에
   한 번만 검증하고, 이후 인증은 전부 자체 발급 JWT(`JwtTokenProvider`)로 처리하므로 provider
   토큰의 수명은 우리 서비스 세션 길이에 영향을 주지 않는다.
