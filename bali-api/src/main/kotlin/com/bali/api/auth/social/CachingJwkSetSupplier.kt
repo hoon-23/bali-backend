@@ -41,22 +41,35 @@ class CachingJwkSetSupplier(
         return fetchAndCache()
     }
 
-    // 실제 네트워크 호출로 JWKS를 가져와 캐시에 반영한다. 실패 시 예외 타입을 IllegalArgumentException으로
+    // 실제 네트워크 호출로 JWKS를 가져와 캐시에 반영한다. fetch가 실패했는데 이전에 캐시해둔 값이
+    // 있으면(TTL이 지났을 뿐 키 자체는 여전히 유효할 가능성이 높음) 그 값을 그대로 서빙해 provider의
+    // 일시적 장애가 로그인 전체를 막는 것을 피한다. 캐시가 아예 없을 때만 예외를 던진다.
+    // 폴백 시에도 cachedAt을 갱신해두는데, 안 그러면 장애가 지속되는 동안 매 요청마다 다시
+    // fetch를 시도해(느린 provider면 요청마다 타임아웃 대기) 타임아웃 설정의 효과가 없어지기
+    // 때문이다 - 다음 재시도는 최소 한 TTL 뒤로 미룬다. 예외 타입은 IllegalArgumentException으로
     // 통일해 OidcIdTokenVerifier 등 호출자가 한 가지 예외 타입만 처리하면 되게 한다
     private fun fetchAndCache(): JWKSet {
         val json = try {
             restClient.get().uri(jwksUri).retrieve().body(String::class.java)
                 ?: throw IllegalArgumentException("JWKS 응답이 비어있습니다: $jwksUri")
         } catch (ex: RestClientException) {
-            throw IllegalArgumentException("JWKS를 가져오는데 실패했습니다: $jwksUri", ex)
+            return serveStaleOnFailure() ?: throw IllegalArgumentException("JWKS를 가져오는데 실패했습니다: $jwksUri", ex)
         }
         val fresh = try {
             JWKSet.parse(json)
         } catch (ex: ParseException) {
-            throw IllegalArgumentException("JWKS 응답을 파싱하는데 실패했습니다: $jwksUri", ex)
+            return serveStaleOnFailure() ?: throw IllegalArgumentException("JWKS 응답을 파싱하는데 실패했습니다: $jwksUri", ex)
         }
         cached = fresh
         cachedAt = Instant.now()
         return fresh
+    }
+
+    // fetch 실패 시 이전 캐시가 있으면 그 값을 반환하면서 cachedAt을 갱신(재시도 시점을 한 TTL 뒤로
+    // 미뤄 장애 지속 중 매 요청마다 재시도하는 것을 막는다). 캐시가 없으면 null을 반환해 호출자가 예외를 던지게 한다
+    private fun serveStaleOnFailure(): JWKSet? {
+        val stale = cached ?: return null
+        cachedAt = Instant.now()
+        return stale
     }
 }
