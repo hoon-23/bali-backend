@@ -255,6 +255,17 @@ bali:
 
 ## 향후 고려사항
 
+- **[알려진 리스크, 미해결] 네이버 access token의 앱 오디언스 검증 불가**: 네이버는 카카오와
+  달리 OIDC ID Token도, 토큰 introspection API도 제공하지 않는다. 그 결과 `NaverTokenVerifier`가
+  클라이언트가 보낸 access token으로 "내 정보 조회" API(`GET openapi.naver.com/v1/nid/me`)를
+  호출해 200이 오면 유효하다고 판단하는데, 이 응답은 그 토큰이 *우리 앱 앞으로* 발급됐다는 것을
+  증명하지 못한다 — 임의의 다른 네이버 앱용으로 발급된 access token이어도 200이 온다. 즉 다른
+  앱에서 네이버 로그인한 사용자가 그 access token을 우리 서버로 흘려보내면 우리 계정으로
+  로그인/가입이 가능하다(계정 탈취는 아니지만 앱 신원 위장). 근본적으로 고치려면 서버 주도
+  authorization code exchange(클라이언트가 code만 넘기고 서버가 client_secret으로 토큰 교환)로
+  전환해야 하는데, 이는 클라이언트 로그인 플로우 자체를 바꾸는 범위라 `bali-frontend` 작업을
+  시작할 때 별도로 설계하기로 최종 리뷰에서 의도적으로 보류했다. **TestFlight/실 사용자 데이터가
+  걸리기 전에 반드시 재검토해야 한다.**
 - 카카오 비즈니스 앱 전환/검수 완료 전까지는 `email`이 null로 올 수 있는데, `createUser`의
   placeholder fallback이 이 경우도 그대로 커버하므로 가입 자체가 막히지는 않는다.
 - **가드레일**: 나중에 이메일 발송 기능(리포트, 캠페인 등)을 붙일 때는 반드시 발송 대상에서
