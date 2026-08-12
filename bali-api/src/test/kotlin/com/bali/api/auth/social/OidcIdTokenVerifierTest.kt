@@ -194,6 +194,47 @@ class OidcIdTokenVerifierTest {
         assertEquals(1, freshCallCount)
     }
 
+    // expectedIssuers/expectedAudiences가 여러 값을 받을 수 있어야 한다(Google iss가 두 형태를 모두
+    // 허용하거나, 모바일 클라이언트가 웹과 다른 aud를 쓰는 경우를 지원하기 위함 - 최종 리뷰 지적)
+    @Test
+    fun `여러 발급자 중 하나만 일치해도 통과한다`() {
+        val multiIssuerVerifier = OidcIdTokenVerifier(
+            jwkSetSupplier = fakeJwkSetSupplier,
+            expectedIssuers = setOf("https://example-issuer.test", "https://alt-issuer.test"),
+            expectedAudiences = setOf("expected-client-id"),
+        )
+
+        val claims = multiIssuerVerifier.verify(signedToken(issuer = "https://alt-issuer.test"))
+
+        assertEquals("user-sub-1", claims.subject)
+    }
+
+    @Test
+    fun `여러 대상 중 하나만 일치해도 통과한다`() {
+        val multiAudienceVerifier = OidcIdTokenVerifier(
+            jwkSetSupplier = fakeJwkSetSupplier,
+            expectedIssuers = setOf("https://example-issuer.test"),
+            expectedAudiences = setOf("web-client-id", "mobile-client-id"),
+        )
+
+        val claims = multiAudienceVerifier.verify(signedToken(audience = "mobile-client-id"))
+
+        assertEquals("user-sub-1", claims.subject)
+    }
+
+    @Test
+    fun `어떤 발급자와도 일치하지 않으면 예외를 던진다`() {
+        val multiIssuerVerifier = OidcIdTokenVerifier(
+            jwkSetSupplier = fakeJwkSetSupplier,
+            expectedIssuers = setOf("https://example-issuer.test", "https://alt-issuer.test"),
+            expectedAudiences = setOf("expected-client-id"),
+        )
+
+        assertThrows(IllegalArgumentException::class.java) {
+            multiIssuerVerifier.verify(signedToken(issuer = "https://totally-wrong-issuer.test"))
+        }
+    }
+
     // kid가 이미 캐시에 있으면 강제 새로고침을 호출하지 않아야 한다(불필요한 네트워크 호출/fetch storm 방지)
     @Test
     fun `kid가 캐시에 있으면 강제 새로고침을 호출하지 않는다`() {

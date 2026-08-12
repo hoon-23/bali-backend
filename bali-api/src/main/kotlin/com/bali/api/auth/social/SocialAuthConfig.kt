@@ -29,13 +29,14 @@ class SocialAuthConfig(
         return RestClient.builder().requestFactory(requestFactory).build()
     }
 
-    // Google ID Token 검증기: 구글 JWKS를 캐싱해서 서명/발급자/대상을 검증
+    // Google ID Token 검증기: 구글 JWKS를 캐싱해서 서명/발급자/대상을 검증. 구글 문서가 iss를
+    // "https://accounts.google.com" 또는 "accounts.google.com" 둘 다 유효하다고 명시하므로 둘 다 허용한다
     @Bean
     fun googleTokenVerifier(socialAuthRestClient: RestClient): GoogleTokenVerifier = GoogleTokenVerifier(
         OidcIdTokenVerifier(
             jwkSetSupplier = CachingJwkSetSupplier("https://www.googleapis.com/oauth2/v3/certs", socialAuthRestClient),
-            expectedIssuer = "https://accounts.google.com",
-            expectedAudience = googleClientId,
+            expectedIssuers = setOf("https://accounts.google.com", "accounts.google.com"),
+            expectedAudiences = setOf(googleClientId),
         )
     )
 
@@ -44,8 +45,8 @@ class SocialAuthConfig(
     fun appleTokenVerifier(socialAuthRestClient: RestClient): AppleTokenVerifier = AppleTokenVerifier(
         OidcIdTokenVerifier(
             jwkSetSupplier = CachingJwkSetSupplier("https://appleid.apple.com/auth/keys", socialAuthRestClient),
-            expectedIssuer = "https://appleid.apple.com",
-            expectedAudience = appleBundleId,
+            expectedIssuers = setOf("https://appleid.apple.com"),
+            expectedAudiences = setOf(appleBundleId),
         )
     )
 
@@ -54,8 +55,8 @@ class SocialAuthConfig(
     fun kakaoTokenVerifier(socialAuthRestClient: RestClient): KakaoTokenVerifier = KakaoTokenVerifier(
         OidcIdTokenVerifier(
             jwkSetSupplier = CachingJwkSetSupplier("https://kauth.kakao.com/.well-known/jwks.json", socialAuthRestClient),
-            expectedIssuer = "https://kauth.kakao.com",
-            expectedAudience = kakaoClientId,
+            expectedIssuers = setOf("https://kauth.kakao.com"),
+            expectedAudiences = setOf(kakaoClientId),
         )
     )
 

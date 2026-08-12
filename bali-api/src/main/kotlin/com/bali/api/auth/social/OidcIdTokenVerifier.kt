@@ -18,12 +18,19 @@ fun interface JwkSetSupplier {
     fun getFresh(): JWKSet = get()
 }
 
-// Google/Apple 공통: OIDC ID Token(JWT)의 서명과 iss/aud/exp를 검증해 클레임을 돌려주는 유틸
+// Google/Apple/Kakao 공통: OIDC ID Token(JWT)의 서명과 iss/aud/exp를 검증해 클레임을 돌려주는 유틸.
+// iss/aud를 Set으로 받는 이유: Google 문서는 iss가 "https://accounts.google.com" 또는
+// "accounts.google.com" 둘 다 유효하다고 명시하고, 네이티브 모바일 클라이언트는 웹/서버 클라이언트와
+// 다른 aud(iOS/Android 클라이언트 ID)를 쓰는 경우가 흔해서 단일 문자열로는 표현할 수 없다
 class OidcIdTokenVerifier(
     private val jwkSetSupplier: JwkSetSupplier,
-    private val expectedIssuer: String,
-    private val expectedAudience: String,
+    private val expectedIssuers: Set<String>,
+    private val expectedAudiences: Set<String>,
 ) {
+    // 편의 생성자: 대부분의 provider는 issuer/audience가 하나뿐이라 단일 문자열로도 만들 수 있게 한다
+    constructor(jwkSetSupplier: JwkSetSupplier, expectedIssuer: String, expectedAudience: String) :
+        this(jwkSetSupplier, setOf(expectedIssuer), setOf(expectedAudience))
+
     // 서명/발급자/대상/만료를 모두 검증하고, 통과하면 클레임 집합을 반환. 실패하면 IllegalArgumentException
     fun verify(token: String): JWTClaimsSet {
         val signedJwt = try {
@@ -54,10 +61,10 @@ class OidcIdTokenVerifier(
             throw IllegalArgumentException("토큰 클레임을 파싱하는데 실패했습니다", ex)
         }
 
-        if (claims.issuer != expectedIssuer) {
+        if (claims.issuer !in expectedIssuers) {
             throw IllegalArgumentException("발급자(iss)가 일치하지 않습니다")
         }
-        if (expectedAudience !in claims.audience) {
+        if (expectedAudiences.none { it in claims.audience }) {
             throw IllegalArgumentException("대상(aud)이 일치하지 않습니다")
         }
         if (claims.expirationTime == null || claims.expirationTime.before(Date())) {
