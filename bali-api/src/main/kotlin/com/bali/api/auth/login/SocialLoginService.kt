@@ -22,6 +22,8 @@ class SocialLoginService(
         val verifier = verifiers.first { it.provider == provider }
         val info = verifier.verify(token)
 
+        // status 조건 없이 provider+providerId로만 조회하므로, WITHDRAWN 상태로 탈퇴한 유저가
+        // 같은 provider 계정으로 재로그인하면 상태 변경 없이 그대로 로그인된다(재활성화 정책은 범위 밖)
         val user = userRepository.findByProviderAndProviderId(provider, info.providerId)
             ?: createUser(provider, info, email)
 

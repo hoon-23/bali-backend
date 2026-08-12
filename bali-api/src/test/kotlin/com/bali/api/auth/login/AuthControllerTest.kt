@@ -102,6 +102,16 @@ class AuthControllerTest {
     }
 
     @Test
+    fun `email 형식이 아닌 값을 요청 바디로 보내면 400을 반환한다`() {
+        mockMvc.perform(
+            post("/api/v1/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"provider": "GOOGLE", "token": "valid-google-token", "email": "not-an-email"}""")
+        )
+            .andExpect(status().isBadRequest)
+    }
+
+    @Test
     fun `provider 장애로 검증할 수 없으면 502를 반환한다`() {
         val service = SocialLoginService(
             listOf(AlwaysUnavailableVerifier(AuthProvider.NAVER)),
