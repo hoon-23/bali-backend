@@ -6,7 +6,9 @@ import com.bali.core.user.AuthProvider
 interface SocialTokenVerifier {
     val provider: AuthProvider
 
-    // 토큰이 유효하지 않으면 IllegalArgumentException을 던진다
+    // 토큰이 유효하지 않으면 IllegalArgumentException을 던진다. REST 기반 구현(Naver)은 provider
+    // 장애(5xx/연결 실패)와 토큰 무효를 구분할 수 있는 경우 SocialProviderUnavailableException을
+    // 대신 던질 수 있다 - ApiExceptionHandler가 이를 502로 별도 매핑한다
     fun verify(token: String): SocialUserInfo
 }
 

@@ -1,5 +1,7 @@
 package com.bali.api.auth.social
 
+import org.springframework.web.client.HttpServerErrorException
+import org.springframework.web.client.ResourceAccessException
 import org.springframework.web.client.RestClient
 import org.springframework.web.client.RestClientException
 
@@ -20,9 +22,11 @@ data class NaverMeApiResponse(val response: NaverProfile?) {
 // RestClient로 네이버 "내 정보 조회" API를 실제로 호출하는 구현
 class RestClientNaverUserInfoClient(private val restClient: RestClient) : NaverUserInfoClient {
     override fun fetchMe(accessToken: String): NaverUserInfoResponse {
-        // 만료/무효/폐기된 토큰이면 네이버가 4xx/5xx를 응답한다. RestClient는 이를
-        // RestClientException(HttpClientErrorException 등)으로 던지는데, 이를 그대로 흘리면
-        // verify() 계약(IllegalArgumentException)을 어기게 되므로 여기서 통일한다
+        // 만료/무효/폐기된 토큰이면 네이버가 4xx를 응답한다 - 이건 진짜 "토큰이 잘못됨"이므로
+        // IllegalArgumentException(400)으로 통일한다. 반면 5xx(서버 오류)나 연결/응답 실패
+        // (ResourceAccessException, 타임아웃 포함)는 토큰이 아니라 네이버 쪽 장애일 가능성이 높아
+        // SocialProviderUnavailableException(502)으로 구분한다 - 4xx/5xx를 뭉뚱그리면 provider
+        // 장애를 "당신 토큰이 잘못됐다"로 클라이언트에게 오분류해서 보여주게 된다
         val response = try {
             restClient.get()
                 .uri("https://openapi.naver.com/v1/nid/me")
@@ -30,6 +34,10 @@ class RestClientNaverUserInfoClient(private val restClient: RestClient) : NaverU
                 .retrieve()
                 .body(NaverMeApiResponse::class.java)
                 ?.response
+        } catch (ex: HttpServerErrorException) {
+            throw SocialProviderUnavailableException("네이버 서버 오류로 사용자 정보를 가져오지 못했습니다", ex)
+        } catch (ex: ResourceAccessException) {
+            throw SocialProviderUnavailableException("네이버에 연결하지 못했습니다", ex)
         } catch (ex: RestClientException) {
             throw IllegalArgumentException("네이버 사용자 정보를 가져오지 못했습니다", ex)
         }

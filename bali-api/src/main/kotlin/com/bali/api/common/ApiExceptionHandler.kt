@@ -1,5 +1,6 @@
 package com.bali.api.common
 
+import com.bali.api.auth.social.SocialProviderUnavailableException
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
@@ -31,4 +32,9 @@ class ApiExceptionHandler {
     @ExceptionHandler(HttpMessageNotReadableException::class)
     fun handleHttpMessageNotReadable(ex: HttpMessageNotReadableException): ResponseEntity<Map<String, String?>> =
         ResponseEntity.status(HttpStatus.BAD_REQUEST).body(mapOf("error" to "요청 본문을 읽을 수 없습니다"))
+
+    // 소셜 로그인 provider의 5xx/연결 실패를 클라이언트 토큰 문제(400)가 아닌 upstream 장애(502)로 매핑
+    @ExceptionHandler(SocialProviderUnavailableException::class)
+    fun handleSocialProviderUnavailable(ex: SocialProviderUnavailableException): ResponseEntity<Map<String, String?>> =
+        ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(mapOf("error" to ex.message))
 }

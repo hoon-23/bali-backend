@@ -1,6 +1,7 @@
 package com.bali.api.auth.login
 
 import com.bali.api.auth.jwt.JwtTokenProvider
+import com.bali.api.auth.social.SocialProviderUnavailableException
 import com.bali.api.auth.social.SocialTokenVerifier
 import com.bali.api.auth.social.SocialUserInfo
 import com.bali.api.common.ApiExceptionHandler
@@ -43,6 +44,13 @@ class AuthControllerTest {
             if (token != validToken) throw IllegalArgumentException("유효하지 않은 토큰입니다")
             return info
         }
+    }
+
+    // provider 장애(5xx/연결 실패) 시나리오를 흉내내는 fake. verify() 호출 시 항상
+    // SocialProviderUnavailableException을 던진다
+    private class AlwaysUnavailableVerifier(override val provider: AuthProvider) : SocialTokenVerifier {
+        override fun verify(token: String): SocialUserInfo =
+            throw SocialProviderUnavailableException("provider가 응답하지 않습니다")
     }
 
     private lateinit var mockMvc: MockMvc
@@ -91,5 +99,24 @@ class AuthControllerTest {
                 .content("""{"provider": "FACEBOOK", "token": "any-token"}""")
         )
             .andExpect(status().isBadRequest)
+    }
+
+    @Test
+    fun `provider 장애로 검증할 수 없으면 502를 반환한다`() {
+        val service = SocialLoginService(
+            listOf(AlwaysUnavailableVerifier(AuthProvider.NAVER)),
+            InMemoryUserRepository(),
+            JwtTokenProvider(secret = "test-secret-key-must-be-at-least-32-bytes-long!!", expirationMillis = 3600_000),
+        )
+        val unavailableMockMvc = MockMvcBuilders.standaloneSetup(AuthController(service))
+            .setControllerAdvice(ApiExceptionHandler())
+            .build()
+
+        unavailableMockMvc.perform(
+            post("/api/v1/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"provider": "NAVER", "token": "any-token"}""")
+        )
+            .andExpect(status().isBadGateway)
     }
 }
