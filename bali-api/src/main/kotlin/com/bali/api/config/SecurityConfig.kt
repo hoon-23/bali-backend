@@ -50,6 +50,10 @@ class SecurityConfig(
             authorizeHttpRequests {
                 authorize("/actuator/health", permitAll)
                 authorize("/api/v1/auth/login", permitAll)
+                // sendError()로 인한 서블릿 내부 /error 재전송이 인증 없는 요청에서 401로
+                // 잘못 가려지는 것을 막는 방어선(1차 방어는 ApiExceptionHandler가 예외를 직접
+                // 처리해 이 재전송 자체를 피하는 것)
+                authorize("/error", permitAll)
                 // Swagger 문서는 local/dev에서만 공개, prod는 인증 필요 상태 유지
                 if (environment.activeProfiles.any { it in setOf("local", "dev") }) {
                     authorize("/swagger-ui/**", permitAll)

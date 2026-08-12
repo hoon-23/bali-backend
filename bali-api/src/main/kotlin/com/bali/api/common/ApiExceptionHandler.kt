@@ -2,6 +2,7 @@ package com.bali.api.common
 
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
+import org.springframework.http.converter.HttpMessageNotReadableException
 import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
@@ -22,4 +23,12 @@ class ApiExceptionHandler {
         val message = firstError?.let { "${it.field}: ${it.defaultMessage}" } ?: ex.message
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(mapOf("error" to message))
     }
+
+    // 요청 바디 JSON이 파싱 불가하거나(문법 오류) enum 등 필드 타입에 맞지 않는 값일 때 400으로 매핑.
+    // 여기서 직접 처리하지 않으면 Spring 기본 처리(response.sendError -> "/error" 내부 재전송)로
+    // 빠지는데, "/error"가 SecurityConfig의 permitAll 대상이 아니라 인증 없는 요청은 401로
+    // 잘못 가려지므로 이 핸들러가 그 경로 자체를 막는다
+    @ExceptionHandler(HttpMessageNotReadableException::class)
+    fun handleHttpMessageNotReadable(ex: HttpMessageNotReadableException): ResponseEntity<Map<String, String?>> =
+        ResponseEntity.status(HttpStatus.BAD_REQUEST).body(mapOf("error" to "요청 본문을 읽을 수 없습니다"))
 }
