@@ -1,35 +1,69 @@
 package com.bali.api.auth.social
 
 import com.bali.core.user.AuthProvider
+import com.nimbusds.jose.JWSAlgorithm
+import com.nimbusds.jose.JWSHeader
+import com.nimbusds.jose.crypto.RSASSASigner
+import com.nimbusds.jose.jwk.JWKSet
+import com.nimbusds.jose.jwk.RSAKey
+import com.nimbusds.jose.jwk.gen.RSAKeyGenerator
+import com.nimbusds.jwt.JWTClaimsSet
+import com.nimbusds.jwt.SignedJWT
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
+import java.util.Date
 
 class KakaoTokenVerifierTest {
 
+    private val rsaKey: RSAKey = RSAKeyGenerator(2048).keyID("test-kid").generate()
+
+    private val kakaoTokenVerifier = KakaoTokenVerifier(
+        OidcIdTokenVerifier(
+            jwkSetSupplier = JwkSetSupplier { JWKSet(rsaKey.toPublicJWK()) },
+            expectedIssuer = "https://kauth.kakao.com",
+            expectedAudience = "test-kakao-rest-api-key",
+        )
+    )
+
+    private fun signedToken(subject: String? = null, email: String?): String {
+        val builder = JWTClaimsSet.Builder()
+            .issuer("https://kauth.kakao.com")
+            .audience("test-kakao-rest-api-key")
+            .expirationTime(Date(System.currentTimeMillis() + 3600_000))
+        if (subject != null) builder.subject(subject)
+        if (email != null) builder.claim("email", email)
+        val header = JWSHeader.Builder(JWSAlgorithm.RS256).keyID(rsaKey.keyID).build()
+        val signedJwt = SignedJWT(header, builder.build())
+        signedJwt.sign(RSASSASigner(rsaKey))
+        return signedJwt.serialize()
+    }
+
     @Test
     fun `provider는 KAKAO이다`() {
-        val verifier = KakaoTokenVerifier(KakaoUserInfoClient { KakaoUserInfoResponse(id = 1L, email = null) })
-        assertEquals(AuthProvider.KAKAO, verifier.provider)
+        assertEquals(AuthProvider.KAKAO, kakaoTokenVerifier.provider)
     }
 
     @Test
-    fun `id와 email을 SocialUserInfo로 변환한다`() {
-        val client = KakaoUserInfoClient { accessToken ->
-            assertEquals("kakao-access-token", accessToken)
-            KakaoUserInfoResponse(id = 123456L, email = "kakao@example.com")
+    fun `sub와 email을 SocialUserInfo로 변환한다`() {
+        val info = kakaoTokenVerifier.verify(signedToken(subject = "kakao-sub-1", email = "a@example.com"))
+        assertEquals("kakao-sub-1", info.providerId)
+        assertEquals("a@example.com", info.email)
+    }
+
+    @Test
+    fun `email 클레임이 토큰에 없으면 email이 null이다 (email 동의 항목 미동의 상황)`() {
+        val info = kakaoTokenVerifier.verify(signedToken(subject = "kakao-sub-2", email = null))
+        assertEquals("kakao-sub-2", info.providerId)
+        assertNull(info.email)
+    }
+
+    @Test
+    fun `sub가 없으면 IllegalArgumentException을 던진다`() {
+        val token = signedToken(subject = null, email = "a@example.com")
+        assertThrows(IllegalArgumentException::class.java) {
+            kakaoTokenVerifier.verify(token)
         }
-        val verifier = KakaoTokenVerifier(client)
-
-        val info = verifier.verify("kakao-access-token")
-
-        assertEquals("123456", info.providerId)
-        assertEquals("kakao@example.com", info.email)
-    }
-
-    @Test
-    fun `email이 없으면 null로 전달된다 (비즈 앱 미검수 상황)`() {
-        val verifier = KakaoTokenVerifier(KakaoUserInfoClient { KakaoUserInfoResponse(id = 1L, email = null) })
-        assertNull(verifier.verify("token").email)
     }
 }

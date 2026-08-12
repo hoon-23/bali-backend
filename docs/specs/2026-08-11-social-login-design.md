@@ -22,11 +22,15 @@
 로그인 → SDK가 토큰을 앱에 돌려줌 → 앱이 그 토큰을 우리 서버로 전달 → 서버가 토큰이 진짜
 그 provider가 발급한 게 맞는지 검증하고, 검증된 정보로 유저를 찾거나 생성한다. 검증 방법이
 provider마다 두 갈래로 나뉜다.
-- **OIDC ID Token(JWT) 방식 — Google, Apple**: provider가 서명한 JWT를 서버가 provider의
+- **OIDC ID Token(JWT) 방식 — Google, Apple, Kakao**: provider가 서명한 JWT를 서버가 provider의
   JWKS(공개키)로 직접 서명 검증한다. provider 서버에 매 요청마다 네트워크 호출이 필요 없다
-  (키만 캐싱).
-- **Access Token + User-Info API 방식 — Kakao, Naver**: 서버가 access token을 들고 provider의
-  "내 정보 조회" REST API를 매번 호출해서 신원을 확인한다.
+  (키만 캐싱). 카카오는 콘솔에서 OpenID Connect를 활성화하고 클라이언트가 `scope=openid`로
+  토큰을 요청하면 `iss=https://kauth.kakao.com`, `aud=<카카오 REST API 키>`, `sub=<회원번호>`인
+  ID Token을 정식으로 발급한다(최종 리뷰에서 REST API 방식 대신 이 방식으로 전환 결정, 최초
+  설계 시점에는 카카오 OIDC 지원 여부를 확인하지 못해 Access Token 방식으로 시작했었다).
+- **Access Token + User-Info API 방식 — Naver**: 서버가 access token을 들고 provider의
+  "내 정보 조회" REST API를 매번 호출해서 신원을 확인한다. 네이버는 OIDC/토큰 검증 API를 제공하지
+  않아 이 방식 외에 대안이 없다("향후 고려사항"의 감수 리스크 참고).
 
 ## 범위
 
@@ -111,10 +115,11 @@ interface SocialTokenVerifier {
 data class SocialUserInfo(val providerId: String, val email: String?)
 ```
 
-- `GoogleTokenVerifier`, `AppleTokenVerifier` — JWKS 기반 JWT 서명 검증(`iss`/`aud`/`exp` 확인
-  후 `sub` 추출). JWKS 조회/캐싱 로직은 두 구현이 공유하는 작은 헬퍼로 뽑는다.
-- `KakaoTokenVerifier` — `GET kapi.kakao.com/v2/user/me` 호출, 응답의 `id`/`kakao_account.email`
-  파싱.
+- `GoogleTokenVerifier`, `AppleTokenVerifier`, `KakaoTokenVerifier` — JWKS 기반 JWT 서명 검증
+  (`iss`/`aud`/`exp` 확인 후 `sub` 추출). JWKS 조회/캐싱 로직은 세 구현이 공유하는 작은 헬퍼
+  (`OidcIdTokenVerifier`/`CachingJwkSetSupplier`)로 뽑는다. 카카오는 JWKS URL
+  `https://kauth.kakao.com/.well-known/jwks.json`, `email` 클레임은 동의 항목 설정에 따라
+  없을 수 있어 Google과 동일하게 nullable로 다룬다.
 - `NaverTokenVerifier` — `GET openapi.naver.com/v1/nid/me` 호출, 응답의 `response.id`/
   `response.email` 파싱.
 
@@ -207,8 +212,8 @@ ALTER TABLE users ADD CONSTRAINT chk_users_provider
 
 ## 설정값
 
-Google/Apple만 audience 검증용 설정이 필요하다(Kakao/Naver는 access token을 그대로 provider
-API에 전달만 하므로 서버 쪽 별도 키가 필요 없다).
+Google/Apple/Kakao는 OIDC ID Token의 audience 검증용 설정이 필요하다(Naver는 access token을
+그대로 provider API에 전달만 하므로 서버 쪽 별도 키가 필요 없다).
 
 ```yaml
 bali:
@@ -217,6 +222,8 @@ bali:
       client-id: ${GOOGLE_CLIENT_ID}
     apple:
       bundle-id: ${APPLE_BUNDLE_ID}
+    kakao:
+      client-id: ${KAKAO_CLIENT_ID}   # 카카오 REST API 키, ID Token의 aud와 대조
 ```
 
 기존 `application.yml`의 `spring.security.oauth2.client.registration.google` 블록은 제거한다.

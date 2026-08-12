@@ -5,12 +5,13 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.web.client.RestClient
 
-// Google/Apple 검증기가 쓰는 OidcIdTokenVerifier, Kakao/Naver 검증기가 쓰는 REST 클라이언트를
+// Google/Apple/Kakao 검증기가 쓰는 OidcIdTokenVerifier, Naver 검증기가 쓰는 REST 클라이언트를
 // 실제 설정값(issuer/audience/JWKS URL)으로 조립해 빈으로 등록
 @Configuration
 class SocialAuthConfig(
     @Value("\${bali.oauth.google.client-id}") private val googleClientId: String,
     @Value("\${bali.oauth.apple.bundle-id}") private val appleBundleId: String,
+    @Value("\${bali.oauth.kakao.client-id}") private val kakaoClientId: String,
 ) {
     // Kakao/Naver User-Info API 호출과 JWKS fetch가 공유하는 기본 RestClient
     @Bean
@@ -36,10 +37,15 @@ class SocialAuthConfig(
         )
     )
 
-    // 카카오 access token 검증기: 카카오 "내 정보 조회" API 호출을 검증 수단으로 사용
+    // 카카오 ID Token 검증기: 카카오 JWKS를 캐싱해서 서명/발급자/대상을 검증(OIDC 활성화 + scope=openid 필요)
     @Bean
-    fun kakaoTokenVerifier(socialAuthRestClient: RestClient): KakaoTokenVerifier =
-        KakaoTokenVerifier(RestClientKakaoUserInfoClient(socialAuthRestClient))
+    fun kakaoTokenVerifier(socialAuthRestClient: RestClient): KakaoTokenVerifier = KakaoTokenVerifier(
+        OidcIdTokenVerifier(
+            jwkSetSupplier = CachingJwkSetSupplier("https://kauth.kakao.com/.well-known/jwks.json", socialAuthRestClient),
+            expectedIssuer = "https://kauth.kakao.com",
+            expectedAudience = kakaoClientId,
+        )
+    )
 
     // 네이버 access token 검증기: 네이버 "내 정보 조회" API 호출을 검증 수단으로 사용
     @Bean
