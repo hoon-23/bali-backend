@@ -140,9 +140,12 @@ class WorkoutSessionRepositoryAdapterTest {
     @Test
     fun `findActiveDates는 completed 로그가 있는 날짜만, since 이후만 반환한다`() {
         val userId = UUID.randomUUID()
+        val otherUserId = UUID.randomUUID()
         adapter.save(WorkoutSession(id = null, userId = userId, date = LocalDate.of(2026, 8, 15), templateId = null, logs = listOf(completedLog())))
         adapter.save(WorkoutSession(id = null, userId = userId, date = LocalDate.of(2026, 8, 14), templateId = null, logs = listOf(log())))
         adapter.save(WorkoutSession(id = null, userId = userId, date = LocalDate.of(2026, 1, 1), templateId = null, logs = listOf(completedLog())))
+        // 다른 사용자의 same-range completed 세션이 결과에 섞여 들어오지 않는지 검증 (userId 필터 미검증 방지)
+        adapter.save(WorkoutSession(id = null, userId = otherUserId, date = LocalDate.of(2026, 8, 15), templateId = null, logs = listOf(completedLog())))
 
         val activeDates = adapter.findActiveDates(userId, since = LocalDate.of(2026, 8, 1))
 

@@ -35,4 +35,10 @@ class StreakCalculatorTest : StringSpec({
 
         StreakCalculator.calculate(activeDates, today) shouldBe 2
     }
+
+    "미래 날짜는 무시하고 실제 연속 구간만 카운트한다" {
+        val activeDates = setOf(today.plusDays(5), today, today.minusDays(1))
+
+        StreakCalculator.calculate(activeDates, today) shouldBe 2
+    }
 })

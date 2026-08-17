@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 import java.time.LocalDate
+import java.time.ZoneId
 import java.util.UUID
 
 // 사용자 관련 API 엔드포인트를 처리하는 REST 컨트롤러
@@ -27,6 +28,9 @@ class UserController(
     companion object {
         // 연속운동일 계산 시 조회할 최대 과거 범위 (주 3회 기준으로도 넉넉한 상한선, 쿼리 비용 제한용)
         private const val STREAK_LOOKBACK_DAYS = 400L
+
+        // 서버 실행 환경(JVM 기본 타임존)에 관계없이 연속운동일 계산을 한국 기준으로 고정
+        private val APP_ZONE = ZoneId.of("Asia/Seoul")
     }
 
     // 인증된 사용자의 정보를 조회하는 엔드포인트
@@ -61,7 +65,7 @@ class UserController(
 
     // 최근 STREAK_LOOKBACK_DAYS일 내 활동 날짜로부터 연속운동일을 계산
     private fun consecutiveDays(userId: UUID): Int {
-        val today = LocalDate.now()
+        val today = LocalDate.now(APP_ZONE)
         val activeDates = sessionRepository.findActiveDates(userId, today.minusDays(STREAK_LOOKBACK_DAYS))
         return StreakCalculator.calculate(activeDates, today)
     }

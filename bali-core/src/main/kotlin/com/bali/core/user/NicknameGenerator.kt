@@ -1,7 +1,6 @@
 package com.bali.core.user
 
 import java.util.UUID
-import kotlin.math.abs
 
 // 가입 시 사용자에게 부여할 기본 닉네임을 생성하는 순수 함수 모음
 object NicknameGenerator {
@@ -19,7 +18,7 @@ object NicknameGenerator {
     fun generate(userId: UUID): String {
         val adjective = ADJECTIVES.random()
         val noun = NOUNS.random()
-        val number = abs(userId.hashCode()) % 100
+        val number = userId.hashCode().mod(100)
         return "$adjective$noun${number.toString().padStart(2, '0')}"
     }
 }
