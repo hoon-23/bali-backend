@@ -1,5 +1,7 @@
 package com.bali.api.user
 
+import com.bali.core.session.WorkoutSessionRepository
+import com.bali.core.user.StreakCalculator
 import com.bali.core.user.UserRepository
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
@@ -7,17 +9,25 @@ import org.springframework.http.ResponseEntity
 import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.PatchMapping
+import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
+import java.time.LocalDate
 import java.util.UUID
 
 // 사용자 관련 API 엔드포인트를 처리하는 REST 컨트롤러
 @RestController
 @RequestMapping("/api/v1/users")
-@Tag(name = "User", description = "사용자 정보 조회/탈퇴 API")
+@Tag(name = "User", description = "사용자 정보 조회/수정/탈퇴 API")
 class UserController(
     private val userRepository: UserRepository,
+    private val sessionRepository: WorkoutSessionRepository,
 ) {
+    companion object {
+        // 연속운동일 계산 시 조회할 최대 과거 범위 (주 3회 기준으로도 넉넉한 상한선, 쿼리 비용 제한용)
+        private const val STREAK_LOOKBACK_DAYS = 400L
+    }
 
     // 인증된 사용자의 정보를 조회하는 엔드포인트
     @Operation(summary = "내 정보 조회", description = "인증된 사용자 본인의 정보를 조회한다")
@@ -25,7 +35,17 @@ class UserController(
     fun getMe(): ResponseEntity<UserResponse> {
         val user = userRepository.findById(currentUserId())
             ?: return ResponseEntity.notFound().build()
-        return ResponseEntity.ok(UserResponse.from(user))
+        return ResponseEntity.ok(UserResponse.from(user, consecutiveDays(user.id!!)))
+    }
+
+    // 인증된 사용자의 프로필(닉네임/주간 목표 운동 횟수)을 부분 수정하는 엔드포인트
+    @Operation(summary = "프로필 수정", description = "닉네임/주간 목표 운동 횟수를 부분 수정한다. null 필드는 기존 값 유지")
+    @PatchMapping("/me")
+    fun updateProfile(@RequestBody request: UserUpdateRequest): ResponseEntity<UserResponse> {
+        val user = userRepository.findById(currentUserId())
+            ?: return ResponseEntity.notFound().build()
+        val updated = userRepository.save(user.updateProfile(request.nickname, request.weeklyGoalSessions))
+        return ResponseEntity.ok(UserResponse.from(updated, consecutiveDays(updated.id!!)))
     }
 
     // 인증된 사용자의 계정을 탈퇴 처리하는 엔드포인트
@@ -37,6 +57,13 @@ class UserController(
         // 사용자 상태를 WITHDRAWN으로 변경하고 저장
         userRepository.save(user.withdraw())
         return ResponseEntity.noContent().build()
+    }
+
+    // 최근 STREAK_LOOKBACK_DAYS일 내 활동 날짜로부터 연속운동일을 계산
+    private fun consecutiveDays(userId: UUID): Int {
+        val today = LocalDate.now()
+        val activeDates = sessionRepository.findActiveDates(userId, today.minusDays(STREAK_LOOKBACK_DAYS))
+        return StreakCalculator.calculate(activeDates, today)
     }
 
     // SecurityContextHolder에서 현재 인증된 사용자의 UUID를 추출
