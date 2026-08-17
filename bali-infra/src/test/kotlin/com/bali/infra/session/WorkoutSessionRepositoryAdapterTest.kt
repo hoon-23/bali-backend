@@ -43,6 +43,10 @@ class WorkoutSessionRepositoryAdapterTest {
         targetSets = 3, targetReps = 10, targetWeight = BigDecimal("60.0"),
     )
 
+    private fun completedLog(exerciseId: UUID = UUID.randomUUID()) = log(exerciseId).copy(
+        completed = true, actualSets = 3, actualReps = 10, actualWeight = BigDecimal("60.0"),
+    )
+
     @Test
     fun `save then findById returns the session with its logs`() {
         val userId = UUID.randomUUID()
@@ -131,5 +135,17 @@ class WorkoutSessionRepositoryAdapterTest {
 
         assertEquals(null, adapter.findById(saved.id!!))
         assertEquals(null, adapter.findLogById(logId))
+    }
+
+    @Test
+    fun `findActiveDates는 completed 로그가 있는 날짜만, since 이후만 반환한다`() {
+        val userId = UUID.randomUUID()
+        adapter.save(WorkoutSession(id = null, userId = userId, date = LocalDate.of(2026, 8, 15), templateId = null, logs = listOf(completedLog())))
+        adapter.save(WorkoutSession(id = null, userId = userId, date = LocalDate.of(2026, 8, 14), templateId = null, logs = listOf(log())))
+        adapter.save(WorkoutSession(id = null, userId = userId, date = LocalDate.of(2026, 1, 1), templateId = null, logs = listOf(completedLog())))
+
+        val activeDates = adapter.findActiveDates(userId, since = LocalDate.of(2026, 8, 1))
+
+        assertEquals(setOf(LocalDate.of(2026, 8, 15)), activeDates)
     }
 }

@@ -91,6 +91,10 @@ class WorkoutSessionRepositoryAdapter(
         sessionJpaRepository.deleteSessionById(id)
     }
 
+    // 완료된 로그가 있는 날짜 집합을 조회
+    override fun findActiveDates(userId: UUID, since: LocalDate): Set<LocalDate> =
+        sessionJpaRepository.findActiveDates(userId, since).toSet()
+
     // JPA 엔티티(+logs)를 도메인 모델로 변환
     private fun WorkoutSessionJpaEntity.toDomain(logs: List<SessionLogJpaEntity>) = WorkoutSession(
         id = id, userId = userId, date = date, templateId = templateId, logs = logs.map { it.toDomain() },

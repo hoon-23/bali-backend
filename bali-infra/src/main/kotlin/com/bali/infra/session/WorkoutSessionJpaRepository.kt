@@ -21,4 +21,13 @@ interface WorkoutSessionJpaRepository : JpaRepository<WorkoutSessionJpaEntity, U
     @Modifying(clearAutomatically = true)
     @Query("DELETE FROM WorkoutSessionJpaEntity s WHERE s.id = :id")
     fun deleteSessionById(@Param("id") id: UUID)
+
+    // 완료된 로그가 있는 날짜 집합을 조회. WorkoutSessionJpaEntity와 SessionLogJpaEntity는
+    // 객체 그래프 관계가 없어(순수 FK 컬럼) sessionId=id 조건의 명시적 JOIN ON을 쓴다
+    @Query("""
+        SELECT DISTINCT s.date FROM WorkoutSessionJpaEntity s
+        JOIN SessionLogJpaEntity l ON l.sessionId = s.id
+        WHERE s.userId = :userId AND s.date >= :since AND l.completed = true
+    """)
+    fun findActiveDates(@Param("userId") userId: UUID, @Param("since") since: LocalDate): List<LocalDate>
 }
