@@ -95,4 +95,25 @@ class UserRepositoryAdapterTest {
             assertEquals(saved.id, found?.id)
         }
     }
+
+    @Test
+    fun `save then findByProviderAndProviderId returns nickname and weeklyGoalSessions`() {
+        val saved = adapter.save(
+            User(
+                id = null,
+                email = "profile-${System.nanoTime()}@example.com",
+                provider = AuthProvider.GOOGLE,
+                providerId = "sub-profile-${System.nanoTime()}",
+                status = UserStatus.ACTIVE,
+                createdAt = Instant.now(),
+                nickname = "행복한옥수수07",
+                weeklyGoalSessions = 5,
+            )
+        )
+
+        val found = adapter.findByProviderAndProviderId(AuthProvider.GOOGLE, saved.providerId)
+
+        assertEquals("행복한옥수수07", found?.nickname)
+        assertEquals(5, found?.weeklyGoalSessions)
+    }
 }

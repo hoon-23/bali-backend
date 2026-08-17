@@ -32,4 +32,8 @@ class UserJpaEntity(
     var status: UserStatus = UserStatus.ACTIVE,
 
     var createdAt: Instant = Instant.now(),
+
+    var nickname: String = "",
+
+    var weeklyGoalSessions: Int = 3,
 )
