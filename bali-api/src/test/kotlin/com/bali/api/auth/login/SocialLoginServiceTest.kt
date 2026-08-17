@@ -107,4 +107,19 @@ class SocialLoginServiceTest {
         val saved = userRepository.findByProviderAndProviderId(AuthProvider.APPLE, "apple-sub-2")
         assertTrue(saved?.email == "apple-sub-2@apple.bali.internal")
     }
+
+    @Test
+    fun `최초 로그인이면 nickname이 자동 생성된다`() {
+        val userRepository = InMemoryUserRepository()
+        val verifier = FakeVerifier(
+            AuthProvider.GOOGLE,
+            mapOf("token-nick" to SocialUserInfo(providerId = "google-sub-nick", email = "nick@example.com")),
+        )
+        val service = SocialLoginService(listOf(verifier), userRepository, jwtTokenProvider)
+
+        service.login(AuthProvider.GOOGLE, "token-nick", email = null)
+
+        val saved = userRepository.findByProviderAndProviderId(AuthProvider.GOOGLE, "google-sub-nick")
+        assertTrue(saved?.nickname?.isNotBlank() == true)
+    }
 }

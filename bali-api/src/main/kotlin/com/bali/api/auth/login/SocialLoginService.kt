@@ -4,11 +4,13 @@ import com.bali.api.auth.jwt.JwtTokenProvider
 import com.bali.api.auth.social.SocialTokenVerifier
 import com.bali.api.auth.social.SocialUserInfo
 import com.bali.core.user.AuthProvider
+import com.bali.core.user.NicknameGenerator
 import com.bali.core.user.User
 import com.bali.core.user.UserRepository
 import com.bali.core.user.UserStatus
 import org.springframework.stereotype.Service
 import java.time.Instant
+import java.util.UUID
 
 // provider에 맞는 검증기를 골라 신원을 확인하고, 유저 조회/생성 + JWT 발급까지 담당
 @Service
@@ -33,15 +35,17 @@ class SocialLoginService(
     // 최초 로그인 생성. email 우선순위: 토큰/API 응답값 > 요청 바디 값(Apple 최초 로그인) > placeholder
     private fun createUser(provider: AuthProvider, info: SocialUserInfo, requestEmail: String?): User {
         val email = info.email ?: requestEmail ?: placeholderEmail(provider, info.providerId)
+        val id = UUID.randomUUID()
 
         return userRepository.save(
             User(
-                id = null,
+                id = id,
                 email = email,
                 provider = provider,
                 providerId = info.providerId,
                 status = UserStatus.ACTIVE,
                 createdAt = Instant.now(),
+                nickname = NicknameGenerator.generate(id),
             )
         )
     }
