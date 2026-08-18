@@ -3,6 +3,7 @@ package com.bali.api.session
 import com.bali.api.template.TemplateItemRequest
 import com.bali.core.exercise.ExerciseRepository
 import com.bali.core.session.SessionLog
+import com.bali.core.session.SetTiming
 import com.bali.core.session.WorkoutSession
 import com.bali.core.session.WorkoutSessionRepository
 import com.bali.core.template.WorkoutTemplateRepository
@@ -153,11 +154,14 @@ class SessionController(
             actualSets = request.actualSets, actualReps = request.actualReps, actualWeight = request.actualWeight,
             actualDurationSeconds = request.actualDurationSeconds, actualPace = request.actualPace,
         )
+        val setTimings = request.setTimings?.map { SetTiming(it.setIndex, it.startedAt, it.endedAt) }
+        SessionLog.validateSetTimings(exerciseType = exercise.type, setTimings = setTimings)
 
         val updated = sessionRepository.recordActual(
             logId = logId, completed = request.completed,
             actualSets = request.actualSets, actualReps = request.actualReps, actualWeight = request.actualWeight,
             actualDurationSeconds = request.actualDurationSeconds, actualPace = request.actualPace,
+            setTimings = setTimings,
         )!!
         return ResponseEntity.ok(SessionLogResponse.from(updated))
     }

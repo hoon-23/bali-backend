@@ -1,8 +1,13 @@
 package com.bali.infra.session
 
 import com.bali.core.session.SessionLog
+import com.bali.core.session.SetTiming
 import com.bali.core.session.WorkoutSession
 import com.bali.core.session.WorkoutSessionRepository
+import com.fasterxml.jackson.databind.SerializationFeature
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import com.fasterxml.jackson.module.kotlin.readValue
 import org.springframework.stereotype.Repository
 import org.springframework.transaction.annotation.Transactional
 import java.math.BigDecimal
@@ -15,6 +20,12 @@ class WorkoutSessionRepositoryAdapter(
     private val sessionJpaRepository: WorkoutSessionJpaRepository,
     private val logJpaRepository: SessionLogJpaRepository,
 ) : WorkoutSessionRepository {
+
+    // jacksonObjectMapper()는 JavaTimeModule을 자동 등록하지 않아 Instant 직렬화를 위해 별도 등록.
+    // WRITE_DATES_AS_TIMESTAMPS를 꺼서 epoch 배열이 아닌 ISO-8601 문자열로 저장한다
+    private val objectMapper = jacksonObjectMapper()
+        .registerModule(JavaTimeModule())
+        .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
 
     // 고유 식별자로 세션과 그 logs를 함께 조회
     @Transactional
@@ -67,13 +78,14 @@ class WorkoutSessionRepositoryAdapter(
         logJpaRepository.deleteByIdIn(logIds)
     }
 
-    // 단일 log의 실제 수행값/완료 상태를 기록 (null인 필드는 변경하지 않음)
+    // 단일 log의 실제 수행값/완료 상태를 기록 (null인 필드는 변경하지 않음, setTimings는 non-null이면 전체 교체)
     @Transactional
     override fun recordActual(
         logId: UUID,
         completed: Boolean?,
         actualSets: Int?, actualReps: Int?, actualWeight: BigDecimal?,
         actualDurationSeconds: Int?, actualPace: String?,
+        setTimings: List<SetTiming>?,
     ): SessionLog? {
         val entity = logJpaRepository.findById(logId).orElse(null) ?: return null
         completed?.let { entity.completed = it }
@@ -82,6 +94,7 @@ class WorkoutSessionRepositoryAdapter(
         actualWeight?.let { entity.actualWeight = it }
         actualDurationSeconds?.let { entity.actualDurationSeconds = it }
         actualPace?.let { entity.actualPace = it }
+        setTimings?.let { entity.setTimings = objectMapper.writeValueAsString(it) }
         return logJpaRepository.save(entity).toDomain()
     }
 
@@ -107,6 +120,7 @@ class WorkoutSessionRepositoryAdapter(
         targetDurationSeconds = targetDurationSeconds, targetPace = targetPace,
         actualSets = actualSets, actualReps = actualReps, actualWeight = actualWeight,
         actualDurationSeconds = actualDurationSeconds, actualPace = actualPace,
+        setTimings = setTimings?.let { objectMapper.writeValueAsString(it) },
     )
 
     // SessionLog JPA 엔티티를 도메인 모델로 변환
@@ -116,5 +130,6 @@ class WorkoutSessionRepositoryAdapter(
         targetDurationSeconds = targetDurationSeconds, targetPace = targetPace,
         actualSets = actualSets, actualReps = actualReps, actualWeight = actualWeight,
         actualDurationSeconds = actualDurationSeconds, actualPace = actualPace,
+        setTimings = setTimings?.let { objectMapper.readValue<List<SetTiming>>(it) },
     )
 }

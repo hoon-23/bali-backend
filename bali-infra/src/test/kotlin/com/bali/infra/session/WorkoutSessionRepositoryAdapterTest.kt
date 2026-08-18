@@ -2,6 +2,7 @@ package com.bali.infra.session
 
 import com.bali.core.exercise.ExerciseType
 import com.bali.core.session.SessionLog
+import com.bali.core.session.SetTiming
 import com.bali.core.session.WorkoutSession
 import com.bali.infra.InfraTestConfig
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -15,6 +16,7 @@ import org.springframework.test.context.ContextConfiguration
 import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
 import java.math.BigDecimal
+import java.time.Instant
 import java.time.LocalDate
 import java.util.UUID
 
@@ -110,6 +112,7 @@ class WorkoutSessionRepositoryAdapterTest {
             logId = logId, completed = false,
             actualSets = null, actualReps = null, actualWeight = null,
             actualDurationSeconds = 120, actualPace = null,
+            setTimings = null,
         )
 
         // second call passes actualDurationSeconds = null; if the implementation clobbers
@@ -118,11 +121,33 @@ class WorkoutSessionRepositoryAdapterTest {
             logId = logId, completed = true,
             actualSets = 3, actualReps = 10, actualWeight = BigDecimal("60.0"),
             actualDurationSeconds = null, actualPace = null,
+            setTimings = null,
         )
 
         assertEquals(true, updated?.completed)
         assertEquals(3, updated?.actualSets)
         assertEquals(120, updated?.actualDurationSeconds)
+    }
+
+    @Test
+    fun `recordActual로 setTimings를 저장하면 JSON round-trip으로 Instant까지 온전히 조회된다`() {
+        val userId = UUID.randomUUID()
+        val saved = adapter.save(WorkoutSession(id = null, userId = userId, date = LocalDate.of(2026, 8, 6), templateId = null, logs = listOf(log())))
+        val logId = saved.logs[0].id!!
+        val timings = listOf(
+            SetTiming(0, Instant.parse("2026-08-18T10:00:00Z"), Instant.parse("2026-08-18T10:00:45Z")),
+            SetTiming(1, Instant.parse("2026-08-18T10:02:10Z"), Instant.parse("2026-08-18T10:02:58Z")),
+        )
+
+        adapter.recordActual(
+            logId = logId, completed = true,
+            actualSets = null, actualReps = null, actualWeight = null,
+            actualDurationSeconds = null, actualPace = null,
+            setTimings = timings,
+        )
+
+        val found = adapter.findById(saved.id!!)
+        assertEquals(timings, found?.logs?.get(0)?.setTimings)
     }
 
     @Test

@@ -2,7 +2,11 @@ package com.bali.core.session
 
 import com.bali.core.exercise.ExerciseType
 import java.math.BigDecimal
+import java.time.Instant
 import java.util.UUID
+
+// 세트 하나의 시작/종료 시각. 휴식시간/총 운동시간 계산은 클라이언트가 이 원본값으로 직접 수행한다
+data class SetTiming(val setIndex: Int, val startedAt: Instant, val endedAt: Instant)
 
 // 세션에 속한 운동 수행 기록 (계획된 target값 + 실제 수행한 actual값)
 data class SessionLog(
@@ -20,6 +24,7 @@ data class SessionLog(
     val actualWeight: BigDecimal?,
     val actualDurationSeconds: Int?,
     val actualPace: String?,
+    val setTimings: List<SetTiming>? = null,
 ) {
     companion object {
         // 템플릿 스냅샷 복사 또는 즉흥 추가(target 전부 null 허용)로 SessionLog 생성
@@ -69,6 +74,16 @@ data class SessionLog(
                 ExerciseType.CARDIO -> require(actualSets == null && actualReps == null && actualWeight == null) {
                     "CARDIO exercise must not have actualSets/actualReps/actualWeight"
                 }
+            }
+        }
+
+        // setTimings가 exerciseType/타임스탬프 제약을 만족하는지 검증 (CARDIO는 세트 개념이 없어 setTimings 불허)
+        fun validateSetTimings(exerciseType: ExerciseType, setTimings: List<SetTiming>?) {
+            if (exerciseType == ExerciseType.CARDIO) {
+                require(setTimings == null) { "CARDIO exercise must not have setTimings" }
+            }
+            setTimings?.forEach { st ->
+                require(st.endedAt > st.startedAt) { "setTiming.endedAt must be after startedAt (setIndex=${st.setIndex})" }
             }
         }
     }

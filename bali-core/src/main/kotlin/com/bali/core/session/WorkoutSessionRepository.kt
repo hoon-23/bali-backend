@@ -27,12 +27,13 @@ interface WorkoutSessionRepository {
     // 지정한 logId들을 세션에서 제거
     fun removeLogs(sessionId: UUID, logIds: List<UUID>)
 
-    // 단일 log의 실제 수행값/완료 상태를 기록 (null인 필드는 변경하지 않음)
+    // 단일 log의 실제 수행값/완료 상태를 기록 (null인 필드는 변경하지 않음, setTimings는 non-null이면 전체 교체)
     fun recordActual(
         logId: UUID,
         completed: Boolean?,
         actualSets: Int?, actualReps: Int?, actualWeight: BigDecimal?,
         actualDurationSeconds: Int?, actualPace: String?,
+        setTimings: List<SetTiming>?,
     ): SessionLog?
 
     // 세션을 삭제 (session_logs는 DB의 ON DELETE CASCADE로 함께 제거됨)

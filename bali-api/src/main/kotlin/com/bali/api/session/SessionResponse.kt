@@ -1,8 +1,10 @@
 package com.bali.api.session
 
 import com.bali.core.session.SessionLog
+import com.bali.core.session.SetTiming
 import com.bali.core.session.WorkoutSession
 import java.math.BigDecimal
+import java.time.Instant
 import java.time.LocalDate
 import java.util.UUID
 
@@ -34,6 +36,7 @@ data class SessionLogResponse(
     val targetDurationSeconds: Int?, val targetPace: String?,
     val actualSets: Int?, val actualReps: Int?, val actualWeight: BigDecimal?,
     val actualDurationSeconds: Int?, val actualPace: String?,
+    val setTimings: List<SetTimingResponse>?,
 ) {
     companion object {
         // SessionLog 도메인 모델을 SessionLogResponse로 변환
@@ -43,6 +46,14 @@ data class SessionLogResponse(
             targetDurationSeconds = log.targetDurationSeconds, targetPace = log.targetPace,
             actualSets = log.actualSets, actualReps = log.actualReps, actualWeight = log.actualWeight,
             actualDurationSeconds = log.actualDurationSeconds, actualPace = log.actualPace,
+            setTimings = log.setTimings?.map { SetTimingResponse.from(it) },
         )
+    }
+}
+
+// 세트 하나의 시작/종료 시각 응답 DTO. 원본 그대로 반환하며 휴식시간/총시간 계산은 하지 않는다(클라이언트 담당)
+data class SetTimingResponse(val setIndex: Int, val startedAt: Instant, val endedAt: Instant) {
+    companion object {
+        fun from(setTiming: SetTiming) = SetTimingResponse(setTiming.setIndex, setTiming.startedAt, setTiming.endedAt)
     }
 }

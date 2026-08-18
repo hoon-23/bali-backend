@@ -1,8 +1,11 @@
 package com.bali.infra.session
 
+import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.Id
 import jakarta.persistence.Table
+import org.hibernate.annotations.JdbcTypeCode
+import org.hibernate.type.SqlTypes
 import java.math.BigDecimal
 import java.util.UUID
 
@@ -26,4 +29,8 @@ class SessionLogJpaEntity(
     var actualWeight: BigDecimal? = null,
     var actualDurationSeconds: Int? = null,
     var actualPace: String? = null,
+    // 세트별 시작/종료 시각 리스트. JSON 직렬화된 문자열로 저장 (WeeklyAnalysisJpaEntity.summary와 동일 패턴)
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(columnDefinition = "jsonb")
+    var setTimings: String? = null,
 )

@@ -59,6 +59,24 @@ class SessionControllerTest {
             Exercise(id = null, name = "세션테스트벤치프레스", variant = null, muscleGroup = MuscleGroup.CHEST, type = ExerciseType.STRENGTH, scope = ExerciseScope.GLOBAL, ownerId = null)
         ).id!!
 
+    // 테스트용 CARDIO 종목을 저장하고 id 반환
+    private fun savedCardioExerciseId(): UUID =
+        exerciseRepository.save(
+            Exercise(id = null, name = "세션테스트러닝", variant = null, muscleGroup = MuscleGroup.CARDIO, type = ExerciseType.CARDIO, scope = ExerciseScope.GLOBAL, ownerId = null)
+        ).id!!
+
+    // STRENGTH 종목의 빈 세션을 만들고 (sessionId, logId)를 반환
+    private fun createSessionWithLog(token: String, exerciseId: UUID): Pair<String, String> {
+        val created = mockMvc.perform(post("/api/v1/sessions").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON).content("""{"date":"2026-08-06","templateId":null}"""))
+            .andExpect(status().isCreated).andReturn().response.contentAsString
+        val sessionId = objectMapper.readTree(created).get("id").asText()
+        val addBody = """{"addItems":[{"exerciseId":"$exerciseId","sortOrder":0,"targetSets":null,"targetReps":null,"targetWeight":null,"targetDurationSeconds":null,"targetPace":null}],"updateItems":[],"removeLogIds":[]}"""
+        val afterAdd = mockMvc.perform(patch("/api/v1/sessions/$sessionId").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON).content(addBody))
+            .andExpect(status().isOk).andReturn().response.contentAsString
+        val logId = objectMapper.readTree(afterAdd).get("logs").get(0).get("id").asText()
+        return sessionId to logId
+    }
+
     @Test
     fun `POST sessions templateId로 호출하면 템플릿 items를 target 스냅샷으로 복사한다`() {
         val (token, userId) = issueTokenForNewUser()
@@ -261,6 +279,77 @@ class SessionControllerTest {
         val patchLogBody = """{"completed":true,"actualSets":null,"actualReps":null,"actualWeight":null,"actualDurationSeconds":600,"actualPace":null}"""
         mockMvc.perform(patch("/api/v1/sessions/$sessionId/logs/$logId").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON).content(patchLogBody))
             .andExpect(status().isBadRequest)
+    }
+
+    @Test
+    fun `PATCH sessions id logs logId 호출하면 setTimings를 저장하고 GET 응답에도 포함된다`() {
+        val (token, _) = issueTokenForNewUser()
+        val exerciseId = savedStrengthExerciseId()
+        val (sessionId, logId) = createSessionWithLog(token, exerciseId)
+
+        val patchLogBody = """
+            {"completed":true,"actualSets":3,"actualReps":10,"actualWeight":60.0,"actualDurationSeconds":null,"actualPace":null,
+             "setTimings":[
+               {"setIndex":0,"startedAt":"2026-08-18T10:00:00Z","endedAt":"2026-08-18T10:00:45Z"},
+               {"setIndex":1,"startedAt":"2026-08-18T10:02:10Z","endedAt":"2026-08-18T10:02:58Z"}
+             ]}
+        """.trimIndent()
+        mockMvc.perform(patch("/api/v1/sessions/$sessionId/logs/$logId").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON).content(patchLogBody))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.setTimings.length()").value(2))
+            .andExpect(jsonPath("$.setTimings[0].setIndex").value(0))
+            .andExpect(jsonPath("$.setTimings[0].startedAt").value("2026-08-18T10:00:00Z"))
+
+        mockMvc.perform(get("/api/v1/sessions/$sessionId").header("Authorization", "Bearer $token"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.logs[0].setTimings.length()").value(2))
+    }
+
+    @Test
+    fun `PATCH sessions id logs logId 호출시 CARDIO 종목에 setTimings를 넣으면 400 반환`() {
+        val (token, _) = issueTokenForNewUser()
+        val exerciseId = savedCardioExerciseId()
+        val (sessionId, logId) = createSessionWithLog(token, exerciseId)
+
+        val patchLogBody = """
+            {"completed":true,"actualSets":null,"actualReps":null,"actualWeight":null,"actualDurationSeconds":600,"actualPace":null,
+             "setTimings":[{"setIndex":0,"startedAt":"2026-08-18T10:00:00Z","endedAt":"2026-08-18T10:00:45Z"}]}
+        """.trimIndent()
+        mockMvc.perform(patch("/api/v1/sessions/$sessionId/logs/$logId").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON).content(patchLogBody))
+            .andExpect(status().isBadRequest)
+    }
+
+    @Test
+    fun `PATCH sessions id logs logId 호출시 setTiming의 endedAt이 startedAt보다 빠르면 400 반환`() {
+        val (token, _) = issueTokenForNewUser()
+        val exerciseId = savedStrengthExerciseId()
+        val (sessionId, logId) = createSessionWithLog(token, exerciseId)
+
+        val patchLogBody = """
+            {"completed":true,"actualSets":3,"actualReps":10,"actualWeight":60.0,"actualDurationSeconds":null,"actualPace":null,
+             "setTimings":[{"setIndex":0,"startedAt":"2026-08-18T10:00:45Z","endedAt":"2026-08-18T10:00:00Z"}]}
+        """.trimIndent()
+        mockMvc.perform(patch("/api/v1/sessions/$sessionId/logs/$logId").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON).content(patchLogBody))
+            .andExpect(status().isBadRequest)
+    }
+
+    @Test
+    fun `PATCH sessions id logs logId 호출시 setTimings를 생략하면 기존 값이 유지된다`() {
+        val (token, _) = issueTokenForNewUser()
+        val exerciseId = savedStrengthExerciseId()
+        val (sessionId, logId) = createSessionWithLog(token, exerciseId)
+
+        val firstPatchBody = """
+            {"completed":false,"actualSets":null,"actualReps":null,"actualWeight":null,"actualDurationSeconds":null,"actualPace":null,
+             "setTimings":[{"setIndex":0,"startedAt":"2026-08-18T10:00:00Z","endedAt":"2026-08-18T10:00:45Z"}]}
+        """.trimIndent()
+        mockMvc.perform(patch("/api/v1/sessions/$sessionId/logs/$logId").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON).content(firstPatchBody))
+            .andExpect(status().isOk)
+
+        val secondPatchBody = """{"completed":true,"actualSets":3,"actualReps":10,"actualWeight":60.0,"actualDurationSeconds":null,"actualPace":null,"setTimings":null}"""
+        mockMvc.perform(patch("/api/v1/sessions/$sessionId/logs/$logId").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON).content(secondPatchBody))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.setTimings.length()").value(1))
     }
 
     // Task 10의 updateItems(exerciseId 교체)와 이 태스크의 PATCH .../logs/{logId}(actual 기록)가

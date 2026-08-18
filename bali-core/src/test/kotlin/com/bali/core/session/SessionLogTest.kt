@@ -5,6 +5,7 @@ import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
 import java.math.BigDecimal
+import java.time.Instant
 import java.util.UUID
 
 class SessionLogTest : StringSpec({
@@ -67,5 +68,37 @@ class SessionLogTest : StringSpec({
             actualSets = null, actualReps = null, actualWeight = null,
             actualDurationSeconds = null, actualPace = null,
         )
+    }
+
+    "validateSetTimings는 CARDIO 종목에 setTimings가 있으면 예외를 던진다" {
+        shouldThrow<IllegalArgumentException> {
+            SessionLog.validateSetTimings(
+                exerciseType = ExerciseType.CARDIO,
+                setTimings = listOf(SetTiming(0, Instant.parse("2026-08-18T10:00:00Z"), Instant.parse("2026-08-18T10:00:45Z"))),
+            )
+        }
+    }
+
+    "validateSetTimings는 endedAt이 startedAt보다 빠르거나 같으면 예외를 던진다" {
+        shouldThrow<IllegalArgumentException> {
+            SessionLog.validateSetTimings(
+                exerciseType = ExerciseType.STRENGTH,
+                setTimings = listOf(SetTiming(0, Instant.parse("2026-08-18T10:00:45Z"), Instant.parse("2026-08-18T10:00:00Z"))),
+            )
+        }
+    }
+
+    "validateSetTimings는 STRENGTH 종목의 정상 세트 리스트를 통과시킨다" {
+        SessionLog.validateSetTimings(
+            exerciseType = ExerciseType.STRENGTH,
+            setTimings = listOf(
+                SetTiming(0, Instant.parse("2026-08-18T10:00:00Z"), Instant.parse("2026-08-18T10:00:45Z")),
+                SetTiming(1, Instant.parse("2026-08-18T10:02:10Z"), Instant.parse("2026-08-18T10:02:58Z")),
+            ),
+        )
+    }
+
+    "validateSetTimings는 setTimings가 null이면 통과한다" {
+        SessionLog.validateSetTimings(exerciseType = ExerciseType.CARDIO, setTimings = null)
     }
 })
