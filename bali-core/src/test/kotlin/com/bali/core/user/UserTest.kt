@@ -32,6 +32,26 @@ class UserTest : StringSpec({
         withdrawn.status shouldBe UserStatus.WITHDRAWN
     }
 
+    "withdraw()는 email/providerId/nickname을 파기(익명화)한다" {
+        val user = newUser().copy(nickname = "원래닉네임")
+
+        val withdrawn = user.withdraw()
+
+        withdrawn.email shouldBe "withdrawn-${user.id}@bali.internal"
+        withdrawn.providerId shouldBe "withdrawn-${user.id}"
+        withdrawn.nickname shouldBe "탈퇴한사용자"
+    }
+
+    "withdraw()는 id/createdAt/weeklyGoalSessions는 그대로 유지한다" {
+        val user = newUser().copy(weeklyGoalSessions = 5)
+
+        val withdrawn = user.withdraw()
+
+        withdrawn.id shouldBe user.id
+        withdrawn.createdAt shouldBe user.createdAt
+        withdrawn.weeklyGoalSessions shouldBe 5
+    }
+
     "updateProfile은 전달된 필드만 바꾸고 나머지는 유지한다" {
         val user = newUser().copy(nickname = "원래닉네임", weeklyGoalSessions = 3)
 

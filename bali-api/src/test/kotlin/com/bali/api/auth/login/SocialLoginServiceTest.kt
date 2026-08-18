@@ -78,6 +78,32 @@ class SocialLoginServiceTest {
         assertEquals(1, userRepository.findAllByStatus(UserStatus.ACTIVE).size)
     }
 
+    // withdraw()가 providerId를 파기하므로, 탈퇴 후 같은 provider 계정으로 재로그인하면
+    // 기존 계정과 매칭되지 않고 신규 계정이 생성된다 (탈퇴가 실제로 되돌릴 수 없다는 의도된 부수효과)
+    @Test
+    fun `탈퇴한 유저가 재로그인하면 신규 계정이 생성된다`() {
+        val userRepository = InMemoryUserRepository()
+        val verifier = FakeVerifier(
+            AuthProvider.GOOGLE,
+            mapOf("token-1" to SocialUserInfo(providerId = "google-sub-withdraw", email = "c@example.com")),
+        )
+        val service = SocialLoginService(listOf(verifier), userRepository, jwtTokenProvider)
+        service.login(AuthProvider.GOOGLE, "token-1", email = null)
+        val original = userRepository.findByProviderAndProviderId(AuthProvider.GOOGLE, "google-sub-withdraw")!!
+        userRepository.save(original.withdraw())
+
+        service.login(AuthProvider.GOOGLE, "token-1", email = null)
+
+        // 재로그인 시 providerId가 다시 "google-sub-withdraw"로 들어오지만, 파기된 기존 계정의
+        // providerId는 이미 "withdrawn-{id}"로 바뀌어 있어 매칭되지 않고 새 계정이 생성된다
+        val recreated = userRepository.findByProviderAndProviderId(AuthProvider.GOOGLE, "google-sub-withdraw")
+        assertNotNull(recreated)
+        assertTrue(recreated?.id != original.id)
+        assertEquals(UserStatus.ACTIVE, recreated?.status)
+        val oldAccount = userRepository.findById(original.id!!)
+        assertEquals(UserStatus.WITHDRAWN, oldAccount?.status)
+    }
+
     @Test
     fun `Apple 최초 로그인은 요청 바디 email을 사용한다`() {
         val userRepository = InMemoryUserRepository()

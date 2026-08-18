@@ -83,6 +83,28 @@ class UserControllerTest {
         )
     }
 
+    // DELETE /api/v1/users/me 호출시 email/providerId/nickname이 파기(익명화)되는지 확인 (PIPA 파기 의무)
+    @Test
+    fun `DELETE me 호출하면 email providerId nickname이 파기된다`() {
+        val entity = userJpaRepository.save(
+            com.bali.infra.user.UserJpaEntity(
+                email = "withdraw2@example.com",
+                provider = com.bali.core.user.AuthProvider.GOOGLE,
+                providerId = "sub-withdraw2",
+                nickname = "탈퇴전닉네임",
+            )
+        )
+        val token = jwtTokenProvider.generateToken(entity.id, entity.email)
+
+        mockMvc.perform(delete("/api/v1/users/me").header("Authorization", "Bearer $token"))
+            .andExpect(status().isNoContent)
+
+        val reloaded = userJpaRepository.findById(entity.id).orElseThrow()
+        org.junit.jupiter.api.Assertions.assertEquals("withdrawn-${entity.id}@bali.internal", reloaded.email)
+        org.junit.jupiter.api.Assertions.assertEquals("withdrawn-${entity.id}", reloaded.providerId)
+        org.junit.jupiter.api.Assertions.assertEquals("탈퇴한사용자", reloaded.nickname)
+    }
+
     // GET /api/v1/users/me 응답에 nickname/weeklyGoalSessions/consecutiveDays가 포함되는지 확인
     @Test
     fun `GET me 응답에 nickname weeklyGoalSessions consecutiveDays가 포함된다`() {
