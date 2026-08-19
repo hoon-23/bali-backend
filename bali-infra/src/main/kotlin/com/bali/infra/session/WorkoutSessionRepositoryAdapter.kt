@@ -1,6 +1,7 @@
 package com.bali.infra.session
 
 import com.bali.core.session.SessionLog
+import com.bali.core.session.SessionStatus
 import com.bali.core.session.SetTiming
 import com.bali.core.session.WorkoutSession
 import com.bali.core.session.WorkoutSessionRepository
@@ -50,7 +51,10 @@ class WorkoutSessionRepositoryAdapter(
     override fun save(session: WorkoutSession): WorkoutSession {
         val sessionId = session.id ?: UUID.randomUUID()
         sessionJpaRepository.save(
-            WorkoutSessionJpaEntity(id = sessionId, userId = session.userId, date = session.date, templateId = session.templateId)
+            WorkoutSessionJpaEntity(
+                id = sessionId, userId = session.userId, date = session.date,
+                templateId = session.templateId, status = session.status,
+            )
         )
         val savedLogs = session.logs.map { logJpaRepository.save(it.toEntity(sessionId)) }
         return session.copy(id = sessionId, logs = savedLogs.map { it.toDomain() })
@@ -108,9 +112,18 @@ class WorkoutSessionRepositoryAdapter(
     override fun findActiveDates(userId: UUID, since: LocalDate): Set<LocalDate> =
         sessionJpaRepository.findActiveDates(userId, since).toSet()
 
+    // 세션의 status만 갱신
+    @Transactional
+    override fun updateStatus(sessionId: UUID, status: SessionStatus): WorkoutSession? {
+        val entity = sessionJpaRepository.findById(sessionId).orElse(null) ?: return null
+        entity.status = status
+        val saved = sessionJpaRepository.save(entity)
+        return saved.toDomain(logJpaRepository.findBySessionIdOrderBySortOrderAsc(sessionId))
+    }
+
     // JPA 엔티티(+logs)를 도메인 모델로 변환
     private fun WorkoutSessionJpaEntity.toDomain(logs: List<SessionLogJpaEntity>) = WorkoutSession(
-        id = id, userId = userId, date = date, templateId = templateId, logs = logs.map { it.toDomain() },
+        id = id, userId = userId, date = date, templateId = templateId, status = status, logs = logs.map { it.toDomain() },
     )
 
     // SessionLog 도메인 모델을 JPA 엔티티로 변환

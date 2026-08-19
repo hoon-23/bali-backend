@@ -3,6 +3,7 @@ package com.bali.api.session
 import com.bali.api.template.TemplateItemRequest
 import com.bali.core.exercise.ExerciseRepository
 import com.bali.core.session.SessionLog
+import com.bali.core.session.SessionStatus
 import com.bali.core.session.SetTiming
 import com.bali.core.session.WorkoutSession
 import com.bali.core.session.WorkoutSessionRepository
@@ -37,8 +38,8 @@ class SessionController(
     private val exerciseRepository: ExerciseRepository,
 ) {
 
-    // 세션 생성. templateId가 있으면 그 템플릿의 items를 target 스냅샷으로 복사, 없으면 빈 세션
-    @Operation(summary = "세션 생성", description = "templateId가 있으면 해당 템플릿의 items를 target 스냅샷으로 복사하고, 없으면 빈 세션으로 생성한다")
+    // 세션 생성. templateId가 있으면 그 템플릿의 items를 target 스냅샷으로 복사, 없으면 빈 세션. status는 date와 무관하게 항상 SCHEDULED로 시작 (이후 전이는 PATCH로 클라이언트가 명시적으로 트리거)
+    @Operation(summary = "세션 생성", description = "templateId가 있으면 해당 템플릿의 items를 target 스냅샷으로 복사하고, 없으면 빈 세션으로 생성한다. status는 항상 SCHEDULED로 시작한다")
     @PostMapping
     fun create(@RequestBody request: SessionCreateRequest): ResponseEntity<SessionResponse> {
         val logs = if (request.templateId != null) {
@@ -59,7 +60,10 @@ class SessionController(
             emptyList()
         }
         val saved = sessionRepository.save(
-            WorkoutSession(id = null, userId = currentUserId(), date = request.date, templateId = request.templateId, logs = logs)
+            WorkoutSession(
+                id = null, userId = currentUserId(), date = request.date, templateId = request.templateId,
+                status = SessionStatus.SCHEDULED, logs = logs,
+            )
         )
         return ResponseEntity.status(HttpStatus.CREATED).body(SessionResponse.from(saved))
     }
@@ -81,12 +85,12 @@ class SessionController(
         return ResponseEntity.ok(SessionResponse.from(session))
     }
 
-    // 세션 아이템 구조 변경: addItems(즉흥 추가, target null 허용)/updateItems(logId 기준 전체 교체)/removeLogIds(삭제)
-    // 언급되지 않은 log의 actual*/completed는 그대로 보존된다
-    // @Transactional: 세 리스트 처리 중 하나라도 실패(require 예외)하면 전체가 롤백되어야 함 (부분 커밋 방지)
+    // 세션 아이템 구조 변경: addItems(즉흥 추가, target null 허용)/updateItems(logId 기준 전체 교체)/removeLogIds(삭제) + status 전이
+    // 언급되지 않은 log의 actual*/completed는 그대로 보존된다. status는 null이면 변경하지 않음 (서버가 자동 추론하지 않고 항상 클라이언트가 명시)
+    // @Transactional: 리스트/상태 처리 중 하나라도 실패(require 예외)하면 전체가 롤백되어야 함 (부분 커밋 방지)
     @Operation(
-        summary = "세션 아이템 구조 변경",
-        description = "addItems(즉흥 추가)/updateItems(logId 기준 전체 교체)/removeLogIds(삭제)를 처리한다. 언급되지 않은 log의 actual*/completed는 보존된다",
+        summary = "세션 아이템 구조 변경 + status 전이",
+        description = "addItems(즉흥 추가)/updateItems(logId 기준 전체 교체)/removeLogIds(삭제)/status(전이)를 처리한다. 언급되지 않은 log의 actual*/completed는 보존된다",
     )
     @Transactional
     @PatchMapping("/{id}")
@@ -131,6 +135,8 @@ class SessionController(
             }
             sessionRepository.removeLogs(id, request.removeLogIds)
         }
+
+        request.status?.let { sessionRepository.updateStatus(id, it) }
 
         val updated = sessionRepository.findById(id)!!
         return ResponseEntity.ok(SessionResponse.from(updated))

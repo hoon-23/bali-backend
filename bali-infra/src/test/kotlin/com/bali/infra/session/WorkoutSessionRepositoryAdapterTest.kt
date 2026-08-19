@@ -2,6 +2,7 @@ package com.bali.infra.session
 
 import com.bali.core.exercise.ExerciseType
 import com.bali.core.session.SessionLog
+import com.bali.core.session.SessionStatus
 import com.bali.core.session.SetTiming
 import com.bali.core.session.WorkoutSession
 import com.bali.infra.InfraTestConfig
@@ -52,7 +53,7 @@ class WorkoutSessionRepositoryAdapterTest {
     @Test
     fun `save then findById returns the session with its logs`() {
         val userId = UUID.randomUUID()
-        val saved = adapter.save(WorkoutSession(id = null, userId = userId, date = LocalDate.of(2026, 8, 6), templateId = null, logs = listOf(log())))
+        val saved = adapter.save(WorkoutSession(id = null, userId = userId, date = LocalDate.of(2026, 8, 6), templateId = null, status = SessionStatus.SCHEDULED, logs = listOf(log())))
 
         val found = adapter.findById(saved.id!!)
 
@@ -65,9 +66,9 @@ class WorkoutSessionRepositoryAdapterTest {
         val firstExerciseId = UUID.randomUUID()
         val secondExerciseId = UUID.randomUUID()
         val outOfRangeExerciseId = UUID.randomUUID()
-        val first = adapter.save(WorkoutSession(id = null, userId = userId, date = LocalDate.of(2026, 8, 6), templateId = null, logs = listOf(log(firstExerciseId))))
-        val second = adapter.save(WorkoutSession(id = null, userId = userId, date = LocalDate.of(2026, 8, 10), templateId = null, logs = listOf(log(secondExerciseId))))
-        adapter.save(WorkoutSession(id = null, userId = userId, date = LocalDate.of(2026, 1, 1), templateId = null, logs = listOf(log(outOfRangeExerciseId))))
+        val first = adapter.save(WorkoutSession(id = null, userId = userId, date = LocalDate.of(2026, 8, 6), templateId = null, status = SessionStatus.SCHEDULED, logs = listOf(log(firstExerciseId))))
+        val second = adapter.save(WorkoutSession(id = null, userId = userId, date = LocalDate.of(2026, 8, 10), templateId = null, status = SessionStatus.SCHEDULED, logs = listOf(log(secondExerciseId))))
+        adapter.save(WorkoutSession(id = null, userId = userId, date = LocalDate.of(2026, 1, 1), templateId = null, status = SessionStatus.SCHEDULED, logs = listOf(log(outOfRangeExerciseId))))
 
         val inRange = adapter.findAllByUserId(userId, LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 31))
 
@@ -81,7 +82,7 @@ class WorkoutSessionRepositoryAdapterTest {
     @Test
     fun `addLogs appends a new log without touching existing ones`() {
         val userId = UUID.randomUUID()
-        val saved = adapter.save(WorkoutSession(id = null, userId = userId, date = LocalDate.of(2026, 8, 6), templateId = null, logs = listOf(log())))
+        val saved = adapter.save(WorkoutSession(id = null, userId = userId, date = LocalDate.of(2026, 8, 6), templateId = null, status = SessionStatus.SCHEDULED, logs = listOf(log())))
 
         adapter.addLogs(saved.id!!, listOf(log()))
 
@@ -91,7 +92,7 @@ class WorkoutSessionRepositoryAdapterTest {
     @Test
     fun `removeLogs deletes only the specified logs`() {
         val userId = UUID.randomUUID()
-        val saved = adapter.save(WorkoutSession(id = null, userId = userId, date = LocalDate.of(2026, 8, 6), templateId = null, logs = listOf(log(), log())))
+        val saved = adapter.save(WorkoutSession(id = null, userId = userId, date = LocalDate.of(2026, 8, 6), templateId = null, status = SessionStatus.SCHEDULED, logs = listOf(log(), log())))
         val logIdToRemove = saved.logs[0].id!!
 
         adapter.removeLogs(saved.id!!, listOf(logIdToRemove))
@@ -104,7 +105,7 @@ class WorkoutSessionRepositoryAdapterTest {
     @Test
     fun `recordActual sets actual values and completed, leaving unspecified fields unchanged`() {
         val userId = UUID.randomUUID()
-        val saved = adapter.save(WorkoutSession(id = null, userId = userId, date = LocalDate.of(2026, 8, 6), templateId = null, logs = listOf(log())))
+        val saved = adapter.save(WorkoutSession(id = null, userId = userId, date = LocalDate.of(2026, 8, 6), templateId = null, status = SessionStatus.SCHEDULED, logs = listOf(log())))
         val logId = saved.logs[0].id!!
 
         // first call establishes a non-null actualDurationSeconds baseline
@@ -132,7 +133,7 @@ class WorkoutSessionRepositoryAdapterTest {
     @Test
     fun `recordActual로 setTimings를 저장하면 JSON round-trip으로 Instant까지 온전히 조회된다`() {
         val userId = UUID.randomUUID()
-        val saved = adapter.save(WorkoutSession(id = null, userId = userId, date = LocalDate.of(2026, 8, 6), templateId = null, logs = listOf(log())))
+        val saved = adapter.save(WorkoutSession(id = null, userId = userId, date = LocalDate.of(2026, 8, 6), templateId = null, status = SessionStatus.SCHEDULED, logs = listOf(log())))
         val logId = saved.logs[0].id!!
         val timings = listOf(
             SetTiming(0, Instant.parse("2026-08-18T10:00:00Z"), Instant.parse("2026-08-18T10:00:45Z")),
@@ -151,9 +152,21 @@ class WorkoutSessionRepositoryAdapterTest {
     }
 
     @Test
+    fun `updateStatus로 status만 갱신되고 존재하지 않는 세션이면 null을 반환한다`() {
+        val userId = UUID.randomUUID()
+        val saved = adapter.save(WorkoutSession(id = null, userId = userId, date = LocalDate.of(2026, 8, 6), templateId = null, status = SessionStatus.SCHEDULED, logs = listOf(log())))
+
+        val updated = adapter.updateStatus(saved.id!!, SessionStatus.IN_PROGRESS)
+
+        assertEquals(SessionStatus.IN_PROGRESS, updated?.status)
+        assertEquals(SessionStatus.IN_PROGRESS, adapter.findById(saved.id!!)?.status)
+        assertEquals(null, adapter.updateStatus(UUID.randomUUID(), SessionStatus.COMPLETED))
+    }
+
+    @Test
     fun `deleteById로 세션을 삭제하면 소속 logs도 DB cascade로 함께 제거된다`() {
         val userId = UUID.randomUUID()
-        val saved = adapter.save(WorkoutSession(id = null, userId = userId, date = LocalDate.of(2026, 8, 6), templateId = null, logs = listOf(log())))
+        val saved = adapter.save(WorkoutSession(id = null, userId = userId, date = LocalDate.of(2026, 8, 6), templateId = null, status = SessionStatus.SCHEDULED, logs = listOf(log())))
         val logId = saved.logs[0].id!!
 
         adapter.deleteById(saved.id!!)
@@ -166,11 +179,11 @@ class WorkoutSessionRepositoryAdapterTest {
     fun `findActiveDates는 completed 로그가 있는 날짜만, since 이후만 반환한다`() {
         val userId = UUID.randomUUID()
         val otherUserId = UUID.randomUUID()
-        adapter.save(WorkoutSession(id = null, userId = userId, date = LocalDate.of(2026, 8, 15), templateId = null, logs = listOf(completedLog())))
-        adapter.save(WorkoutSession(id = null, userId = userId, date = LocalDate.of(2026, 8, 14), templateId = null, logs = listOf(log())))
-        adapter.save(WorkoutSession(id = null, userId = userId, date = LocalDate.of(2026, 1, 1), templateId = null, logs = listOf(completedLog())))
+        adapter.save(WorkoutSession(id = null, userId = userId, date = LocalDate.of(2026, 8, 15), templateId = null, status = SessionStatus.SCHEDULED, logs = listOf(completedLog())))
+        adapter.save(WorkoutSession(id = null, userId = userId, date = LocalDate.of(2026, 8, 14), templateId = null, status = SessionStatus.SCHEDULED, logs = listOf(log())))
+        adapter.save(WorkoutSession(id = null, userId = userId, date = LocalDate.of(2026, 1, 1), templateId = null, status = SessionStatus.SCHEDULED, logs = listOf(completedLog())))
         // 다른 사용자의 same-range completed 세션이 결과에 섞여 들어오지 않는지 검증 (userId 필터 미검증 방지)
-        adapter.save(WorkoutSession(id = null, userId = otherUserId, date = LocalDate.of(2026, 8, 15), templateId = null, logs = listOf(completedLog())))
+        adapter.save(WorkoutSession(id = null, userId = otherUserId, date = LocalDate.of(2026, 8, 15), templateId = null, status = SessionStatus.SCHEDULED, logs = listOf(completedLog())))
 
         val activeDates = adapter.findActiveDates(userId, since = LocalDate.of(2026, 8, 1))
 

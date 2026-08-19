@@ -1,6 +1,7 @@
 package com.bali.api.session
 
 import com.bali.core.session.SessionLog
+import com.bali.core.session.SessionStatus
 import com.bali.core.session.SetTiming
 import com.bali.core.session.WorkoutSession
 import java.math.BigDecimal
@@ -13,6 +14,7 @@ data class SessionResponse(
     val id: UUID,
     val date: LocalDate,
     val templateId: UUID?,
+    val status: SessionStatus,
     val logs: List<SessionLogResponse>,
 ) {
     companion object {
@@ -21,6 +23,7 @@ data class SessionResponse(
             id = session.id!!,
             date = session.date,
             templateId = session.templateId,
+            status = session.status,
             logs = session.logs.map { SessionLogResponse.from(it) },
         )
     }

@@ -8,6 +8,7 @@ import com.bali.core.exercise.ExerciseScope
 import com.bali.core.exercise.ExerciseType
 import com.bali.core.exercise.MuscleGroup
 import com.bali.core.session.SessionLog
+import com.bali.core.session.SessionStatus
 import com.bali.core.session.WorkoutSession
 import com.bali.core.session.WorkoutSessionRepository
 import com.bali.core.user.AuthProvider
@@ -62,13 +63,13 @@ class WeeklyAnalysisRunnerTest {
         val exerciseId = savedStrengthExerciseId()
         val goodLog = SessionLog.create(ExerciseType.STRENGTH, exerciseId, sortOrder = 0, targetSets = 3, targetReps = 10, targetWeight = BigDecimal("60.0"))
             .copy(completed = true, actualSets = 3, actualReps = 10, actualWeight = BigDecimal("60.0"))
-        sessionRepository.save(WorkoutSession(id = null, userId = goodUser.id!!, date = aDayLastWeek(), templateId = null, logs = listOf(goodLog)))
+        sessionRepository.save(WorkoutSession(id = null, userId = goodUser.id!!, date = aDayLastWeek(), templateId = null, status = SessionStatus.SCHEDULED, logs = listOf(goodLog)))
 
         val badUser = newUser()
         val nonExistentExerciseId = java.util.UUID.randomUUID()
         val badLog = SessionLog.create(ExerciseType.STRENGTH, nonExistentExerciseId, sortOrder = 0, targetSets = 3, targetReps = 10, targetWeight = BigDecimal("60.0"))
             .copy(completed = true, actualSets = 3, actualReps = 10, actualWeight = BigDecimal("60.0"))
-        sessionRepository.save(WorkoutSession(id = null, userId = badUser.id!!, date = aDayLastWeek(), templateId = null, logs = listOf(badLog)))
+        sessionRepository.save(WorkoutSession(id = null, userId = badUser.id!!, date = aDayLastWeek(), templateId = null, status = SessionStatus.SCHEDULED, logs = listOf(badLog)))
 
         val exitCode = runner.run()
 

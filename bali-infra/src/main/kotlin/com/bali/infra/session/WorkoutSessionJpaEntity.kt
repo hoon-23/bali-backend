@@ -1,6 +1,9 @@
 package com.bali.infra.session
 
+import com.bali.core.session.SessionStatus
 import jakarta.persistence.Entity
+import jakarta.persistence.EnumType
+import jakarta.persistence.Enumerated
 import jakarta.persistence.Id
 import jakarta.persistence.Table
 import java.time.LocalDate
@@ -15,4 +18,6 @@ class WorkoutSessionJpaEntity(
     var userId: UUID = UUID.randomUUID(),
     var date: LocalDate = LocalDate.now(),
     var templateId: UUID? = null,
+    @Enumerated(EnumType.STRING)
+    var status: SessionStatus = SessionStatus.SCHEDULED,
 )

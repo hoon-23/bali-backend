@@ -106,6 +106,32 @@ class SessionControllerTest {
     }
 
     @Test
+    fun `POST sessions는 date와 무관하게 항상 status SCHEDULED로 생성된다`() {
+        val (token, _) = issueTokenForNewUser()
+        val body = """{"date":"2020-01-01","templateId":null}"""
+
+        mockMvc.perform(post("/api/v1/sessions").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON).content(body))
+            .andExpect(status().isCreated)
+            .andExpect(jsonPath("$.status").value("SCHEDULED"))
+    }
+
+    @Test
+    fun `PATCH sessions id status로 전이하면 반영되고, 생략하면 기존 status가 유지된다`() {
+        val (token, _) = issueTokenForNewUser()
+        val created = mockMvc.perform(post("/api/v1/sessions").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON).content("""{"date":"2026-08-06","templateId":null}"""))
+            .andExpect(status().isCreated).andReturn().response.contentAsString
+        val sessionId = objectMapper.readTree(created).get("id").asText()
+
+        mockMvc.perform(patch("/api/v1/sessions/$sessionId").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON).content("""{"status":"IN_PROGRESS"}"""))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.status").value("IN_PROGRESS"))
+
+        mockMvc.perform(patch("/api/v1/sessions/$sessionId").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON).content("""{"addItems":[]}"""))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.status").value("IN_PROGRESS"))
+    }
+
+    @Test
     fun `GET sessions from to 호출하면 기간 내 세션만 반환한다`() {
         val (token, _) = issueTokenForNewUser()
         mockMvc.perform(post("/api/v1/sessions").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON).content("""{"date":"2026-08-06","templateId":null}"""))

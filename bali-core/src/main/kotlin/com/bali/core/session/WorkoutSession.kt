@@ -9,5 +9,6 @@ data class WorkoutSession(
     val userId: UUID,
     val date: LocalDate,
     val templateId: UUID?,
+    val status: SessionStatus,
     val logs: List<SessionLog>,
 )
