@@ -1,6 +1,7 @@
 package com.bali.api.session
 
 import com.bali.api.template.TemplateItemRequest
+import com.bali.core.exercise.Exercise
 import com.bali.core.exercise.ExerciseRepository
 import com.bali.core.session.SessionLog
 import com.bali.core.session.SessionStatus
@@ -65,7 +66,7 @@ class SessionController(
                 status = SessionStatus.SCHEDULED, logs = logs,
             )
         )
-        return ResponseEntity.status(HttpStatus.CREATED).body(SessionResponse.from(saved))
+        return ResponseEntity.status(HttpStatus.CREATED).body(SessionResponse.from(saved, resolveTitle(saved)))
     }
 
     // 기간별(from~to, inclusive) 세션 조회
@@ -74,15 +75,18 @@ class SessionController(
     fun list(
         @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) from: LocalDate,
         @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) to: LocalDate,
-    ): List<SessionResponse> =
-        sessionRepository.findAllByUserId(currentUserId(), from, to).map { SessionResponse.from(it) }
+    ): List<SessionResponse> {
+        val sessions = sessionRepository.findAllByUserId(currentUserId(), from, to)
+        val exercisesById = exercisesByIdFor(sessions)
+        return sessions.map { SessionResponse.from(it, resolveTitle(it, exercisesById)) }
+    }
 
     // 세션 단건 조회. 없거나 다른 유저 소유면 404
     @Operation(summary = "세션 단건 조회", description = "없거나 다른 유저 소유면 404")
     @GetMapping("/{id}")
     fun get(@PathVariable id: UUID): ResponseEntity<SessionResponse> {
         val session = findOwnedOrNull(id) ?: return ResponseEntity.notFound().build()
-        return ResponseEntity.ok(SessionResponse.from(session))
+        return ResponseEntity.ok(SessionResponse.from(session, resolveTitle(session)))
     }
 
     // 세션 아이템 구조 변경: addItems(즉흥 추가, target null 허용)/updateItems(logId 기준 전체 교체)/removeLogIds(삭제) + status 전이
@@ -138,8 +142,13 @@ class SessionController(
 
         request.status?.let { sessionRepository.updateStatus(id, it) }
 
+        request.perceivedDifficulty?.let {
+            WorkoutSession.validatePerceivedDifficulty(it)
+            sessionRepository.updatePerceivedDifficulty(id, it)
+        }
+
         val updated = sessionRepository.findById(id)!!
-        return ResponseEntity.ok(SessionResponse.from(updated))
+        return ResponseEntity.ok(SessionResponse.from(updated, resolveTitle(updated)))
     }
 
     // 실제 수행값 기록 + 완료 체크. 종목 타입에 맞는 actual 필드 조합인지 검증 후 반영
@@ -191,6 +200,22 @@ class SessionController(
             targetDurationSeconds = targetDurationSeconds, targetPace = targetPace,
         )
     }
+
+    // 세션 카드에 바로 쓸 수 있는 title을 계산. templateId가 있고 그 템플릿이 살아있으면 템플릿 이름,
+    // 없거나 소프트 삭제되어 조회에 실패하면 종목 이름을 조합("벤치프레스 외 3개")한다
+    private fun resolveTitle(session: WorkoutSession, exercisesById: Map<UUID, Exercise> = exercisesByIdFor(listOf(session))): String {
+        session.templateId?.let { templateId -> templateRepository.findById(templateId)?.let { return it.name } }
+        if (session.logs.isEmpty()) return "빈 세션"
+        val first = session.logs.minBy { it.sortOrder }
+        val firstName = exercisesById[first.exerciseId]?.name ?: "알 수 없는 종목"
+        return if (session.logs.size == 1) firstName else "$firstName 외 ${session.logs.size - 1}개"
+    }
+
+    // 여러 세션의 logs에 등장하는 exerciseId를 모아 한 번에 조회 (목록 조회 시 N+1 완화)
+    private fun exercisesByIdFor(sessions: List<WorkoutSession>): Map<UUID, Exercise> =
+        sessions.flatMap { it.logs }.map { it.exerciseId }.distinct()
+            .mapNotNull { exerciseRepository.findById(it)?.let { exercise -> it to exercise } }
+            .toMap()
 
     // id로 조회한 세션이 현재 인증 사용자 소유일 때만 반환
     private fun findOwnedOrNull(id: UUID): WorkoutSession? {

@@ -42,6 +42,9 @@ interface WorkoutSessionRepository {
     // 세션의 status만 갱신 (없으면 null)
     fun updateStatus(sessionId: UUID, status: SessionStatus): WorkoutSession?
 
+    // 세션의 perceivedDifficulty만 갱신 (없으면 null)
+    fun updatePerceivedDifficulty(sessionId: UUID, perceivedDifficulty: Int): WorkoutSession?
+
     // 완료된 로그가 하나 이상 있는 날짜 집합을 조회 (연속운동일 계산용, since 이후만)
     fun findActiveDates(userId: UUID, since: LocalDate): Set<LocalDate>
 }

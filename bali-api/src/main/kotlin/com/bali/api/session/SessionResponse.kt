@@ -16,15 +16,19 @@ data class SessionResponse(
     val templateId: UUID?,
     val status: SessionStatus,
     val logs: List<SessionLogResponse>,
+    val perceivedDifficulty: Int?,
+    val title: String,
 ) {
     companion object {
-        // WorkoutSession 도메인 모델을 SessionResponse로 변환
-        fun from(session: WorkoutSession) = SessionResponse(
+        // WorkoutSession 도메인 모델 + 서버에서 미리 계산한 title(템플릿 이름 또는 종목 이름 조합)을 SessionResponse로 변환
+        fun from(session: WorkoutSession, title: String) = SessionResponse(
             id = session.id!!,
             date = session.date,
             templateId = session.templateId,
             status = session.status,
             logs = session.logs.map { SessionLogResponse.from(it) },
+            perceivedDifficulty = session.perceivedDifficulty,
+            title = title,
         )
     }
 }

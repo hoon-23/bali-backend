@@ -20,4 +20,5 @@ class WorkoutSessionJpaEntity(
     var templateId: UUID? = null,
     @Enumerated(EnumType.STRING)
     var status: SessionStatus = SessionStatus.SCHEDULED,
+    var perceivedDifficulty: Int? = null,
 )

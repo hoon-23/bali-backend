@@ -54,6 +54,7 @@ class WorkoutSessionRepositoryAdapter(
             WorkoutSessionJpaEntity(
                 id = sessionId, userId = session.userId, date = session.date,
                 templateId = session.templateId, status = session.status,
+                perceivedDifficulty = session.perceivedDifficulty,
             )
         )
         val savedLogs = session.logs.map { logJpaRepository.save(it.toEntity(sessionId)) }
@@ -121,9 +122,19 @@ class WorkoutSessionRepositoryAdapter(
         return saved.toDomain(logJpaRepository.findBySessionIdOrderBySortOrderAsc(sessionId))
     }
 
+    // 세션의 perceivedDifficulty만 갱신
+    @Transactional
+    override fun updatePerceivedDifficulty(sessionId: UUID, perceivedDifficulty: Int): WorkoutSession? {
+        val entity = sessionJpaRepository.findById(sessionId).orElse(null) ?: return null
+        entity.perceivedDifficulty = perceivedDifficulty
+        val saved = sessionJpaRepository.save(entity)
+        return saved.toDomain(logJpaRepository.findBySessionIdOrderBySortOrderAsc(sessionId))
+    }
+
     // JPA 엔티티(+logs)를 도메인 모델로 변환
     private fun WorkoutSessionJpaEntity.toDomain(logs: List<SessionLogJpaEntity>) = WorkoutSession(
         id = id, userId = userId, date = date, templateId = templateId, status = status, logs = logs.map { it.toDomain() },
+        perceivedDifficulty = perceivedDifficulty,
     )
 
     // SessionLog 도메인 모델을 JPA 엔티티로 변환

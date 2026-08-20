@@ -93,6 +93,53 @@ class SessionControllerTest {
             .andExpect(status().isCreated)
             .andExpect(jsonPath("$.logs[0].targetSets").value(3))
             .andExpect(jsonPath("$.logs[0].completed").value(false))
+            .andExpect(jsonPath("$.title").value("템플릿"))
+    }
+
+    @Test
+    fun `템플릿이 소프트 삭제된 후에도 title은 종목 이름 조합으로 정상 반환된다`() {
+        val (token, userId) = issueTokenForNewUser()
+        val exerciseId = savedStrengthExerciseId()
+        val template = templateRepository.save(
+            WorkoutTemplate(
+                id = null, userId = userId, category = TemplateCategory.PUSH, name = "삭제될템플릿",
+                items = listOf(TemplateItem.create(ExerciseType.STRENGTH, exerciseId, 0, targetSets = 3, targetReps = 10, targetWeight = BigDecimal("60.0"))),
+            )
+        )
+        val created = mockMvc.perform(post("/api/v1/sessions").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON).content("""{"date":"2026-08-06","templateId":"${template.id}"}"""))
+            .andExpect(status().isCreated).andReturn().response.contentAsString
+        val sessionId = objectMapper.readTree(created).get("id").asText()
+        templateRepository.softDelete(template.id!!)
+
+        mockMvc.perform(get("/api/v1/sessions/$sessionId").header("Authorization", "Bearer $token"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.title").value("세션테스트벤치프레스"))
+    }
+
+    @Test
+    fun `템플릿 없이 종목을 1개 추가한 세션의 title은 그 종목 이름이다`() {
+        val (token, _) = issueTokenForNewUser()
+        val exerciseId = savedStrengthExerciseId()
+        val (sessionId, _) = createSessionWithLog(token, exerciseId)
+
+        mockMvc.perform(get("/api/v1/sessions/$sessionId").header("Authorization", "Bearer $token"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.title").value("세션테스트벤치프레스"))
+    }
+
+    @Test
+    fun `템플릿 없이 종목을 여러 개 추가한 세션의 title은 첫 종목 외 N개 형식이다`() {
+        val (token, _) = issueTokenForNewUser()
+        val strengthId = savedStrengthExerciseId()
+        val cardioId = savedCardioExerciseId()
+        val (sessionId, _) = createSessionWithLog(token, strengthId)
+        val addBody = """{"addItems":[{"exerciseId":"$cardioId","sortOrder":1,"targetSets":null,"targetReps":null,"targetWeight":null,"targetDurationSeconds":null,"targetPace":null}],"updateItems":[],"removeLogIds":[]}"""
+        mockMvc.perform(patch("/api/v1/sessions/$sessionId").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON).content(addBody))
+            .andExpect(status().isOk)
+
+        mockMvc.perform(get("/api/v1/sessions/$sessionId").header("Authorization", "Bearer $token"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.title").value("세션테스트벤치프레스 외 1개"))
     }
 
     @Test
@@ -103,6 +150,7 @@ class SessionControllerTest {
         mockMvc.perform(post("/api/v1/sessions").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON).content(body))
             .andExpect(status().isCreated)
             .andExpect(jsonPath("$.logs.length()").value(0))
+            .andExpect(jsonPath("$.title").value("빈 세션"))
     }
 
     @Test
@@ -129,6 +177,33 @@ class SessionControllerTest {
         mockMvc.perform(patch("/api/v1/sessions/$sessionId").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON).content("""{"addItems":[]}"""))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.status").value("IN_PROGRESS"))
+    }
+
+    @Test
+    fun `PATCH sessions id perceivedDifficulty로 체감 난이도를 기록하면 반영되고, 생략하면 기존 값이 유지된다`() {
+        val (token, _) = issueTokenForNewUser()
+        val created = mockMvc.perform(post("/api/v1/sessions").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON).content("""{"date":"2026-08-06","templateId":null}"""))
+            .andExpect(status().isCreated).andReturn().response.contentAsString
+        val sessionId = objectMapper.readTree(created).get("id").asText()
+
+        mockMvc.perform(patch("/api/v1/sessions/$sessionId").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON).content("""{"perceivedDifficulty":7}"""))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.perceivedDifficulty").value(7))
+
+        mockMvc.perform(patch("/api/v1/sessions/$sessionId").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON).content("""{"addItems":[]}"""))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.perceivedDifficulty").value(7))
+    }
+
+    @Test
+    fun `PATCH sessions id perceivedDifficulty가 1에서 10 범위 밖이면 400 반환`() {
+        val (token, _) = issueTokenForNewUser()
+        val created = mockMvc.perform(post("/api/v1/sessions").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON).content("""{"date":"2026-08-06","templateId":null}"""))
+            .andExpect(status().isCreated).andReturn().response.contentAsString
+        val sessionId = objectMapper.readTree(created).get("id").asText()
+
+        mockMvc.perform(patch("/api/v1/sessions/$sessionId").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON).content("""{"perceivedDifficulty":11}"""))
+            .andExpect(status().isBadRequest)
     }
 
     @Test
