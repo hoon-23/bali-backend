@@ -23,7 +23,6 @@
 | Auth | 소셜 로그인(Google/Kakao/Naver/Apple) OIDC ID Token 검증 + 자체 JWT 발급 |
 | API Docs | springdoc-openapi (Swagger UI) |
 | Test | Kotest (도메인 단위), JUnit5 + 로컬 PostgreSQL (리포지토리/API 통합) |
-| CI/CD | GitHub Actions |
 | Infra | Docker |
 
 ## 모듈 구조
