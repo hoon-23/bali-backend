@@ -2,16 +2,10 @@ plugins {
     kotlin("jvm")
     kotlin("plugin.spring")
     id("org.springframework.boot")
-    id("io.spring.dependency-management")
-}
-
-dependencyManagement {
-    imports {
-        mavenBom("org.springframework.boot:spring-boot-dependencies:3.3.4")
-    }
 }
 
 dependencies {
+    implementation(platform("org.springframework.boot:spring-boot-dependencies:3.3.4"))
     implementation(project(":bali-core"))
     implementation(project(":bali-infra"))
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
