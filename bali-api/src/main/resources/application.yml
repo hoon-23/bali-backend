@@ -5,6 +5,7 @@ bali:
   jwt:
     secret: ${JWT_SECRET:dev-only-secret-change-me-in-prod-32bytes!!}
     expiration-millis: 3600000
+    refresh-expiration-millis: 2592000000
   oauth:
     google:
       client-id: ${GOOGLE_CLIENT_ID}

@@ -1,8 +1,11 @@
 package com.bali.api.auth.login
 
 import com.bali.api.auth.jwt.JwtTokenProvider
+import com.bali.api.auth.jwt.TokenIssuer
 import com.bali.api.auth.social.SocialTokenVerifier
 import com.bali.api.auth.social.SocialUserInfo
+import com.bali.core.auth.RefreshToken
+import com.bali.core.auth.RefreshTokenRepository
 import com.bali.core.user.AuthProvider
 import com.bali.core.user.User
 import com.bali.core.user.UserRepository
@@ -34,6 +37,20 @@ class SocialLoginServiceTest {
             store.values.filter { it.status == status }
     }
 
+    private class InMemoryRefreshTokenRepository : RefreshTokenRepository {
+        private val store = mutableMapOf<UUID, RefreshToken>()
+        override fun save(token: RefreshToken): RefreshToken {
+            val toSave = token.copy(id = token.id ?: UUID.randomUUID())
+            store[toSave.id!!] = toSave
+            return toSave
+        }
+        override fun findByTokenHash(tokenHash: String): RefreshToken? =
+            store.values.find { it.tokenHash == tokenHash }
+        override fun revoke(id: UUID) {
+            store[id]?.let { store[id] = it.copy(revoked = true) }
+        }
+    }
+
     private class FakeVerifier(
         override val provider: AuthProvider,
         private val infoByToken: Map<String, SocialUserInfo>,
@@ -42,9 +59,10 @@ class SocialLoginServiceTest {
             infoByToken[token] ?: throw IllegalArgumentException("알 수 없는 토큰: $token")
     }
 
-    private val jwtTokenProvider = JwtTokenProvider(
-        secret = "test-secret-key-must-be-at-least-32-bytes-long!!",
-        expirationMillis = 3600_000,
+    private fun newTokenIssuer() = TokenIssuer(
+        JwtTokenProvider(secret = "test-secret-key-must-be-at-least-32-bytes-long!!", expirationMillis = 3600_000),
+        InMemoryRefreshTokenRepository(),
+        refreshExpirationMillis = 2_592_000_000L,
     )
 
     @Test
@@ -54,11 +72,12 @@ class SocialLoginServiceTest {
             AuthProvider.GOOGLE,
             mapOf("token-1" to SocialUserInfo(providerId = "google-sub-1", email = "a@example.com")),
         )
-        val service = SocialLoginService(listOf(verifier), userRepository, jwtTokenProvider)
+        val service = SocialLoginService(listOf(verifier), userRepository, newTokenIssuer())
 
-        val accessToken = service.login(AuthProvider.GOOGLE, "token-1", email = null)
+        val tokens = service.login(AuthProvider.GOOGLE, "token-1", email = null)
 
-        assertNotNull(accessToken)
+        assertNotNull(tokens.accessToken)
+        assertNotNull(tokens.refreshToken)
         val saved = userRepository.findByProviderAndProviderId(AuthProvider.GOOGLE, "google-sub-1")
         assertEquals("a@example.com", saved?.email)
     }
@@ -70,7 +89,7 @@ class SocialLoginServiceTest {
             AuthProvider.GOOGLE,
             mapOf("token-1" to SocialUserInfo(providerId = "google-sub-2", email = "b@example.com")),
         )
-        val service = SocialLoginService(listOf(verifier), userRepository, jwtTokenProvider)
+        val service = SocialLoginService(listOf(verifier), userRepository, newTokenIssuer())
 
         service.login(AuthProvider.GOOGLE, "token-1", email = null)
         service.login(AuthProvider.GOOGLE, "token-1", email = null)
@@ -87,7 +106,7 @@ class SocialLoginServiceTest {
             AuthProvider.GOOGLE,
             mapOf("token-1" to SocialUserInfo(providerId = "google-sub-withdraw", email = "c@example.com")),
         )
-        val service = SocialLoginService(listOf(verifier), userRepository, jwtTokenProvider)
+        val service = SocialLoginService(listOf(verifier), userRepository, newTokenIssuer())
         service.login(AuthProvider.GOOGLE, "token-1", email = null)
         val original = userRepository.findByProviderAndProviderId(AuthProvider.GOOGLE, "google-sub-withdraw")!!
         userRepository.save(original.withdraw())
@@ -111,7 +130,7 @@ class SocialLoginServiceTest {
             AuthProvider.APPLE,
             mapOf("apple-token" to SocialUserInfo(providerId = "apple-sub-1", email = null)),
         )
-        val service = SocialLoginService(listOf(verifier), userRepository, jwtTokenProvider)
+        val service = SocialLoginService(listOf(verifier), userRepository, newTokenIssuer())
 
         service.login(AuthProvider.APPLE, "apple-token", email = "apple-user@example.com")
 
@@ -126,7 +145,7 @@ class SocialLoginServiceTest {
             AuthProvider.APPLE,
             mapOf("apple-token" to SocialUserInfo(providerId = "apple-sub-2", email = null)),
         )
-        val service = SocialLoginService(listOf(verifier), userRepository, jwtTokenProvider)
+        val service = SocialLoginService(listOf(verifier), userRepository, newTokenIssuer())
 
         service.login(AuthProvider.APPLE, "apple-token", email = null)
 
@@ -141,7 +160,7 @@ class SocialLoginServiceTest {
             AuthProvider.GOOGLE,
             mapOf("token-nick" to SocialUserInfo(providerId = "google-sub-nick", email = "nick@example.com")),
         )
-        val service = SocialLoginService(listOf(verifier), userRepository, jwtTokenProvider)
+        val service = SocialLoginService(listOf(verifier), userRepository, newTokenIssuer())
 
         service.login(AuthProvider.GOOGLE, "token-nick", email = null)
 

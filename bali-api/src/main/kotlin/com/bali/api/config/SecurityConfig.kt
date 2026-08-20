@@ -50,6 +50,8 @@ class SecurityConfig(
             authorizeHttpRequests {
                 authorize("/actuator/health", permitAll)
                 authorize("/api/v1/auth/login", permitAll)
+                authorize("/api/v1/auth/refresh", permitAll)
+                authorize("/api/v1/auth/logout", permitAll)
                 // sendError()로 인한 서블릿 내부 /error 재전송이 인증 없는 요청에서 401로
                 // 잘못 가려지는 것을 막는 방어선(1차 방어는 ApiExceptionHandler가 예외를 직접
                 // 처리해 이 재전송 자체를 피하는 것)

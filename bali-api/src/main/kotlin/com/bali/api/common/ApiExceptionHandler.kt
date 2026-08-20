@@ -1,5 +1,6 @@
 package com.bali.api.common
 
+import com.bali.api.auth.login.InvalidRefreshTokenException
 import com.bali.api.auth.social.SocialProviderUnavailableException
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
@@ -37,4 +38,9 @@ class ApiExceptionHandler {
     @ExceptionHandler(SocialProviderUnavailableException::class)
     fun handleSocialProviderUnavailable(ex: SocialProviderUnavailableException): ResponseEntity<Map<String, String?>> =
         ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(mapOf("error" to ex.message))
+
+    // refresh token이 존재하지 않거나 만료/폐기된 경우를 인증 실패(401)로 매핑
+    @ExceptionHandler(InvalidRefreshTokenException::class)
+    fun handleInvalidRefreshToken(ex: InvalidRefreshTokenException): ResponseEntity<Map<String, String?>> =
+        ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(mapOf("error" to ex.message))
 }

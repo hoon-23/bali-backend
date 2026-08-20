@@ -1,6 +1,7 @@
 package com.bali.api.auth.login
 
-import com.bali.api.auth.jwt.JwtTokenProvider
+import com.bali.api.auth.jwt.TokenIssuer
+import com.bali.api.auth.jwt.TokenPair
 import com.bali.api.auth.social.SocialTokenVerifier
 import com.bali.api.auth.social.SocialUserInfo
 import com.bali.core.user.AuthProvider
@@ -12,15 +13,15 @@ import org.springframework.stereotype.Service
 import java.time.Instant
 import java.util.UUID
 
-// provider에 맞는 검증기를 골라 신원을 확인하고, 유저 조회/생성 + JWT 발급까지 담당
+// provider에 맞는 검증기를 골라 신원을 확인하고, 유저 조회/생성 + access/refresh 토큰 발급까지 담당
 @Service
 class SocialLoginService(
     private val verifiers: List<SocialTokenVerifier>,
     private val userRepository: UserRepository,
-    private val jwtTokenProvider: JwtTokenProvider,
+    private val tokenIssuer: TokenIssuer,
 ) {
-    // provider 토큰을 검증해 기존/신규 유저를 확인하고 자체 JWT를 발급한다
-    fun login(provider: AuthProvider, token: String, email: String?): String {
+    // provider 토큰을 검증해 기존/신규 유저를 확인하고 access/refresh 토큰 쌍을 발급한다
+    fun login(provider: AuthProvider, token: String, email: String?): TokenPair {
         val verifier = verifiers.first { it.provider == provider }
         val info = verifier.verify(token)
 
@@ -29,7 +30,7 @@ class SocialLoginService(
         val user = userRepository.findByProviderAndProviderId(provider, info.providerId)
             ?: createUser(provider, info, email)
 
-        return jwtTokenProvider.generateToken(user.id!!, user.email)
+        return tokenIssuer.issue(user.id!!, user.email)
     }
 
     // 최초 로그인 생성. email 우선순위: 토큰/API 응답값 > 요청 바디 값(Apple 최초 로그인) > placeholder
