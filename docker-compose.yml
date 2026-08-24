@@ -12,6 +12,7 @@ x-airflow-common: &airflow-common
     _PIP_ADDITIONAL_REQUIREMENTS: apache-airflow-providers-docker
   volumes:
     - ./airflow/dags:/opt/airflow/dags
+    - ./airflow/simple_auth_manager_passwords.json:/opt/airflow/simple_auth_manager_passwords.json.generated
   depends_on:
     postgres:
       condition: service_healthy
@@ -57,6 +58,7 @@ services:
     restart: always
     volumes:
       - ./airflow/dags:/opt/airflow/dags
+      - ./airflow/simple_auth_manager_passwords.json:/opt/airflow/simple_auth_manager_passwords.json.generated
       - /var/run/docker.sock:/var/run/docker.sock
 
   airflow-api-server:
