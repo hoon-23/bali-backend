@@ -41,6 +41,11 @@ DockerOperator 하나만 쓰고 deferrable operator를 쓰지 않으므로 worke
 - `airflow-scheduler` — 스케줄링 + LocalExecutor로 태스크 직접 실행
 - `airflow-api-server` — UI + REST API, `http://localhost:8181`
 
+Airflow 3는 AIP-72로 스케줄러가 태스크와 DB 대신 HTTP execution API로 통신한다. `scheduler`와
+`api-server`가 서로 다른 컨테이너이므로 두 가지를 명시해야 한다: `AIRFLOW__CORE__EXECUTION_API_SERVER_URL`
+(기본값이 `localhost`라 미설정 시 scheduler가 자기 자신에 접속을 시도해 실패), `AIRFLOW__API_AUTH__JWT_SECRET`
+(미설정 시 컨테이너마다 다른 값을 자동 생성해 서명 검증이 실패). 둘 다 `x-airflow-common`에 고정값으로 둔다.
+
 공식 `apache/airflow` 이미지에는 `DockerOperator`가 기본 포함돼 있지 않으므로,
 `airflow-scheduler`/`airflow-dag-processor`/`airflow-api-server`에
 `_PIP_ADDITIONAL_REQUIREMENTS=apache-airflow-providers-docker` (또는 별도 이미지 빌드)로
