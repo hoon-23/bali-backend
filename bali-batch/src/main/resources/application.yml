@@ -2,9 +2,9 @@ spring:
   application:
     name: bali-batch
   datasource:
-    url: jdbc:postgresql://localhost:5432/bali
-    username: bali
-    password: bali
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/bali}
+    username: ${SPRING_DATASOURCE_USERNAME:bali}
+    password: ${SPRING_DATASOURCE_PASSWORD:bali}
   jpa:
     hibernate:
       ddl-auto: validate
