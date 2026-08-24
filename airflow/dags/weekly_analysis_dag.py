@@ -18,7 +18,7 @@ with DAG(
     run_weekly_analysis = DockerOperator(
         task_id="run_weekly_analysis",
         image="bali-batch:local",
-        image_pull_policy="never",
+        force_pull=False,
         auto_remove="success",
         network_mode="bali_default",
         environment={
