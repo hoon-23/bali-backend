@@ -1,5 +1,19 @@
 name: bali
 
+x-airflow-common: &airflow-common
+  image: apache/airflow:3.3.1
+  environment:
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://bali:bali@postgres:5432/airflow
+    AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_USERS: "admin:admin"
+    _PIP_ADDITIONAL_REQUIREMENTS: apache-airflow-providers-docker
+  volumes:
+    - ./airflow/dags:/opt/airflow/dags
+  depends_on:
+    postgres:
+      condition: service_healthy
+
 services:
   postgres:
     image: postgres:16
@@ -17,6 +31,38 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
+
+  bali-batch:
+    build:
+      context: .
+      dockerfile: bali-batch/Dockerfile
+    image: bali-batch:local
+    profiles: ["build-only"]
+
+  airflow-init:
+    <<: *airflow-common
+    entrypoint: /bin/bash
+    command: -c "airflow db migrate"
+
+  airflow-dag-processor:
+    <<: *airflow-common
+    command: dag-processor
+    restart: always
+
+  airflow-scheduler:
+    <<: *airflow-common
+    command: scheduler
+    restart: always
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  airflow-api-server:
+    <<: *airflow-common
+    command: api-server
+    restart: always
+    ports:
+      - "8181:8080"
 
 volumes:
   bali_postgres_data:
