@@ -1,5 +1,6 @@
 package com.bali.infra.session
 
+import com.bali.core.session.SessionStatus
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
@@ -30,4 +31,16 @@ interface WorkoutSessionJpaRepository : JpaRepository<WorkoutSessionJpaEntity, U
         WHERE s.userId = :userId AND s.date >= :since AND l.completed = true
     """)
     fun findActiveDates(@Param("userId") userId: UUID, @Param("since") since: LocalDate): List<LocalDate>
+
+    // 특정 날짜/상태의 세션 전체 (유저 무관)
+    @Query("SELECT s FROM WorkoutSessionJpaEntity s WHERE s.date = :date AND s.status = :status")
+    fun findAllByDateAndStatus(@Param("date") date: LocalDate, @Param("status") status: SessionStatus): List<WorkoutSessionJpaEntity>
+
+    // 완료된 로그가 있는 가장 최근 날짜
+    @Query("""
+        SELECT MAX(s.date) FROM WorkoutSessionJpaEntity s
+        JOIN SessionLogJpaEntity l ON l.sessionId = s.id
+        WHERE s.userId = :userId AND l.completed = true
+    """)
+    fun findLastActiveDate(@Param("userId") userId: UUID): LocalDate?
 }

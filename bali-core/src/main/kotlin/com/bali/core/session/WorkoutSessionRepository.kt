@@ -47,4 +47,10 @@ interface WorkoutSessionRepository {
 
     // 완료된 로그가 하나 이상 있는 날짜 집합을 조회 (연속운동일 계산용, since 이후만)
     fun findActiveDates(userId: UUID, since: LocalDate): Set<LocalDate>
+
+    // 특정 날짜/상태의 세션 전체를 유저 무관하게 조회 (배치의 리마인더 대상 조회용)
+    fun findAllByDateAndStatus(date: LocalDate, status: SessionStatus): List<WorkoutSession>
+
+    // 완료된 로그가 있는 가장 최근 날짜 (없으면 null). 이탈 알림 판정에 사용
+    fun findLastActiveDate(userId: UUID): LocalDate?
 }

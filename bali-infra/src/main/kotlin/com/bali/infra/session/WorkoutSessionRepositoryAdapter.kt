@@ -113,6 +113,18 @@ class WorkoutSessionRepositoryAdapter(
     override fun findActiveDates(userId: UUID, since: LocalDate): Set<LocalDate> =
         sessionJpaRepository.findActiveDates(userId, since).toSet()
 
+    // 특정 날짜/상태의 세션을 유저 무관하게 logs와 함께 조회
+    @Transactional
+    override fun findAllByDateAndStatus(date: LocalDate, status: SessionStatus): List<WorkoutSession> {
+        val sessions = sessionJpaRepository.findAllByDateAndStatus(date, status)
+        val logsBySessionId = logJpaRepository.findBySessionIdInOrderBySortOrderAsc(sessions.map { it.id }).groupBy { it.sessionId }
+        return sessions.map { it.toDomain(logsBySessionId[it.id] ?: emptyList()) }
+    }
+
+    // 완료된 로그가 있는 가장 최근 날짜
+    override fun findLastActiveDate(userId: UUID): LocalDate? =
+        sessionJpaRepository.findLastActiveDate(userId)
+
     // 세션의 status만 갱신
     @Transactional
     override fun updateStatus(sessionId: UUID, status: SessionStatus): WorkoutSession? {

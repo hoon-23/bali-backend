@@ -189,4 +189,34 @@ class WorkoutSessionRepositoryAdapterTest {
 
         assertEquals(setOf(LocalDate.of(2026, 8, 15)), activeDates)
     }
+
+    @Test
+    fun `findAllByDateAndStatus는 유저 무관하게 날짜+상태가 일치하는 세션을 반환한다`() {
+        val date = LocalDate.now()
+        val matching = adapter.save(WorkoutSession(id = null, userId = UUID.randomUUID(), date = date, templateId = null, status = SessionStatus.SCHEDULED, logs = emptyList()))
+        adapter.save(WorkoutSession(id = null, userId = UUID.randomUUID(), date = date, templateId = null, status = SessionStatus.COMPLETED, logs = emptyList()))
+        adapter.save(WorkoutSession(id = null, userId = UUID.randomUUID(), date = date.minusDays(1), templateId = null, status = SessionStatus.SCHEDULED, logs = emptyList()))
+
+        val result = adapter.findAllByDateAndStatus(date, SessionStatus.SCHEDULED)
+
+        assertTrue(result.any { it.id == matching.id })
+        assertTrue(result.all { it.date == date && it.status == SessionStatus.SCHEDULED })
+    }
+
+    @Test
+    fun `findLastActiveDate는 완료된 로그가 있는 가장 최근 날짜를 반환한다`() {
+        val userId = UUID.randomUUID()
+        val exerciseId = UUID.randomUUID()
+        val oldLog = SessionLog.create(ExerciseType.STRENGTH, exerciseId, sortOrder = 0, targetSets = 3, targetReps = 10, targetWeight = BigDecimal("40.0")).copy(completed = true)
+        val recentLog = SessionLog.create(ExerciseType.STRENGTH, exerciseId, sortOrder = 0, targetSets = 3, targetReps = 10, targetWeight = BigDecimal("40.0")).copy(completed = true)
+        adapter.save(WorkoutSession(id = null, userId = userId, date = LocalDate.now().minusDays(10), templateId = null, status = SessionStatus.COMPLETED, logs = listOf(oldLog)))
+        adapter.save(WorkoutSession(id = null, userId = userId, date = LocalDate.now().minusDays(2), templateId = null, status = SessionStatus.COMPLETED, logs = listOf(recentLog)))
+
+        assertEquals(LocalDate.now().minusDays(2), adapter.findLastActiveDate(userId))
+    }
+
+    @Test
+    fun `완료된 로그가 없으면 findLastActiveDate는 null을 반환한다`() {
+        assertEquals(null, adapter.findLastActiveDate(UUID.randomUUID()))
+    }
 }
