@@ -32,7 +32,6 @@ class NotificationDispatcherDeviceNotRegisteredTest {
 
     @Test
     fun `DeviceNotRegistered 에러 토큰은 삭제되고 로그는 남기지 않는다`() {
-        // Mock the sender to return DeviceNotRegistered error
         `when`(notificationSender.send(org.mockito.ArgumentMatchers.anyList())).thenAnswer { invocation ->
             val messages = invocation.getArgument<List<PushMessage>>(0)
             messages.map { PushSendResult(token = it.token, ticketId = null, error = PushSendError.DEVICE_NOT_REGISTERED) }

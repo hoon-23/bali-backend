@@ -31,7 +31,6 @@ class NotificationDispatcherTest {
 
     @Test
     fun `등록된 토큰이 있으면 발송하고 notification_log에 기록한다`() {
-        // Mock the sender to return success
         `when`(notificationSender.send(org.mockito.ArgumentMatchers.anyList())).thenAnswer { invocation ->
             val messages = invocation.getArgument<List<PushMessage>>(0)
             messages.map { PushSendResult(token = it.token, ticketId = "fake-ticket-${it.token}", error = null) }
