@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test
 import org.springframework.http.HttpMethod
 import org.springframework.http.MediaType
 import org.springframework.test.web.client.MockRestServiceServer
+import org.springframework.test.web.client.match.MockRestRequestMatchers.content
 import org.springframework.test.web.client.match.MockRestRequestMatchers.method
 import org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo
 import org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess
@@ -23,6 +24,7 @@ class ExpoPushSenderTest {
 
         mockServer.expect(requestTo("https://exp.host/--/api/v2/push/send"))
             .andExpect(method(HttpMethod.POST))
+            .andExpect(content().json("""[{"to":"ExponentPushToken[abc]","title":"제목","body":"본문","data":{}}]"""))
             .andRespond(withSuccess("""{"data":[{"status":"ok","id":"ticket-1"}]}""", MediaType.APPLICATION_JSON))
 
         val sender = ExpoPushSender(restClient)
@@ -47,6 +49,23 @@ class ExpoPushSenderTest {
         val results = sender.send(listOf(PushMessage(token = "ExponentPushToken[dead]", title = "제목", body = "본문")))
 
         assertEquals(PushSendError.DEVICE_NOT_REGISTERED, results[0].error)
+        assertNull(results[0].ticketId)
+        mockServer.verify()
+    }
+
+    @Test
+    fun `다른 에러는 OTHER로 매핑된다`() {
+        val builder = RestClient.builder()
+        val mockServer = MockRestServiceServer.bindTo(builder).build()
+        val restClient = builder.build()
+
+        mockServer.expect(requestTo("https://exp.host/--/api/v2/push/send"))
+            .andRespond(withSuccess("""{"data":[{"status":"error","message":"message too big","details":{"error":"MessageTooBig"}}]}""", MediaType.APPLICATION_JSON))
+
+        val sender = ExpoPushSender(restClient)
+        val results = sender.send(listOf(PushMessage(token = "ExponentPushToken[oversized]", title = "제목", body = "본문")))
+
+        assertEquals(PushSendError.OTHER, results[0].error)
         assertNull(results[0].ticketId)
         mockServer.verify()
     }
