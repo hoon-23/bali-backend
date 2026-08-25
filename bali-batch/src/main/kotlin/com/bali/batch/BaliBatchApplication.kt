@@ -25,7 +25,6 @@ fun main(args: Array<String>) {
     val job = args.firstOrNull { !it.startsWith("--") } ?: "weekly"
     val exitCode = when (job) {
         "weekly" -> context.getBean<WeeklyAnalysisRunner>().run()
-        "monthly" -> context.getBean<MonthlyAnalysisRunner>().run()
         "routine-reminder" -> context.getBean<com.bali.batch.notification.RoutineReminderRunner>().run()
         else -> throw IllegalArgumentException("알 수 없는 배치 작업: $job")
     }
