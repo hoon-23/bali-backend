@@ -16,7 +16,7 @@
 - 새 Gradle 모듈을 만들지 않는다. 기존 4개 모듈(`bali-core`/`bali-infra`/`bali-api`/`bali-batch`)에만 패키지로 추가한다.
 - Airflow 컨테이너는 타임존 미설정으로 UTC 동작 확인됨. KST 06/18시 = UTC 21/09시, KST 09시 = UTC 00시로 cron을 환산해서 쓴다.
 - 영수증(receipt) 조회/갱신 로직은 v1에서 제외한다. `notification_log.delivery_status`는 스키마에만 존재하고 항상 `PENDING`으로 저장된다 (실제 갱신 로직 없음).
-- 다음 마이그레이션 번호는 `V16`부터다 (`bali-infra/src/main/resources/db/migration/V15__add_deadlift_to_global_exercises.sql`가 최신).
+- 다음 마이그레이션 번호는 `V17`부터다. `V16__create_monthly_analyses_and_insights_tables.sql`은 `bali-backend-d8` 세션이 작업 디렉토리에 이미 만들어둔 상태(아직 미커밋)라 V16은 이 계획에서 쓰지 않는다. notification 테이블은 `V17`, sessions 인덱스는 `V18`.
 - `bali-batch`의 job dispatch(`BaliBatchApplication.main()`의 `args[0]` → Runner 선택)는 이미 구현되어 있다 (`weekly`, `monthly` 지원 중). 여기에 새 job key만 추가한다.
 - `bali-infra` 리포지토리 어댑터 테스트는 `@DataJpaTest` + `InfraTestConfig` + 로컬 Postgres(`localhost:5432/bali`) 컨벤션을 따른다 (`WorkoutSessionRepositoryAdapterTest` 참고).
 - `bali-batch` Runner 테스트는 `@SpringBootTest(classes = [BaliBatchApplication::class])` + `@Transactional` 컨벤션을 따른다 (`WeeklyAnalysisRunnerTest` 참고).
@@ -27,7 +27,7 @@
 ## Task 1: DeviceToken 도메인/인프라 + notification 스키마 마이그레이션
 
 **Files:**
-- Create: `bali-infra/src/main/resources/db/migration/V16__create_notification_tables.sql`
+- Create: `bali-infra/src/main/resources/db/migration/V17__create_notification_tables.sql`
 - Create: `bali-core/src/main/kotlin/com/bali/core/notification/DevicePlatform.kt`
 - Create: `bali-core/src/main/kotlin/com/bali/core/notification/DeviceToken.kt`
 - Create: `bali-core/src/main/kotlin/com/bali/core/notification/DeviceTokenRepository.kt`
@@ -41,7 +41,7 @@
 
 - [ ] **Step 1: 마이그레이션 파일 작성**
 
-`bali-infra/src/main/resources/db/migration/V16__create_notification_tables.sql`:
+`bali-infra/src/main/resources/db/migration/V17__create_notification_tables.sql`:
 
 ```sql
 CREATE TABLE device_tokens (
@@ -327,7 +327,7 @@ Expected: PASS (3 tests)
 - [ ] **Step 7: 커밋**
 
 ```bash
-git add bali-infra/src/main/resources/db/migration/V16__create_notification_tables.sql \
+git add bali-infra/src/main/resources/db/migration/V17__create_notification_tables.sql \
   bali-core/src/main/kotlin/com/bali/core/notification/DevicePlatform.kt \
   bali-core/src/main/kotlin/com/bali/core/notification/DeviceToken.kt \
   bali-core/src/main/kotlin/com/bali/core/notification/DeviceTokenRepository.kt \
@@ -1280,7 +1280,7 @@ git commit -m "feat(notification): 디바이스 토큰/알림 설정 API 추가"
 ## Task 6: WorkoutSessionRepository 확장 (리마인더/이탈 알림용 조회)
 
 **Files:**
-- Create: `bali-infra/src/main/resources/db/migration/V17__add_sessions_date_status_index.sql`
+- Create: `bali-infra/src/main/resources/db/migration/V18__add_sessions_date_status_index.sql`
 - Modify: `bali-core/src/main/kotlin/com/bali/core/session/WorkoutSessionRepository.kt`
 - Modify: `bali-infra/src/main/kotlin/com/bali/infra/session/WorkoutSessionJpaRepository.kt`
 - Modify: `bali-infra/src/main/kotlin/com/bali/infra/session/WorkoutSessionRepositoryAdapter.kt`
@@ -1291,7 +1291,7 @@ git commit -m "feat(notification): 디바이스 토큰/알림 설정 API 추가"
 
 - [ ] **Step 1: 인덱스 마이그레이션 작성**
 
-`bali-infra/src/main/resources/db/migration/V17__add_sessions_date_status_index.sql`:
+`bali-infra/src/main/resources/db/migration/V18__add_sessions_date_status_index.sql`:
 
 ```sql
 -- RoutineReminderRunner가 날짜+상태로 전체 유저의 세션을 스캔하는 배치 쿼리를 위한 인덱스
@@ -1399,7 +1399,7 @@ Expected: PASS (전체)
 - [ ] **Step 7: 커밋**
 
 ```bash
-git add bali-infra/src/main/resources/db/migration/V17__add_sessions_date_status_index.sql \
+git add bali-infra/src/main/resources/db/migration/V18__add_sessions_date_status_index.sql \
   bali-core/src/main/kotlin/com/bali/core/session/WorkoutSessionRepository.kt \
   bali-infra/src/main/kotlin/com/bali/infra/session/WorkoutSessionJpaRepository.kt \
   bali-infra/src/main/kotlin/com/bali/infra/session/WorkoutSessionRepositoryAdapter.kt \
