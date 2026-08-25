@@ -16,12 +16,19 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories
 @EnableJpaRepositories("com.bali.infra")
 class BaliBatchApplication
 
-// WeeklyAnalysisRunner를 실행하고, 결과 코드를 프로세스 종료 코드로 반영 (Airflow가 실패를 감지할 수 있도록)
+// 첫 번째 non-flag 인자로 실행할 배치 작업을 고르고(기본값 weekly, 기존 Airflow DAG 하위호환),
+// 결과 코드를 프로세스 종료 코드로 반영한다 (Airflow가 실패를 감지할 수 있도록)
 fun main(args: Array<String>) {
     val context = SpringApplicationBuilder(BaliBatchApplication::class.java)
         .web(WebApplicationType.NONE)
         .run(*args)
-    val exitCode = context.getBean<WeeklyAnalysisRunner>().run()
+    val job = args.firstOrNull { !it.startsWith("--") } ?: "weekly"
+    val exitCode = when (job) {
+        "weekly" -> context.getBean<WeeklyAnalysisRunner>().run()
+        "monthly" -> context.getBean<MonthlyAnalysisRunner>().run()
+        "routine-reminder" -> context.getBean<com.bali.batch.notification.RoutineReminderRunner>().run()
+        else -> throw IllegalArgumentException("알 수 없는 배치 작업: $job")
+    }
     SpringApplication.exit(context, ExitCodeGenerator { exitCode })
     exitProcess(exitCode)
 }
