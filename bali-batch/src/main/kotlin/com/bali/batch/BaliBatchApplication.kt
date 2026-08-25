@@ -26,6 +26,7 @@ fun main(args: Array<String>) {
     val exitCode = when (job) {
         "weekly" -> context.getBean<WeeklyAnalysisRunner>().run()
         "routine-reminder" -> context.getBean<com.bali.batch.notification.RoutineReminderRunner>().run()
+        "inactivity-alert" -> context.getBean<com.bali.batch.notification.InactivityAlertRunner>().run()
         else -> throw IllegalArgumentException("알 수 없는 배치 작업: $job")
     }
     SpringApplication.exit(context, ExitCodeGenerator { exitCode })
