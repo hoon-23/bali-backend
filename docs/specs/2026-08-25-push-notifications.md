@@ -20,7 +20,7 @@ PR(개인 기록) 달성 알림은 이번 범위에서 제외한다. PR 감지 �
 **제외 (v1 아님)**
 - PR 달성 알림 (추후 PR 기능 논의 시)
 - 인앱 알림함/알림 목록 UI (백엔드는 발송만 담당, 조회 API 없음)
-- 영수증(receipt) 기반 재발송 — [오버스펙 우려](#오버스펙-우려-영수증-기록) 참조
+- 영수증(receipt) 조회/기록 및 그에 기반한 재발송 — [오버스펙 우려](#오버스펙-우려-영수증-기록) 참조
 
 ## 네이밍
 
@@ -88,7 +88,7 @@ Airflow DAG (cron)
 ### 루틴 예약 리마인더
 `sessions` 테이블에 시각 컬럼을 추가하지 않는다(프론트가 지금 붙이는 "루틴 예약"이 아직 시각까지는 안 받는 것으로 확인됨. 나중에 시각이 붙으면 재검토). 대신 하루를 오전(00~12시)/오후(12~24시) 두 구간으로 나누고, 각 구간의 절반 시점(06시, 18시 KST)에 그날 날짜로 `status=SCHEDULED`인 세션이 남아있으면 리마인더를 보낸다.
 
-- DAG: `routine_reminder`, cron `0 21,9 * * *` (UTC 기준. KST 06/18시에 해당 — Airflow 컨테이너가 UTC로 동작하는 걸 전제로 환산했으므로 구현 시 `docker-compose.yml`의 Airflow 타임존 설정을 재확인할 것)
+- DAG: `routine_reminder`, cron `0 21,9 * * *` (UTC 기준, KST 06/18시에 해당. `docker-compose.yml`에 타임존 설정이 없어 Airflow 컨테이너는 기본 UTC로 동작함을 확인함)
 - Runner: `RoutineReminderRunner`
 - 중복 방지: `notification_log`에 `type=ROUTINE_REMINDER AND reference_id=session.id`인 기록이 이미 있으면 스킵 (06시에 보냈으면 18시엔 안 보냄)
 
@@ -119,11 +119,7 @@ Expo Push는 발송 즉시 받는 "티켓" 응답과, 별도로 조회해야 하
 
 논의 중 "영수증까지 폴링해서 재발송까지 자동화"하는 안을 검토했으나, 새 상태머신·상시 폴링 DAG(30분 주기)가 필요해 리마인더/이탈 알림/통계 요약처럼 비트랜잭션·비필수 알림 대비 과한 인프라라고 판단해 **재발송 자동화는 v1에서 제외**했다.
 
-다만 "영수증을 기록만이라도 남길지"는 논의 중 결론을 못 내렸다 — 별도 배치(`NotificationReceiptRunner`, 예: 하루 1회)로 `notification_log.delivery_status`를 `DELIVERED`/`FAILED`로 갱신하는 것 자체는 저비용이지만, 영수증에서 뒤늦게 확인된 `DeviceNotRegistered`에 대해 토큰을 정리할지 여부도 미정이다.
-
-**결정 필요 사항 (구현 착수 전 확정할 것)**:
-1. 영수증 기록 배치 자체를 v1에 포함할지, 아예 다음 단계로 미룰지
-2. 포함한다면 영수증 단계에서 확인된 만료 토큰을 정리(삭제)할지, 순수 기록만 남기고 손대지 않을지
+**결정 (2026-08-25)**: 영수증 기록 배치(`NotificationReceiptRunner`)는 v1에서 제외한다. `notification_log.delivery_status` 컬럼은 스키마에 남겨두되(기본값 `PENDING`), 실제로 영수증을 조회해 갱신하는 로직은 이번 구현 범위에 포함하지 않는다. 운영 중 "왜 알림이 안 왔는지" 문의가 실제로 쌓이면 그때 별도로 추가한다.
 
 ## API (bali-api)
 
