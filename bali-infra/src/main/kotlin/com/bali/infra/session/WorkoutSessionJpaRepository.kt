@@ -1,6 +1,7 @@
 package com.bali.infra.session
 
 import com.bali.core.session.SessionStatus
+import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
@@ -15,6 +16,29 @@ interface WorkoutSessionJpaRepository : JpaRepository<WorkoutSessionJpaEntity, U
         @Param("userId") userId: UUID,
         @Param("from") from: LocalDate,
         @Param("to") to: LocalDate,
+    ): List<WorkoutSessionJpaEntity>
+
+    // 커서(date, id) 이전 세션을 date DESC, id DESC로 조회 (동일 date가 여러 건이라 id를 2차 정렬 기준으로 써야 커서가 안정적).
+    // cursorDate가 null이면 커서 조건을 건너뛰어 최신부터 시작. Pageable로 개수(limit)만 제어하고 페이지 offset은 항상 0을 쓴다(오프셋 방식이 아니라 커서로 위치를 지정하므로)
+    @Query("""
+        SELECT s FROM WorkoutSessionJpaEntity s
+        WHERE s.userId = :userId
+          AND (CAST(:from AS date) IS NULL OR s.date >= :from)
+          AND (CAST(:to AS date) IS NULL OR s.date <= :to)
+          AND (
+            CAST(:cursorDate AS date) IS NULL
+            OR s.date < :cursorDate
+            OR (s.date = :cursorDate AND s.id < CAST(:cursorId AS uuid))
+          )
+        ORDER BY s.date DESC, s.id DESC
+    """)
+    fun findPageByUserId(
+        @Param("userId") userId: UUID,
+        @Param("from") from: LocalDate?,
+        @Param("to") to: LocalDate?,
+        @Param("cursorDate") cursorDate: LocalDate?,
+        @Param("cursorId") cursorId: UUID?,
+        pageable: Pageable,
     ): List<WorkoutSessionJpaEntity>
 
     // 세션을 삭제. bulk delete는 영속성 컨텍스트를 갱신하지 않아 DB cascade로 사라진

@@ -80,6 +80,44 @@ class WorkoutSessionRepositoryAdapterTest {
     }
 
     @Test
+    fun `findPageByUserId는 date DESC 순으로 limit개만 반환하고, 같은 date는 id DESC로 tie-break한다`() {
+        val userId = UUID.randomUUID()
+        val oldest = adapter.save(WorkoutSession(id = null, userId = userId, date = LocalDate.of(2026, 8, 1), templateId = null, status = SessionStatus.SCHEDULED, logs = emptyList()))
+        val sameDateA = adapter.save(WorkoutSession(id = null, userId = userId, date = LocalDate.of(2026, 8, 3), templateId = null, status = SessionStatus.SCHEDULED, logs = emptyList()))
+        val sameDateB = adapter.save(WorkoutSession(id = null, userId = userId, date = LocalDate.of(2026, 8, 3), templateId = null, status = SessionStatus.SCHEDULED, logs = emptyList()))
+        val expectedOrder = listOf(sameDateA, sameDateB).sortedByDescending { it.id.toString() }.map { it.id }
+
+        val page = adapter.findPageByUserId(userId, from = null, to = null, cursorDate = null, cursorId = null, limit = 2)
+
+        assertEquals(expectedOrder, page.map { it.id })
+        assertTrue(page.none { it.id == oldest.id })
+    }
+
+    @Test
+    fun `findPageByUserId는 cursor 이전 세션만 반환해 이어서 조회할 수 있다`() {
+        val userId = UUID.randomUUID()
+        val first = adapter.save(WorkoutSession(id = null, userId = userId, date = LocalDate.of(2026, 8, 1), templateId = null, status = SessionStatus.SCHEDULED, logs = emptyList()))
+        val second = adapter.save(WorkoutSession(id = null, userId = userId, date = LocalDate.of(2026, 8, 2), templateId = null, status = SessionStatus.SCHEDULED, logs = emptyList()))
+        val third = adapter.save(WorkoutSession(id = null, userId = userId, date = LocalDate.of(2026, 8, 3), templateId = null, status = SessionStatus.SCHEDULED, logs = emptyList()))
+
+        // 커서를 third 자신의 (date, id)로 지정: id < 자기 자신은 항상 false이므로 third는 결정적으로 제외된다
+        val nextPage = adapter.findPageByUserId(userId, from = null, to = null, cursorDate = third.date, cursorId = third.id!!, limit = 10)
+
+        assertEquals(setOf(first.id, second.id), nextPage.map { it.id }.toSet())
+    }
+
+    @Test
+    fun `findPageByUserId는 from to 범위와 함께 쓰면 그 범위 내에서만 조회한다`() {
+        val userId = UUID.randomUUID()
+        val inRange = adapter.save(WorkoutSession(id = null, userId = userId, date = LocalDate.of(2026, 8, 15), templateId = null, status = SessionStatus.SCHEDULED, logs = emptyList()))
+        adapter.save(WorkoutSession(id = null, userId = userId, date = LocalDate.of(2026, 1, 1), templateId = null, status = SessionStatus.SCHEDULED, logs = emptyList()))
+
+        val page = adapter.findPageByUserId(userId, from = LocalDate.of(2026, 8, 1), to = LocalDate.of(2026, 8, 31), cursorDate = null, cursorId = null, limit = 10)
+
+        assertEquals(listOf(inRange.id), page.map { it.id })
+    }
+
+    @Test
     fun `addLogs appends a new log without touching existing ones`() {
         val userId = UUID.randomUUID()
         val saved = adapter.save(WorkoutSession(id = null, userId = userId, date = LocalDate.of(2026, 8, 6), templateId = null, status = SessionStatus.SCHEDULED, logs = listOf(log())))

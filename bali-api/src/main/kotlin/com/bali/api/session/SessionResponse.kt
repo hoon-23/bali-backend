@@ -33,6 +33,13 @@ data class SessionResponse(
     }
 }
 
+// 세션 목록 커서 페이지 응답. nextCursor는 hasNext가 true일 때만 값이 있고, 그대로 다음 요청의 cursor 파라미터에 넣으면 된다
+data class SessionPageResponse(
+    val content: List<SessionResponse>,
+    val hasNext: Boolean,
+    val nextCursor: String?,
+)
+
 // 세션 log 정보를 HTTP 응답으로 변환하는 DTO
 data class SessionLogResponse(
     val id: UUID,

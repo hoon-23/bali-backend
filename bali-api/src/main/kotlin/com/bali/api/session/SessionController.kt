@@ -69,16 +69,35 @@ class SessionController(
         return ResponseEntity.status(HttpStatus.CREATED).body(SessionResponse.from(saved, resolveTitle(saved)))
     }
 
-    // 기간별(from~to, inclusive) 세션 조회
-    @Operation(summary = "기간별 세션 조회", description = "from~to(inclusive) 기간 내 본인 세션 목록을 조회한다")
+    // 세션 목록 커서(무한스크롤) 조회. from/to는 선택이며 있으면 그 범위 내에서, 없으면 전체 이력에서 date DESC로 조회한다
+    @Operation(
+        summary = "세션 목록 조회 (커서 기반)",
+        description = "date DESC로 최대 size개를 반환한다. cursor를 생략하면 최신부터 시작하고, 응답의 nextCursor를 다음 요청에 그대로 넣으면 이어서 조회된다. from/to는 선택 파라미터로 범위를 좁힐 때만 쓴다",
+    )
     @GetMapping
     fun list(
-        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) from: LocalDate,
-        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) to: LocalDate,
-    ): List<SessionResponse> {
-        val sessions = sessionRepository.findAllByUserId(currentUserId(), from, to)
-        val exercisesById = exercisesByIdFor(sessions)
-        return sessions.map { SessionResponse.from(it, resolveTitle(it, exercisesById)) }
+        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) from: LocalDate?,
+        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) to: LocalDate?,
+        @RequestParam(required = false) cursor: String?,
+        @RequestParam(defaultValue = "20") size: Int,
+    ): SessionPageResponse {
+        require(size in 1..100) { "size는 1~100 사이여야 합니다" }
+        val decodedCursor = cursor?.let { SessionCursor.decode(it) }
+
+        val sessions = sessionRepository.findPageByUserId(
+            currentUserId(), from, to,
+            cursorDate = decodedCursor?.date, cursorId = decodedCursor?.id,
+            limit = size + 1,
+        )
+        val hasNext = sessions.size > size
+        val page = sessions.take(size)
+
+        val exercisesById = exercisesByIdFor(page)
+        return SessionPageResponse(
+            content = page.map { SessionResponse.from(it, resolveTitle(it, exercisesById)) },
+            hasNext = hasNext,
+            nextCursor = if (hasNext) page.last().let { SessionCursor(it.date, it.id!!).encode() } else null,
+        )
     }
 
     // 세션 단건 조회. 없거나 다른 유저 소유면 404

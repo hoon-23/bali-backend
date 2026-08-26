@@ -9,6 +9,7 @@ import com.fasterxml.jackson.databind.SerializationFeature
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
+import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Repository
 import org.springframework.transaction.annotation.Transactional
 import java.math.BigDecimal
@@ -42,6 +43,19 @@ class WorkoutSessionRepositoryAdapter(
         // findBySessionIdInOrderBySortOrderAsc가 sortOrder 오름차순으로 반환하고,
         // Kotlin의 groupBy는 원본 순서(encounter order)를 그룹 내에 그대로 보존하므로
         // 그룹핑 이후에도 세션별 logs 리스트는 sortOrder 순서를 유지한다.
+        val logsBySessionId = logJpaRepository.findBySessionIdInOrderBySortOrderAsc(sessions.map { it.id }).groupBy { it.sessionId }
+        return sessions.map { it.toDomain(logsBySessionId[it.id] ?: emptyList()) }
+    }
+
+    // 커서 이전 세션 목록을 date DESC, id DESC 순으로 최대 limit개, logs와 함께 조회 (무한스크롤용)
+    @Transactional
+    override fun findPageByUserId(
+        userId: UUID,
+        from: LocalDate?, to: LocalDate?,
+        cursorDate: LocalDate?, cursorId: UUID?,
+        limit: Int,
+    ): List<WorkoutSession> {
+        val sessions = sessionJpaRepository.findPageByUserId(userId, from, to, cursorDate, cursorId, PageRequest.of(0, limit))
         val logsBySessionId = logJpaRepository.findBySessionIdInOrderBySortOrderAsc(sessions.map { it.id }).groupBy { it.sessionId }
         return sessions.map { it.toDomain(logsBySessionId[it.id] ?: emptyList()) }
     }

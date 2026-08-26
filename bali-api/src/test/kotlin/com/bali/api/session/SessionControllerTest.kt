@@ -218,7 +218,51 @@ class SessionControllerTest {
 
         mockMvc.perform(get("/api/v1/sessions").param("from", "2026-08-01").param("to", "2026-08-31").header("Authorization", "Bearer $token"))
             .andExpect(status().isOk)
-            .andExpect(jsonPath("$[*].date", everyItem(equalTo("2026-08-06"))))
+            .andExpect(jsonPath("$.content[*].date", everyItem(equalTo("2026-08-06"))))
+            .andExpect(jsonPath("$.hasNext").value(false))
+    }
+
+    @Test
+    fun `GET sessions는 size보다 세션이 많으면 hasNext true와 nextCursor를 반환하고, 그 cursor로 이어서 조회하면 나머지가 반환된다`() {
+        val (token, _) = issueTokenForNewUser()
+        listOf("2026-08-01", "2026-08-02", "2026-08-03").forEach { date ->
+            mockMvc.perform(post("/api/v1/sessions").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON).content("""{"date":"$date","templateId":null}"""))
+                .andExpect(status().isCreated)
+        }
+
+        val firstPage = mockMvc.perform(get("/api/v1/sessions").param("size", "2").header("Authorization", "Bearer $token"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.content.length()").value(2))
+            .andExpect(jsonPath("$.content[0].date").value("2026-08-03"))
+            .andExpect(jsonPath("$.content[1].date").value("2026-08-02"))
+            .andExpect(jsonPath("$.hasNext").value(true))
+            .andReturn().response.contentAsString
+        val nextCursor = objectMapper.readTree(firstPage).get("nextCursor").asText()
+
+        mockMvc.perform(get("/api/v1/sessions").param("size", "2").param("cursor", nextCursor).header("Authorization", "Bearer $token"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.content.length()").value(1))
+            .andExpect(jsonPath("$.content[0].date").value("2026-08-01"))
+            .andExpect(jsonPath("$.hasNext").value(false))
+            .andExpect(jsonPath("$.nextCursor").doesNotExist())
+    }
+
+    @Test
+    fun `GET sessions에 유효하지 않은 cursor를 넘기면 400 반환`() {
+        val (token, _) = issueTokenForNewUser()
+
+        mockMvc.perform(get("/api/v1/sessions").param("cursor", "not-a-valid-cursor").header("Authorization", "Bearer $token"))
+            .andExpect(status().isBadRequest)
+    }
+
+    @Test
+    fun `GET sessions에 size 범위를 벗어난 값을 넘기면 400 반환`() {
+        val (token, _) = issueTokenForNewUser()
+
+        mockMvc.perform(get("/api/v1/sessions").param("size", "0").header("Authorization", "Bearer $token"))
+            .andExpect(status().isBadRequest)
+        mockMvc.perform(get("/api/v1/sessions").param("size", "101").header("Authorization", "Bearer $token"))
+            .andExpect(status().isBadRequest)
     }
 
     @Test
