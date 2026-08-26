@@ -42,13 +42,17 @@ class UserController(
         return ResponseEntity.ok(UserResponse.from(user, consecutiveDays(user.id!!)))
     }
 
-    // 인증된 사용자의 프로필(닉네임/주간 목표 운동 횟수)을 부분 수정하는 엔드포인트
-    @Operation(summary = "프로필 수정", description = "닉네임/주간 목표 운동 횟수를 부분 수정한다. null 필드는 기존 값 유지")
+    // 인증된 사용자의 프로필(닉네임/주간 목표 운동 횟수/이메일)을 부분 수정하는 엔드포인트
+    @Operation(summary = "프로필 수정", description = "닉네임/주간 목표 운동 횟수/이메일을 부분 수정한다. null 필드는 기존 값 유지. 이메일은 다른 사용자와 중복되면 400")
     @PatchMapping("/me")
     fun updateProfile(@RequestBody request: UserUpdateRequest): ResponseEntity<UserResponse> {
         val user = userRepository.findById(currentUserId())
             ?: return ResponseEntity.notFound().build()
-        val updated = userRepository.save(user.updateProfile(request.nickname, request.weeklyGoalSessions))
+        request.email?.let { newEmail ->
+            val owner = userRepository.findByEmail(newEmail)
+            require(owner == null || owner.id == user.id) { "이미 사용 중인 이메일입니다" }
+        }
+        val updated = userRepository.save(user.updateProfile(request.nickname, request.weeklyGoalSessions, request.email))
         return ResponseEntity.ok(UserResponse.from(updated, consecutiveDays(updated.id!!)))
     }
 

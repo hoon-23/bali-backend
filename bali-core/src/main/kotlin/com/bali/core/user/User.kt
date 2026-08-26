@@ -24,13 +24,20 @@ data class User(
         nickname = "탈퇴한사용자",
     )
 
-    // 닉네임/주간 목표 운동 횟수를 부분 수정한다 (null인 필드는 기존 값 유지). 유효하지 않은 값이면 예외
-    fun updateProfile(nickname: String?, weeklyGoalSessions: Int?): User {
+    // 닉네임/주간 목표 운동 횟수/이메일을 부분 수정한다 (null인 필드는 기존 값 유지). 유효하지 않은 값이면 예외.
+    // 이메일 중복 여부는 DB 조회가 필요해 이 순수 도메인 메서드가 아닌 호출부(컨트롤러)에서 검증한다
+    fun updateProfile(nickname: String?, weeklyGoalSessions: Int?, email: String? = null): User {
         val newNickname = (nickname ?: this.nickname).trim()
         require(newNickname.isNotEmpty()) { "nickname must not be blank" }
         require(newNickname.length <= 20) { "nickname must be at most 20 characters" }
         val newWeeklyGoalSessions = weeklyGoalSessions ?: this.weeklyGoalSessions
         require(newWeeklyGoalSessions in 1..7) { "weeklyGoalSessions must be between 1 and 7" }
-        return copy(nickname = newNickname, weeklyGoalSessions = newWeeklyGoalSessions)
+        val newEmail = (email ?: this.email).trim()
+        require(EMAIL_REGEX.matches(newEmail)) { "email 형식이 올바르지 않습니다" }
+        return copy(nickname = newNickname, weeklyGoalSessions = newWeeklyGoalSessions, email = newEmail)
+    }
+
+    companion object {
+        private val EMAIL_REGEX = Regex("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")
     }
 }

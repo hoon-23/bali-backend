@@ -19,6 +19,7 @@ class AuthTokenServiceTest {
     private class SingleUserRepository(private val user: User) : UserRepository {
         override fun findById(id: UUID): User? = if (id == user.id) user else null
         override fun findByProviderAndProviderId(provider: AuthProvider, providerId: String): User? = null
+        override fun findByEmail(email: String): User? = if (email == user.email) user else null
         override fun save(user: User): User = user
         override fun findAllByStatus(status: UserStatus): List<User> = emptyList()
     }

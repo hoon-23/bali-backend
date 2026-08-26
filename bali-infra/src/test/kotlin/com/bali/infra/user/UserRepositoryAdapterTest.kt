@@ -77,6 +77,17 @@ class UserRepositoryAdapterTest {
     }
 
     @Test
+    fun `findByEmail은 이메일이 일치하는 유저를 반환하고, 없으면 null을 반환한다`() {
+        val email = "find-by-email-${System.nanoTime()}@example.com"
+        val saved = adapter.save(
+            User(id = null, email = email, provider = AuthProvider.GOOGLE, providerId = "sub-find-by-email-${System.nanoTime()}", status = UserStatus.ACTIVE, createdAt = Instant.now())
+        )
+
+        assertEquals(saved.id, adapter.findByEmail(email)?.id)
+        assertNull(adapter.findByEmail("does-not-exist-${System.nanoTime()}@example.com"))
+    }
+
+    @Test
     fun `NAVER, KAKAO, APPLE provider로도 저장과 조회가 가능하다`() {
         listOf(AuthProvider.NAVER, AuthProvider.KAKAO, AuthProvider.APPLE).forEach { provider ->
             val saved = adapter.save(

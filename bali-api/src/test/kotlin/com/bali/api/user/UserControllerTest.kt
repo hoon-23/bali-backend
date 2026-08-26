@@ -205,4 +205,92 @@ class UserControllerTest {
                 .content("""{"nickname":"   "}""")
         ).andExpect(status().isBadRequest)
     }
+
+    // PATCH /api/v1/users/me로 email을 바꾸면 반영되는지 확인 (placeholder -> 실제 이메일 등록 케이스)
+    @Test
+    fun `PATCH me로 email을 바꾸면 반영된다`() {
+        val entity = userJpaRepository.save(
+            com.bali.infra.user.UserJpaEntity(
+                email = "sub-email-update@naver.bali.internal",
+                nickname = "닉네임",
+                provider = com.bali.core.user.AuthProvider.NAVER,
+                providerId = "sub-email-update",
+            )
+        )
+        val token = jwtTokenProvider.generateToken(entity.id, entity.email)
+
+        val response = mockMvc.perform(
+            patch("/api/v1/users/me").header("Authorization", "Bearer $token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"email":"real@example.com"}""")
+        ).andExpect(status().isOk).andReturn().response
+        val json = objectMapper.readTree(String(response.contentAsByteArray, Charsets.UTF_8))
+        org.junit.jupiter.api.Assertions.assertEquals("real@example.com", json.get("email").asText())
+    }
+
+    // PATCH /api/v1/users/me에 다른 유저가 이미 쓰고 있는 email을 주면 400이 반환되는지 확인
+    @Test
+    fun `PATCH me에 이미 사용 중인 email을 주면 400 반환`() {
+        userJpaRepository.save(
+            com.bali.infra.user.UserJpaEntity(
+                email = "taken@example.com",
+                provider = com.bali.core.user.AuthProvider.GOOGLE,
+                providerId = "sub-taken",
+            )
+        )
+        val entity = userJpaRepository.save(
+            com.bali.infra.user.UserJpaEntity(
+                email = "wants-taken@example.com",
+                provider = com.bali.core.user.AuthProvider.GOOGLE,
+                providerId = "sub-wants-taken",
+            )
+        )
+        val token = jwtTokenProvider.generateToken(entity.id, entity.email)
+
+        mockMvc.perform(
+            patch("/api/v1/users/me").header("Authorization", "Bearer $token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"email":"taken@example.com"}""")
+        ).andExpect(status().isBadRequest)
+    }
+
+    // PATCH /api/v1/users/me에 자기 자신의 현재 email을 그대로 주면 중복 검증에 걸리지 않고 200이 반환되는지 확인
+    @Test
+    fun `PATCH me에 본인의 현재 email을 그대로 주면 400이 아니다`() {
+        val entity = userJpaRepository.save(
+            com.bali.infra.user.UserJpaEntity(
+                email = "self@example.com",
+                nickname = "닉네임",
+                provider = com.bali.core.user.AuthProvider.GOOGLE,
+                providerId = "sub-self",
+            )
+        )
+        val token = jwtTokenProvider.generateToken(entity.id, entity.email)
+
+        mockMvc.perform(
+            patch("/api/v1/users/me").header("Authorization", "Bearer $token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"email":"self@example.com"}""")
+        ).andExpect(status().isOk)
+    }
+
+    // PATCH /api/v1/users/me에 형식이 올바르지 않은 email을 주면 400이 반환되는지 확인
+    @Test
+    fun `PATCH me에 형식이 올바르지 않은 email을 주면 400 반환`() {
+        val entity = userJpaRepository.save(
+            com.bali.infra.user.UserJpaEntity(
+                email = "format@example.com",
+                nickname = "닉네임",
+                provider = com.bali.core.user.AuthProvider.GOOGLE,
+                providerId = "sub-format",
+            )
+        )
+        val token = jwtTokenProvider.generateToken(entity.id, entity.email)
+
+        mockMvc.perform(
+            patch("/api/v1/users/me").header("Authorization", "Bearer $token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"email":"not-an-email"}""")
+        ).andExpect(status().isBadRequest)
+    }
 }

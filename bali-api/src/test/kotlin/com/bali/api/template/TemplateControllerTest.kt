@@ -39,7 +39,7 @@ class TemplateControllerTest {
     // 테스트용 사용자를 만들고 그 사용자의 JWT를 발급
     private fun issueTokenForNewUser(): String {
         val entity = userJpaRepository.save(
-            UserJpaEntity(email = "template-test@example.com", provider = AuthProvider.GOOGLE, providerId = "sub-template-${System.nanoTime()}")
+            UserJpaEntity(email = "template-test-${System.nanoTime()}@example.com", provider = AuthProvider.GOOGLE, providerId = "sub-template-${System.nanoTime()}")
         )
         return jwtTokenProvider.generateToken(entity.id, entity.email)
     }

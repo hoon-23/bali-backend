@@ -21,6 +21,10 @@ class UserRepositoryAdapter(
     override fun findByProviderAndProviderId(provider: AuthProvider, providerId: String): User? =
         jpaRepository.findByProviderAndProviderId(provider, providerId)?.toDomain()
 
+    // 이메일로 사용자를 조회 (이메일 중복 검증용)
+    override fun findByEmail(email: String): User? =
+        jpaRepository.findByEmail(email)?.toDomain()
+
     // 사용자를 저장하고 ID가 할당된 도메인 엔티티를 반환.
     override fun save(user: User): User {
         // ID가 없으면 새 UUID 할당, 있으면 기존 값 사용.

@@ -30,6 +30,8 @@ class AuthControllerTest {
         override fun findById(id: UUID): User? = store[id]
         override fun findByProviderAndProviderId(provider: AuthProvider, providerId: String): User? =
             store.values.find { it.provider == provider && it.providerId == providerId }
+        override fun findByEmail(email: String): User? =
+            store.values.find { it.email == email }
         override fun save(user: User): User {
             val toSave = user.copy(id = user.id ?: UUID.randomUUID())
             store[toSave.id!!] = toSave

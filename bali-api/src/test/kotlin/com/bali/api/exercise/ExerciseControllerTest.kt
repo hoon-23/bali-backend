@@ -54,7 +54,7 @@ class ExerciseControllerTest {
     private fun issueTokenForNewUser(): String {
         val entity = userJpaRepository.save(
             UserJpaEntity(
-                email = "exercise-test@example.com",
+                email = "exercise-test-${System.nanoTime()}@example.com",
                 provider = AuthProvider.GOOGLE,
                 providerId = "sub-exercise-${System.nanoTime()}",
             )

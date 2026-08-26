@@ -109,4 +109,21 @@ class UserTest : StringSpec({
             user.updateProfile(nickname = null, weeklyGoalSessions = 8)
         }
     }
+
+    "updateProfile에 email을 주면 바뀌고, null이면 기존 email이 유지된다" {
+        val user = newUser().copy(nickname = "닉네임")
+
+        val updated = user.updateProfile(nickname = null, weeklyGoalSessions = null, email = "new@example.com")
+
+        updated.email shouldBe "new@example.com"
+        user.updateProfile(nickname = null, weeklyGoalSessions = null, email = null).email shouldBe user.email
+    }
+
+    "updateProfile에 형식이 올바르지 않은 email을 주면 예외를 던진다" {
+        val user = newUser().copy(nickname = "닉네임")
+
+        shouldThrow<IllegalArgumentException> {
+            user.updateProfile(nickname = null, weeklyGoalSessions = null, email = "not-an-email")
+        }
+    }
 })

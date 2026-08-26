@@ -2,6 +2,7 @@ package com.bali.api.common
 
 import com.bali.api.auth.login.InvalidRefreshTokenException
 import com.bali.api.auth.social.SocialProviderUnavailableException
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
@@ -43,4 +44,9 @@ class ApiExceptionHandler {
     @ExceptionHandler(InvalidRefreshTokenException::class)
     fun handleInvalidRefreshToken(ex: InvalidRefreshTokenException): ResponseEntity<Map<String, String?>> =
         ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(mapOf("error" to ex.message))
+
+    // 애플리케이션 레벨 중복 검증(예: 이메일)을 통과한 직후 동시 요청이 끼어들어 DB unique 제약을 위반한 경우를 409로 매핑
+    @ExceptionHandler(DataIntegrityViolationException::class)
+    fun handleDataIntegrityViolation(ex: DataIntegrityViolationException): ResponseEntity<Map<String, String?>> =
+        ResponseEntity.status(HttpStatus.CONFLICT).body(mapOf("error" to "이미 사용 중인 값입니다"))
 }

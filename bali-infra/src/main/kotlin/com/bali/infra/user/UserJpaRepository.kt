@@ -9,6 +9,9 @@ interface UserJpaRepository : JpaRepository<UserJpaEntity, UUID> {
     // 프로바이더와 프로바이더별 ID로 사용자를 조회.
     fun findByProviderAndProviderId(provider: AuthProvider, providerId: String): UserJpaEntity?
 
+    // 이메일로 사용자를 조회 (이메일 중복 검증용)
+    fun findByEmail(email: String): UserJpaEntity?
+
     // 특정 상태의 사용자 전체 목록을 조회 (Spring Data가 메서드명으로 쿼리 자동 생성)
     fun findAllByStatus(status: com.bali.core.user.UserStatus): List<UserJpaEntity>
 }
