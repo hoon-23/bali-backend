@@ -54,8 +54,8 @@ PROGRESS.md
 /docs/plans
 /docs/review
 
-### 개인 userId가 하드코딩된 1회성 로컬 시딩 스크립트 (공유 히스토리에 올리지 않음) ###
-/bali-batch/src/main/kotlin/com/bali/batch/personalarchive/
+### 개인 userId/로컬 경로가 하드코딩된 1회성 실행 진입점만 제외 (파서/리졸버 로직은 재사용 가치가 있어 추적) ###
+/bali-batch/src/main/kotlin/com/bali/batch/personalarchive/PersonalArchiveSeedMain.kt
 
 ### Superpowers subagent-driven-development scratch workspace ###
 .superpowers/
