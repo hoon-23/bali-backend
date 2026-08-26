@@ -25,6 +25,7 @@ fun main(args: Array<String>) {
     val job = args.firstOrNull { !it.startsWith("--") } ?: "weekly"
     val exitCode = when (job) {
         "weekly" -> context.getBean<WeeklyAnalysisRunner>().run()
+        "monthly" -> context.getBean<MonthlyAnalysisRunner>().run()
         "routine-reminder" -> context.getBean<com.bali.batch.notification.RoutineReminderRunner>().run()
         "inactivity-alert" -> context.getBean<com.bali.batch.notification.InactivityAlertRunner>().run()
         "weekly-summary-push" -> context.getBean<com.bali.batch.notification.WeeklySummaryPushRunner>().run()

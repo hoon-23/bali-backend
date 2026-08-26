@@ -10,6 +10,7 @@
           <set>
             <option value="$PROJECT_DIR$" />
             <option value="$PROJECT_DIR$/bali-api" />
+            <option value="$PROJECT_DIR$/bali-batch" />
             <option value="$PROJECT_DIR$/bali-core" />
             <option value="$PROJECT_DIR$/bali-infra" />
           </set>
