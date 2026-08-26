@@ -55,7 +55,8 @@ bali-backend/
   동작합니다(같은 주는 항상 전체 재계산).
 - **주간 인사이트 조회**: 저장된 분석 결과를 API로 조회합니다.
 - **개인정보 보호(PIPA)**: 회원 탈퇴 시 email/providerId/nickname을 파기하며,
-  [개인정보처리방침](./docs/legal/privacy-policy.md)을 문서화했습니다.
+  [개인정보처리방침](./bali-api/src/main/resources/legal/privacy-policy.md)을 문서화해
+  `GET /api/v1/legal/privacy-policy`로 공개 서빙합니다.
 
 API 명세는 서버 실행 후 `/swagger-ui.html`에서 확인할 수 있고, 자세한 설계 문서는
 [`docs/specs/`](./docs/specs) 를 참고하세요.
