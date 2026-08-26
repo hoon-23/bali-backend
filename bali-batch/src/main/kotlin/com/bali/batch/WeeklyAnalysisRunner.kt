@@ -29,20 +29,18 @@ class WeeklyAnalysisRunner(
     // 실행 진입점. 전원 성공하면 0, 하나 이상 실패했으면 1을 반환 (Airflow가 재시도 여부를 판단하는 데 사용)
     fun run(): Int {
         val weekOf = LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)).minusWeeks(1)
-        var hadFailure = false
-
-        userRepository.findAllByStatus(UserStatus.ACTIVE).forEach { user ->
-            try {
-                processUser(user, weekOf)
-            } catch (e: Exception) {
+        return runResiliently(
+            items = userRepository.findAllByStatus(UserStatus.ACTIVE),
+            process = { user -> processUser(user, weekOf) },
+            onFailure = { user, e ->
                 log.error("주간 분석 실패: userId=${user.id}, weekOf=$weekOf", e)
+                // 다른 알림 러너들과 달리 실패도 명시적으로 FAILED 레코드를 남긴다 —
+                // 레코드가 아예 없으면 "아직 배치가 안 돌았음"과 "돌았는데 실패함"을 구분할 수 없기 때문
                 analysisRepository.save(
                     WeeklyAnalysis(id = null, userId = user.id!!, weekOf = weekOf, status = AnalysisStatus.FAILED, summary = null, insights = emptyList())
                 )
-                hadFailure = true
-            }
-        }
-        return if (hadFailure) 1 else 0
+            },
+        )
     }
 
     // 유저 1명의 직전 완료 주 기록을 집계해 WeeklyAnalysis를 저장

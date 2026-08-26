@@ -1,5 +1,6 @@
 package com.bali.batch.notification
 
+import com.bali.batch.runResiliently
 import com.bali.core.analysis.AnalysisStatus
 import com.bali.core.analysis.MonthlyAnalysisRepository
 import com.bali.core.notification.NotificationLogRepository
@@ -32,17 +33,11 @@ class MonthlySummaryPushRunner(
 
     fun run(): Int {
         val monthOf = LocalDate.now(APP_ZONE).withDayOfMonth(1).minusMonths(1)
-        var hadFailure = false
-
-        userRepository.findAllByStatus(UserStatus.ACTIVE).forEach { user ->
-            try {
-                processUser(user, monthOf)
-            } catch (e: Exception) {
-                log.error("월간 요약 알림 발송 실패: userId=${user.id}, monthOf=$monthOf", e)
-                hadFailure = true
-            }
-        }
-        return if (hadFailure) 1 else 0
+        return runResiliently(
+            items = userRepository.findAllByStatus(UserStatus.ACTIVE),
+            process = { user -> processUser(user, monthOf) },
+            onFailure = { user, e -> log.error("월간 요약 알림 발송 실패: userId=${user.id}, monthOf=$monthOf", e) },
+        )
     }
 
     private fun processUser(user: User, monthOf: LocalDate) {

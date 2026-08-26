@@ -1,5 +1,6 @@
 package com.bali.batch.notification
 
+import com.bali.batch.runResiliently
 import com.bali.core.notification.NotificationLogRepository
 import com.bali.core.notification.NotificationSettingsRepository
 import com.bali.core.notification.NotificationType
@@ -33,18 +34,12 @@ class RoutineReminderRunner(
 
     fun run(): Int {
         val today = LocalDate.now(APP_ZONE)
-        val sessions = sessionRepository.findAllByDateAndStatus(today, SessionStatus.SCHEDULED)
-        var hadFailure = false
-
-        sessions.forEach { session ->
-            try {
-                processSession(session)
-            } catch (e: Exception) {
-                log.error("루틴 리마인더 발송 실패: sessionId=${session.id}, userId=${session.userId}", e)
-                hadFailure = true
-            }
-        }
-        return if (hadFailure) 1 else 0
+        // 다른 러너들과 달리 ACTIVE 유저가 아니라 오늘의 SCHEDULED 세션을 기준으로 순회한다 (T는 WorkoutSession)
+        return runResiliently(
+            items = sessionRepository.findAllByDateAndStatus(today, SessionStatus.SCHEDULED),
+            process = { session -> processSession(session) },
+            onFailure = { session, e -> log.error("루틴 리마인더 발송 실패: sessionId=${session.id}, userId=${session.userId}", e) },
+        )
     }
 
     private fun processSession(session: WorkoutSession) {

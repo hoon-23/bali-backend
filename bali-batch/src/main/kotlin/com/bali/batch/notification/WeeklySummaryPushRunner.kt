@@ -1,5 +1,6 @@
 package com.bali.batch.notification
 
+import com.bali.batch.runResiliently
 import com.bali.core.analysis.AnalysisStatus
 import com.bali.core.analysis.WeeklyAnalysisRepository
 import com.bali.core.notification.NotificationLogRepository
@@ -34,17 +35,11 @@ class WeeklySummaryPushRunner(
 
     fun run(): Int {
         val weekOf = LocalDate.now(APP_ZONE).with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)).minusWeeks(1)
-        var hadFailure = false
-
-        userRepository.findAllByStatus(UserStatus.ACTIVE).forEach { user ->
-            try {
-                processUser(user, weekOf)
-            } catch (e: Exception) {
-                log.error("주간 요약 알림 발송 실패: userId=${user.id}, weekOf=$weekOf", e)
-                hadFailure = true
-            }
-        }
-        return if (hadFailure) 1 else 0
+        return runResiliently(
+            items = userRepository.findAllByStatus(UserStatus.ACTIVE),
+            process = { user -> processUser(user, weekOf) },
+            onFailure = { user, e -> log.error("주간 요약 알림 발송 실패: userId=${user.id}, weekOf=$weekOf", e) },
+        )
     }
 
     private fun processUser(user: User, weekOf: LocalDate) {

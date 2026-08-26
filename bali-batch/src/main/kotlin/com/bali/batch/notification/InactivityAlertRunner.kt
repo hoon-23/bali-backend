@@ -1,5 +1,6 @@
 package com.bali.batch.notification
 
+import com.bali.batch.runResiliently
 import com.bali.core.notification.NotificationLogRepository
 import com.bali.core.notification.NotificationSettingsRepository
 import com.bali.core.notification.NotificationType
@@ -35,17 +36,11 @@ class InactivityAlertRunner(
 
     fun run(): Int {
         val today = LocalDate.now(APP_ZONE)
-        var hadFailure = false
-
-        userRepository.findAllByStatus(UserStatus.ACTIVE).forEach { user ->
-            try {
-                processUser(user, today)
-            } catch (e: Exception) {
-                log.error("이탈 알림 발송 실패: userId=${user.id}", e)
-                hadFailure = true
-            }
-        }
-        return if (hadFailure) 1 else 0
+        return runResiliently(
+            items = userRepository.findAllByStatus(UserStatus.ACTIVE),
+            process = { user -> processUser(user, today) },
+            onFailure = { user, e -> log.error("이탈 알림 발송 실패: userId=${user.id}", e) },
+        )
     }
 
     private fun processUser(user: User, today: LocalDate) {
