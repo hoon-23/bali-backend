@@ -22,3 +22,9 @@ interface ExerciseRepository {
     // 종목을 삭제
     fun deleteById(id: UUID)
 }
+
+// exerciseIds에 대응하는 종목을 일괄 조회해 Map으로 만든다. 존재하지 않는 exerciseId가 있으면 예외
+fun ExerciseRepository.findAllByIds(exerciseIds: Collection<UUID>): Map<UUID, Exercise> =
+    exerciseIds.distinct().associateWith { exerciseId ->
+        findById(exerciseId) ?: throw IllegalStateException("존재하지 않는 exerciseId: $exerciseId")
+    }

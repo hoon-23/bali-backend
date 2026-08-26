@@ -3,6 +3,7 @@ package com.bali.api.analysis
 import com.bali.core.analysis.DailyStats
 import com.bali.core.analysis.DailyStatsCalculator
 import com.bali.core.exercise.ExerciseRepository
+import com.bali.core.exercise.findAllByIds
 import com.bali.core.session.WorkoutSessionRepository
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
@@ -64,9 +65,7 @@ class DailyAnalysisController(
     private fun calculateDailyStats(userId: UUID, from: LocalDate, to: LocalDate): List<DailyStats> {
         val sessions = sessionRepository.findAllByUserId(userId, from, to)
         val logs = sessions.flatMap { it.logs }
-        val exercisesById = logs.map { it.exerciseId }.distinct().associateWith { exerciseId ->
-            exerciseRepository.findById(exerciseId) ?: throw IllegalStateException("존재하지 않는 exerciseId: $exerciseId")
-        }
+        val exercisesById = exerciseRepository.findAllByIds(logs.map { it.exerciseId })
         return DailyStatsCalculator.calculate(sessions, exercisesById)
     }
 

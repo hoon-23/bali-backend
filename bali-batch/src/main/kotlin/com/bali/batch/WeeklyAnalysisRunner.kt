@@ -5,6 +5,7 @@ import com.bali.core.analysis.WeeklyAnalysis
 import com.bali.core.analysis.WeeklyAnalysisRepository
 import com.bali.core.analysis.WeeklyStatsCalculator
 import com.bali.core.exercise.ExerciseRepository
+import com.bali.core.exercise.findAllByIds
 import com.bali.core.session.WorkoutSessionRepository
 import com.bali.core.user.User
 import com.bali.core.user.UserRepository
@@ -56,9 +57,7 @@ class WeeklyAnalysisRunner(
         }
 
         val logs = sessions.flatMap { it.logs }
-        val exercisesById = logs.map { it.exerciseId }.distinct().associateWith { exerciseId ->
-            exerciseRepository.findById(exerciseId) ?: throw IllegalStateException("존재하지 않는 exerciseId: $exerciseId")
-        }
+        val exercisesById = exerciseRepository.findAllByIds(logs.map { it.exerciseId })
 
         val previousSummary = analysisRepository.findByUserIdAndWeekOf(userId, weekOf.minusWeeks(1))?.summary
         val summary = WeeklyStatsCalculator.calculate(logs, exercisesById, previousSummary)

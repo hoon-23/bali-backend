@@ -3,6 +3,7 @@ package com.bali.api.analysis
 import com.bali.core.analysis.WeeklyAnalysisRepository
 import com.bali.core.analysis.WeeklyStatsCalculator
 import com.bali.core.exercise.ExerciseRepository
+import com.bali.core.exercise.findAllByIds
 import com.bali.core.session.SessionStatus
 import com.bali.core.session.WorkoutSessionRepository
 import io.swagger.v3.oas.annotations.Operation
@@ -52,9 +53,7 @@ class WeeklyAnalysisController(
         val sessions = sessionRepository.findAllByUserId(userId, weekOf, weekOf.plusDays(6))
 
         val logs = sessions.flatMap { it.logs }
-        val exercisesById = logs.map { it.exerciseId }.distinct().associateWith { exerciseId ->
-            exerciseRepository.findById(exerciseId) ?: throw IllegalStateException("존재하지 않는 exerciseId: $exerciseId")
-        }
+        val exercisesById = exerciseRepository.findAllByIds(logs.map { it.exerciseId })
         val summary = WeeklyStatsCalculator.calculate(logs, exercisesById, previousSummary = null)
         val completedSessionsCount = sessions.count { it.status == SessionStatus.COMPLETED }
 
