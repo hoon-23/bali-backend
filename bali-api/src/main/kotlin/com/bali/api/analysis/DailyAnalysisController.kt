@@ -1,5 +1,6 @@
 package com.bali.api.analysis
 
+import com.bali.api.auth.currentUserId
 import com.bali.core.analysis.DailyStats
 import com.bali.core.analysis.DailyStatsCalculator
 import com.bali.core.exercise.ExerciseRepository
@@ -8,7 +9,6 @@ import com.bali.core.session.WorkoutSessionRepository
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
 import org.springframework.format.annotation.DateTimeFormat
-import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
@@ -68,8 +68,4 @@ class DailyAnalysisController(
         val exercisesById = exerciseRepository.findAllByIds(logs.map { it.exerciseId })
         return DailyStatsCalculator.calculate(sessions, exercisesById)
     }
-
-    // SecurityContextHolder에서 현재 인증된 사용자의 UUID를 추출
-    private fun currentUserId(): UUID =
-        UUID.fromString(SecurityContextHolder.getContext().authentication.name)
 }

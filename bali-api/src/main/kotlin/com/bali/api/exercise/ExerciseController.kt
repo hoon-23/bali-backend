@@ -1,5 +1,6 @@
 package com.bali.api.exercise
 
+import com.bali.api.auth.currentUserId
 import com.bali.core.exercise.Exercise
 import com.bali.core.exercise.ExerciseRepository
 import com.bali.core.exercise.ExerciseScope
@@ -10,7 +11,6 @@ import io.swagger.v3.oas.annotations.tags.Tag
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
-import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
@@ -92,8 +92,4 @@ class ExerciseController(
         val exercise = exerciseRepository.findById(id) ?: return null
         return if (exercise.scope == ExerciseScope.PERSONAL && exercise.ownerId == currentUserId()) exercise else null
     }
-
-    // SecurityContextHolder에서 현재 인증된 사용자의 UUID를 추출
-    private fun currentUserId(): UUID =
-        UUID.fromString(SecurityContextHolder.getContext().authentication.name)
 }

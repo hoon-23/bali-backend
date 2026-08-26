@@ -1,5 +1,6 @@
 package com.bali.api.session
 
+import com.bali.api.auth.currentUserId
 import com.bali.api.template.TemplateItemRequest
 import com.bali.core.exercise.Exercise
 import com.bali.core.exercise.ExerciseRepository
@@ -14,7 +15,6 @@ import io.swagger.v3.oas.annotations.tags.Tag
 import org.springframework.format.annotation.DateTimeFormat
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
-import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
@@ -222,8 +222,4 @@ class SessionController(
         val session = sessionRepository.findById(id) ?: return null
         return if (session.userId == currentUserId()) session else null
     }
-
-    // SecurityContextHolder에서 현재 인증된 사용자의 UUID를 추출
-    private fun currentUserId(): UUID =
-        UUID.fromString(SecurityContextHolder.getContext().authentication.name)
 }
