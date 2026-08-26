@@ -9,6 +9,7 @@ import com.bali.core.exercise.MuscleGroup
 import com.bali.core.template.TemplateCategory
 import com.bali.core.template.TemplateItem
 import com.bali.core.template.WorkoutTemplate
+import com.bali.core.session.WorkoutSessionRepository
 import com.bali.core.template.WorkoutTemplateRepository
 import com.bali.core.user.AuthProvider
 import com.bali.infra.user.UserJpaEntity
@@ -43,6 +44,7 @@ class SessionControllerTest {
     @Autowired lateinit var userJpaRepository: UserJpaRepository
     @Autowired lateinit var exerciseRepository: ExerciseRepository
     @Autowired lateinit var templateRepository: WorkoutTemplateRepository
+    @Autowired lateinit var workoutSessionRepository: WorkoutSessionRepository
     @Autowired lateinit var objectMapper: ObjectMapper
 
     // 테스트용 사용자를 만들고 (JWT, userId) 쌍을 반환
@@ -318,7 +320,7 @@ class SessionControllerTest {
 
     @Test
     fun `PATCH sessions id 같은 요청에서 updateItems 검증에 실패하면 addItems도 커밋되지 않는다`() {
-        val (token, _) = issueTokenForNewUser()
+        val (token, userId) = issueTokenForNewUser()
         val exerciseId = savedStrengthExerciseId()
         val created = mockMvc.perform(post("/api/v1/sessions").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON).content("""{"date":"2026-08-06","templateId":null}"""))
             .andExpect(status().isCreated).andReturn().response.contentAsString
@@ -344,6 +346,15 @@ class SessionControllerTest {
         mockMvc.perform(get("/api/v1/sessions/$sessionId").header("Authorization", "Bearer $token"))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.logs.length()").value(0))
+
+        // 위 flagForCommit()으로 세션/종목/유저가 실제 커밋되어 클래스 레벨 @Transactional 롤백으로는
+        // 지워지지 않으므로, 로컬 DB에 테스트 데이터가 누적되지 않게 직접 정리하고 그 삭제도 커밋한다
+        workoutSessionRepository.deleteById(UUID.fromString(sessionId))
+        exerciseRepository.deleteById(exerciseId)
+        userJpaRepository.deleteById(userId)
+        TestTransaction.flagForCommit()
+        TestTransaction.end()
+        TestTransaction.start()
     }
 
     @Test
