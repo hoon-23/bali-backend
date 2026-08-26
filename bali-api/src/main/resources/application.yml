@@ -3,7 +3,9 @@ server:
 
 bali:
   jwt:
-    secret: ${JWT_SECRET:dev-only-secret-change-me-in-prod-32bytes!!}
+    # 기본값 없음: local 프로필에서만 application-local.yml이 개발용 값을 채운다.
+    # dev/prod는 JWT_SECRET 미설정 시 기동 실패해야 한다 (알려진 기본 시크릿으로 조용히 뜨는 것 방지)
+    secret: ${JWT_SECRET}
     expiration-millis: 3600000
     refresh-expiration-millis: 2592000000
   oauth:

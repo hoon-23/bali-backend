@@ -5,6 +5,9 @@ spring:
     password: bali
 
 bali:
+  jwt:
+    # 로컬 개발 전용 기본 시크릿. dev/prod에는 이 값이 없고 JWT_SECRET 환경변수가 필수다
+    secret: dev-only-secret-change-me-in-prod-32bytes!!
   oauth:
     google:
       # bali-frontend GoogleSignin.configure()의 iosClientId (webClientId 미설정이라 ID token audience가 이 값)
