@@ -46,8 +46,11 @@ class SocialLoginServiceTest {
         }
         override fun findByTokenHash(tokenHash: String): RefreshToken? =
             store.values.find { it.tokenHash == tokenHash }
-        override fun revoke(id: UUID) {
-            store[id]?.let { store[id] = it.copy(revoked = true) }
+        override fun revokeIfActive(id: UUID): Boolean {
+            val token = store[id] ?: return false
+            if (token.revoked) return false
+            store[id] = token.copy(revoked = true)
+            return true
         }
     }
 

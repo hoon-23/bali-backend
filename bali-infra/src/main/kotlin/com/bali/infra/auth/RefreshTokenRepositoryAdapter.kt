@@ -3,6 +3,7 @@ package com.bali.infra.auth
 import com.bali.core.auth.RefreshToken
 import com.bali.core.auth.RefreshTokenRepository
 import org.springframework.stereotype.Repository
+import org.springframework.transaction.annotation.Transactional
 import java.util.UUID
 
 // JPA 백엔드로 RefreshTokenRepository 포트를 구현하는 Spring 리포지토리 어댑터.
@@ -28,12 +29,9 @@ class RefreshTokenRepositoryAdapter(
     override fun findByTokenHash(tokenHash: String): RefreshToken? =
         jpaRepository.findByTokenHash(tokenHash)?.toDomain()
 
-    // 지정한 id의 토큰을 폐기 처리.
-    override fun revoke(id: UUID) {
-        val entity = jpaRepository.findById(id).orElse(null) ?: return
-        entity.revoked = true
-        jpaRepository.save(entity)
-    }
+    // 지정한 id의 토큰이 활성 상태일 때만 원자적으로 폐기 처리 (동시 revokeIfActive 호출 중 하나만 성공).
+    @Transactional
+    override fun revokeIfActive(id: UUID): Boolean = jpaRepository.revokeIfActive(id) > 0
 
     // JPA 엔티티를 도메인 모델로 변환.
     private fun RefreshTokenJpaEntity.toDomain() = RefreshToken(

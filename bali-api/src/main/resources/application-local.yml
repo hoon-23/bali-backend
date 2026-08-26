@@ -3,3 +3,15 @@ spring:
     url: jdbc:postgresql://localhost:5432/bali
     username: bali
     password: bali
+
+bali:
+  oauth:
+    google:
+      # bali-frontend GoogleSignin.configure()의 iosClientId (webClientId 미설정이라 ID token audience가 이 값)
+      client-id: 803810989144-q9q2upa4sjjeda3biu455gi3jl99a5pn.apps.googleusercontent.com
+    apple:
+      # 로컬 기기 테스트용 Personal Team bundle id (bali-frontend app.json의 ios.bundleIdentifier와 동일)
+      bundle-id: com.younghoon.swayt
+    kakao:
+      # 네이티브 앱 키 (SDK 앱-투-앱 로그인 시 id_token의 aud가 REST API 키가 아니라 이 값으로 발급됨, 2026-08-24 실기기 테스트로 확인)
+      client-id: 7bd6051805157395e2d371f795275e31
