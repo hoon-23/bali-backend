@@ -17,6 +17,7 @@ import org.springframework.security.web.util.matcher.AntPathRequestMatcher
 @Configuration
 class SecurityConfig(
     private val jwtAuthenticationFilter: JwtAuthenticationFilter,
+    private val rateLimitFilter: RateLimitFilter,
     private val environment: Environment,
 ) {
 
@@ -40,6 +41,10 @@ class SecurityConfig(
             sessionManagement { sessionCreationPolicy = org.springframework.security.config.http.SessionCreationPolicy.STATELESS }
             // UsernamePasswordAuthenticationFilter 이전에 JWT 필터를 실행하여 토큰 기반 인증 처리
             addFilterBefore<org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter>(jwtAuthenticationFilter)
+            // JWT 필터보다 먼저 rate limit 필터를 실행 (auth 엔드포인트 무차별 시도를 인증 로직 진입 전에 차단).
+            // JwtAuthenticationFilter의 위치가 위에서 이미 등록된 뒤에 와야 한다 (안 그러면 "does not have
+            // a registered order" 예외 — addFilterBefore<X>는 X의 위치가 먼저 알려져 있어야 함)
+            addFilterBefore<JwtAuthenticationFilter>(rateLimitFilter)
             // /api/** 경로의 REST API 요청에 대해서만 401 JSON 응답을 반환하도록 설정
             exceptionHandling {
                 defaultAuthenticationEntryPointFor(
