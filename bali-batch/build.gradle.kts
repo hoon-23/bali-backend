@@ -19,3 +19,16 @@ dependencies {
 tasks.named<Jar>("jar") {
     enabled = false
 }
+
+// personalArchiveSeed main()이 추가되며 main class가 2개가 되어 bootJar/bootRun이 자동탐지를 못 하므로 명시
+springBoot {
+    mainClass.set("com.bali.batch.BaliBatchApplicationKt")
+}
+
+// 개인 아카이브 실 데이터 1회성 시딩 스크립트 (Airflow/Docker 이미지와 무관, 로컬 실행 전용)
+tasks.register<JavaExec>("personalArchiveSeed") {
+    group = "application"
+    description = "아이폰 메모 아카이브(운동-txt)를 실 계정에 1회성으로 시딩"
+    mainClass.set("com.bali.batch.personalarchive.PersonalArchiveSeedMainKt")
+    classpath = sourceSets["main"].runtimeClasspath
+}
