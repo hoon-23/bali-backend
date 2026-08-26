@@ -31,3 +31,12 @@ management:
     web:
       exposure:
         include: health
+
+logging:
+  file:
+    name: logs/bali-api.log
+  logback:
+    rollingpolicy:
+      max-file-size: 10MB
+      max-history: 7
+      total-size-cap: 100MB
