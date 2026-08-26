@@ -1656,9 +1656,12 @@ import com.bali.core.notification.DevicePlatform
 import com.bali.core.notification.DeviceToken
 import com.bali.core.notification.DeviceTokenRepository
 import com.bali.core.notification.NotificationLogRepository
+import com.bali.core.notification.NotificationSender
 import com.bali.core.notification.NotificationSettings
 import com.bali.core.notification.NotificationSettingsRepository
 import com.bali.core.notification.NotificationType
+import com.bali.core.notification.PushMessage
+import com.bali.core.notification.PushSendResult
 import com.bali.core.session.SessionStatus
 import com.bali.core.session.WorkoutSession
 import com.bali.core.session.WorkoutSessionRepository
@@ -1668,15 +1671,15 @@ import com.bali.core.user.UserRepository
 import com.bali.core.user.UserStatus
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.mockito.Mockito.`when`
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.context.annotation.Import
+import org.springframework.boot.test.mock.mockito.MockBean
 import org.springframework.transaction.annotation.Transactional
 import java.time.Instant
 import java.time.LocalDate
 
 @SpringBootTest(classes = [BaliBatchApplication::class])
-@Import(FakeNotificationSenderConfig::class)
 @Transactional
 class RoutineReminderRunnerTest {
 
@@ -1686,13 +1689,22 @@ class RoutineReminderRunnerTest {
     @Autowired lateinit var deviceTokenRepository: DeviceTokenRepository
     @Autowired lateinit var settingsRepository: NotificationSettingsRepository
     @Autowired lateinit var notificationLogRepository: NotificationLogRepository
+    @MockBean lateinit var notificationSender: NotificationSender
 
     private fun newUser() = userRepository.save(
         User(id = null, email = "reminder-${System.nanoTime()}@example.com", provider = AuthProvider.GOOGLE, providerId = "sub-reminder-${System.nanoTime()}", status = UserStatus.ACTIVE, createdAt = Instant.now())
     )
 
+    private fun stubSuccessfulSend() {
+        `when`(notificationSender.send(org.mockito.ArgumentMatchers.anyList())).thenAnswer { invocation ->
+            val messages = invocation.getArgument<List<PushMessage>>(0)
+            messages.map { PushSendResult(token = it.token, ticketId = "fake-ticket-${it.token}", error = null) }
+        }
+    }
+
     @Test
     fun `오늘 SCHEDULED 세션이 있고 토큰이 등록된 유저에게 발송하고 로그를 남긴다`() {
+        stubSuccessfulSend()
         val user = newUser()
         deviceTokenRepository.upsert(DeviceToken(id = null, userId = user.id!!, expoPushToken = "ExponentPushToken[rr-${System.nanoTime()}]", platform = DevicePlatform.IOS, createdAt = Instant.now(), updatedAt = Instant.now()))
         val session = sessionRepository.save(WorkoutSession(id = null, userId = user.id!!, date = LocalDate.now(), templateId = null, status = SessionStatus.SCHEDULED, logs = emptyList()))
@@ -1705,6 +1717,7 @@ class RoutineReminderRunnerTest {
 
     @Test
     fun `이미 발송한 세션은 다시 발송하지 않는다`() {
+        stubSuccessfulSend()
         val user = newUser()
         deviceTokenRepository.upsert(DeviceToken(id = null, userId = user.id!!, expoPushToken = "ExponentPushToken[rr2-${System.nanoTime()}]", platform = DevicePlatform.IOS, createdAt = Instant.now(), updatedAt = Instant.now()))
         val session = sessionRepository.save(WorkoutSession(id = null, userId = user.id!!, date = LocalDate.now(), templateId = null, status = SessionStatus.SCHEDULED, logs = emptyList()))
@@ -1890,7 +1903,10 @@ import com.bali.core.notification.DevicePlatform
 import com.bali.core.notification.DeviceToken
 import com.bali.core.notification.DeviceTokenRepository
 import com.bali.core.notification.NotificationLogRepository
+import com.bali.core.notification.NotificationSender
 import com.bali.core.notification.NotificationType
+import com.bali.core.notification.PushMessage
+import com.bali.core.notification.PushSendResult
 import com.bali.core.session.SessionLog
 import com.bali.core.session.SessionStatus
 import com.bali.core.session.WorkoutSession
@@ -1902,9 +1918,10 @@ import com.bali.core.user.UserStatus
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.mockito.Mockito.`when`
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.context.annotation.Import
+import org.springframework.boot.test.mock.mockito.MockBean
 import org.springframework.transaction.annotation.Transactional
 import java.math.BigDecimal
 import java.time.Instant
@@ -1912,7 +1929,6 @@ import java.time.LocalDate
 import java.util.UUID
 
 @SpringBootTest(classes = [BaliBatchApplication::class])
-@Import(FakeNotificationSenderConfig::class)
 @Transactional
 class InactivityAlertRunnerTest {
 
@@ -1921,6 +1937,7 @@ class InactivityAlertRunnerTest {
     @Autowired lateinit var sessionRepository: WorkoutSessionRepository
     @Autowired lateinit var deviceTokenRepository: DeviceTokenRepository
     @Autowired lateinit var notificationLogRepository: NotificationLogRepository
+    @MockBean lateinit var notificationSender: NotificationSender
 
     private fun newUser() = userRepository.save(
         User(id = null, email = "inactivity-${System.nanoTime()}@example.com", provider = AuthProvider.GOOGLE, providerId = "sub-inactivity-${System.nanoTime()}", status = UserStatus.ACTIVE, createdAt = Instant.now())
@@ -1931,8 +1948,16 @@ class InactivityAlertRunnerTest {
         sessionRepository.save(WorkoutSession(id = null, userId = userId, date = date, templateId = null, status = SessionStatus.COMPLETED, logs = listOf(log)))
     }
 
+    private fun stubSuccessfulSend() {
+        `when`(notificationSender.send(org.mockito.ArgumentMatchers.anyList())).thenAnswer { invocation ->
+            val messages = invocation.getArgument<List<PushMessage>>(0)
+            messages.map { PushSendResult(token = it.token, ticketId = "fake-ticket-${it.token}", error = null) }
+        }
+    }
+
     @Test
     fun `마지막 운동이 7일 이상 지난 유저에게 발송한다`() {
+        stubSuccessfulSend()
         val user = newUser()
         deviceTokenRepository.upsert(DeviceToken(id = null, userId = user.id!!, expoPushToken = "ExponentPushToken[ia-${System.nanoTime()}]", platform = DevicePlatform.IOS, createdAt = Instant.now(), updatedAt = Instant.now()))
         completedSessionOn(user.id, LocalDate.now().minusDays(8))
@@ -2127,7 +2152,10 @@ import com.bali.core.notification.DevicePlatform
 import com.bali.core.notification.DeviceToken
 import com.bali.core.notification.DeviceTokenRepository
 import com.bali.core.notification.NotificationLogRepository
+import com.bali.core.notification.NotificationSender
 import com.bali.core.notification.NotificationType
+import com.bali.core.notification.PushMessage
+import com.bali.core.notification.PushSendResult
 import com.bali.core.user.AuthProvider
 import com.bali.core.user.User
 import com.bali.core.user.UserRepository
@@ -2135,9 +2163,10 @@ import com.bali.core.user.UserStatus
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.mockito.Mockito.`when`
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.context.annotation.Import
+import org.springframework.boot.test.mock.mockito.MockBean
 import org.springframework.transaction.annotation.Transactional
 import java.time.DayOfWeek
 import java.time.Instant
@@ -2145,7 +2174,6 @@ import java.time.LocalDate
 import java.time.temporal.TemporalAdjusters
 
 @SpringBootTest(classes = [BaliBatchApplication::class])
-@Import(FakeNotificationSenderConfig::class)
 @Transactional
 class WeeklySummaryPushRunnerTest {
 
@@ -2154,6 +2182,7 @@ class WeeklySummaryPushRunnerTest {
     @Autowired lateinit var analysisRepository: WeeklyAnalysisRepository
     @Autowired lateinit var deviceTokenRepository: DeviceTokenRepository
     @Autowired lateinit var notificationLogRepository: NotificationLogRepository
+    @MockBean lateinit var notificationSender: NotificationSender
 
     private fun newUser() = userRepository.save(
         User(id = null, email = "wsummary-${System.nanoTime()}@example.com", provider = AuthProvider.GOOGLE, providerId = "sub-wsummary-${System.nanoTime()}", status = UserStatus.ACTIVE, createdAt = Instant.now())
@@ -2162,8 +2191,16 @@ class WeeklySummaryPushRunnerTest {
     private fun lastCompletedWeekOf(): LocalDate =
         LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)).minusWeeks(1)
 
+    private fun stubSuccessfulSend() {
+        `when`(notificationSender.send(org.mockito.ArgumentMatchers.anyList())).thenAnswer { invocation ->
+            val messages = invocation.getArgument<List<PushMessage>>(0)
+            messages.map { PushSendResult(token = it.token, ticketId = "fake-ticket-${it.token}", error = null) }
+        }
+    }
+
     @Test
     fun `직전 주 분석이 SUCCESS인 유저에게 발송한다`() {
+        stubSuccessfulSend()
         val user = newUser()
         deviceTokenRepository.upsert(DeviceToken(id = null, userId = user.id!!, expoPushToken = "ExponentPushToken[ws-${System.nanoTime()}]", platform = DevicePlatform.IOS, createdAt = Instant.now(), updatedAt = Instant.now()))
         val analysis = analysisRepository.save(WeeklyAnalysis(id = null, userId = user.id, weekOf = lastCompletedWeekOf(), status = AnalysisStatus.SUCCESS, summary = com.bali.core.analysis.AnalysisSummary(totalWorkoutMinutes = 60, volumeByExercise = emptyMap(), volumeByMuscleGroup = emptyMap(), cardioTotalMinutes = 0, completionRate = java.math.BigDecimal("1.0"), volumeChangeFromLastWeekPercent = null), insights = emptyList()))
@@ -2366,7 +2403,10 @@ import com.bali.core.notification.DevicePlatform
 import com.bali.core.notification.DeviceToken
 import com.bali.core.notification.DeviceTokenRepository
 import com.bali.core.notification.NotificationLogRepository
+import com.bali.core.notification.NotificationSender
 import com.bali.core.notification.NotificationType
+import com.bali.core.notification.PushMessage
+import com.bali.core.notification.PushSendResult
 import com.bali.core.user.AuthProvider
 import com.bali.core.user.User
 import com.bali.core.user.UserRepository
@@ -2374,15 +2414,15 @@ import com.bali.core.user.UserStatus
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.mockito.Mockito.`when`
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.context.annotation.Import
+import org.springframework.boot.test.mock.mockito.MockBean
 import org.springframework.transaction.annotation.Transactional
 import java.time.Instant
 import java.time.LocalDate
 
 @SpringBootTest(classes = [BaliBatchApplication::class])
-@Import(FakeNotificationSenderConfig::class)
 @Transactional
 class MonthlySummaryPushRunnerTest {
 
@@ -2391,6 +2431,7 @@ class MonthlySummaryPushRunnerTest {
     @Autowired lateinit var analysisRepository: MonthlyAnalysisRepository
     @Autowired lateinit var deviceTokenRepository: DeviceTokenRepository
     @Autowired lateinit var notificationLogRepository: NotificationLogRepository
+    @MockBean lateinit var notificationSender: NotificationSender
 
     private fun newUser() = userRepository.save(
         User(id = null, email = "msummary-${System.nanoTime()}@example.com", provider = AuthProvider.GOOGLE, providerId = "sub-msummary-${System.nanoTime()}", status = UserStatus.ACTIVE, createdAt = Instant.now())
@@ -2399,8 +2440,16 @@ class MonthlySummaryPushRunnerTest {
     private fun lastCompletedMonthOf(): LocalDate =
         LocalDate.now().withDayOfMonth(1).minusMonths(1)
 
+    private fun stubSuccessfulSend() {
+        `when`(notificationSender.send(org.mockito.ArgumentMatchers.anyList())).thenAnswer { invocation ->
+            val messages = invocation.getArgument<List<PushMessage>>(0)
+            messages.map { PushSendResult(token = it.token, ticketId = "fake-ticket-${it.token}", error = null) }
+        }
+    }
+
     @Test
     fun `직전 달 분석이 SUCCESS인 유저에게 발송한다`() {
+        stubSuccessfulSend()
         val user = newUser()
         deviceTokenRepository.upsert(DeviceToken(id = null, userId = user.id!!, expoPushToken = "ExponentPushToken[ms-${System.nanoTime()}]", platform = DevicePlatform.IOS, createdAt = Instant.now(), updatedAt = Instant.now()))
         val analysis = analysisRepository.save(MonthlyAnalysis(id = null, userId = user.id, monthOf = lastCompletedMonthOf(), status = AnalysisStatus.SUCCESS, summary = com.bali.core.analysis.AnalysisSummary(totalWorkoutMinutes = 240, volumeByExercise = emptyMap(), volumeByMuscleGroup = emptyMap(), cardioTotalMinutes = 0, completionRate = java.math.BigDecimal("1.0"), volumeChangeFromLastWeekPercent = null), insights = emptyList()))
