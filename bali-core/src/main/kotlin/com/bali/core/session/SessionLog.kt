@@ -41,14 +41,12 @@ data class SessionLog(
             val strengthFieldsSet = targetSets != null || targetReps != null || targetWeight != null
             val cardioFieldsSet = targetDurationSeconds != null || targetPace != null
             require(!(strengthFieldsSet && cardioFieldsSet)) { "target 필드는 STRENGTH/CARDIO 그룹 중 하나만 채워야 함" }
-            when (exerciseType) {
-                ExerciseType.STRENGTH -> require(targetDurationSeconds == null && targetPace == null) {
-                    "STRENGTH exercise must not have targetDurationSeconds/targetPace"
-                }
-                ExerciseType.CARDIO -> require(targetSets == null && targetReps == null && targetWeight == null) {
-                    "CARDIO exercise must not have targetSets/targetReps/targetWeight"
-                }
-            }
+            exerciseType.requireNoForeignGroupFields(
+                hasStrengthField = strengthFieldsSet,
+                hasCardioField = cardioFieldsSet,
+                strengthFieldNames = "targetSets/targetReps/targetWeight",
+                cardioFieldNames = "targetDurationSeconds/targetPace",
+            )
             return SessionLog(
                 id = null, exerciseId = exerciseId, sortOrder = sortOrder, completed = false,
                 targetSets = targetSets, targetReps = targetReps, targetWeight = targetWeight,
@@ -67,14 +65,12 @@ data class SessionLog(
             val strengthFieldsSet = actualSets != null || actualReps != null || actualWeight != null
             val cardioFieldsSet = actualDurationSeconds != null || actualPace != null
             require(!(strengthFieldsSet && cardioFieldsSet)) { "actual 필드는 STRENGTH/CARDIO 그룹 중 하나만 채워야 함" }
-            when (exerciseType) {
-                ExerciseType.STRENGTH -> require(actualDurationSeconds == null && actualPace == null) {
-                    "STRENGTH exercise must not have actualDurationSeconds/actualPace"
-                }
-                ExerciseType.CARDIO -> require(actualSets == null && actualReps == null && actualWeight == null) {
-                    "CARDIO exercise must not have actualSets/actualReps/actualWeight"
-                }
-            }
+            exerciseType.requireNoForeignGroupFields(
+                hasStrengthField = strengthFieldsSet,
+                hasCardioField = cardioFieldsSet,
+                strengthFieldNames = "actualSets/actualReps/actualWeight",
+                cardioFieldNames = "actualDurationSeconds/actualPace",
+            )
         }
 
         // setTimings가 exerciseType/타임스탬프 제약을 만족하는지 검증 (CARDIO는 세트 개념이 없어 setTimings 불허)

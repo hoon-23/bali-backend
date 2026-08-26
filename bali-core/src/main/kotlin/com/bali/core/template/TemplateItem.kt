@@ -27,21 +27,17 @@ data class TemplateItem(
             targetDurationSeconds: Int? = null,
             targetPace: String? = null,
         ): TemplateItem {
+            exerciseType.requireNoForeignGroupFields(
+                hasStrengthField = targetSets != null || targetReps != null || targetWeight != null,
+                hasCardioField = targetDurationSeconds != null || targetPace != null,
+                strengthFieldNames = "targetSets/targetReps/targetWeight",
+                cardioFieldNames = "targetDurationSeconds/targetPace",
+            )
             when (exerciseType) {
-                ExerciseType.STRENGTH -> {
-                    require(targetSets != null && targetReps != null && targetWeight != null) {
-                        "STRENGTH exercise requires targetSets/targetReps/targetWeight"
-                    }
-                    require(targetDurationSeconds == null && targetPace == null) {
-                        "STRENGTH exercise must not have targetDurationSeconds/targetPace"
-                    }
+                ExerciseType.STRENGTH -> require(targetSets != null && targetReps != null && targetWeight != null) {
+                    "STRENGTH exercise requires targetSets/targetReps/targetWeight"
                 }
-                ExerciseType.CARDIO -> {
-                    require(targetDurationSeconds != null) { "CARDIO exercise requires targetDurationSeconds" }
-                    require(targetSets == null && targetReps == null && targetWeight == null) {
-                        "CARDIO exercise must not have targetSets/targetReps/targetWeight"
-                    }
-                }
+                ExerciseType.CARDIO -> require(targetDurationSeconds != null) { "CARDIO exercise requires targetDurationSeconds" }
             }
             return TemplateItem(
                 id = null,
