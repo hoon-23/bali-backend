@@ -43,6 +43,7 @@ class ExerciseRepositoryAdapter(
             type = exercise.type,
             scope = exercise.scope,
             ownerId = exercise.ownerId,
+            equipment = exercise.equipment,
         )
         return jpaRepository.save(entity).toDomain()
     }
@@ -61,5 +62,6 @@ class ExerciseRepositoryAdapter(
         type = type,
         scope = scope,
         ownerId = ownerId,
+        equipment = equipment,
     )
 }

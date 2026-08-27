@@ -61,17 +61,25 @@ class ExerciseController(
                 type = request.type,
                 scope = ExerciseScope.PERSONAL,
                 ownerId = currentUserId(),
+                equipment = request.equipment,
             )
         )
         return ExerciseResponse.from(saved)
     }
 
-    // 개인 종목 수정 (name/variant/muscleGroup만, type은 불변). 본인 소유 PERSONAL이 아니면 404
-    @Operation(summary = "개인 종목 수정", description = "name/variant/muscleGroup만 수정 가능(type 불변). 본인 소유 PERSONAL이 아니면 404")
+    // 개인 종목 수정 (name/variant/muscleGroup/equipment만, type은 불변). 본인 소유 PERSONAL이 아니면 404
+    @Operation(summary = "개인 종목 수정", description = "name/variant/muscleGroup/equipment만 수정 가능(type 불변). 본인 소유 PERSONAL이 아니면 404")
     @PutMapping("/{id}")
     fun update(@PathVariable id: UUID, @Valid @RequestBody request: ExerciseUpdateRequest): ResponseEntity<ExerciseResponse> {
         val existing = findOwnedPersonalOrNull(id) ?: return ResponseEntity.notFound().build()
-        val saved = exerciseRepository.save(existing.copy(name = request.name, variant = request.variant, muscleGroup = request.muscleGroup))
+        val saved = exerciseRepository.save(
+            existing.copy(
+                name = request.name,
+                variant = request.variant,
+                muscleGroup = request.muscleGroup,
+                equipment = request.equipment,
+            )
+        )
         return ResponseEntity.ok(ExerciseResponse.from(saved))
     }
 

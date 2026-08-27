@@ -1,5 +1,6 @@
 package com.bali.api.exercise
 
+import com.bali.core.exercise.Equipment
 import com.bali.core.exercise.ExerciseType
 import com.bali.core.exercise.MuscleGroup
 import jakarta.validation.constraints.NotBlank
@@ -14,4 +15,5 @@ data class ExerciseCreateRequest(
     val variant: String?,
     val muscleGroup: MuscleGroup,
     val type: ExerciseType,
+    val equipment: Equipment? = null,
 )

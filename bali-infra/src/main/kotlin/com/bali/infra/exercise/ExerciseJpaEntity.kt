@@ -1,5 +1,6 @@
 package com.bali.infra.exercise
 
+import com.bali.core.exercise.Equipment
 import com.bali.core.exercise.ExerciseScope
 import com.bali.core.exercise.ExerciseType
 import com.bali.core.exercise.MuscleGroup
@@ -31,5 +32,8 @@ class ExerciseJpaEntity(
     var scope: ExerciseScope = ExerciseScope.GLOBAL,
 
     var ownerId: UUID? = null,
+
+    @Enumerated(EnumType.STRING)
+    var equipment: Equipment? = null,
 )
 

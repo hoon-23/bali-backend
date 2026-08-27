@@ -1,5 +1,6 @@
 package com.bali.api.exercise
 
+import com.bali.core.exercise.Equipment
 import com.bali.core.exercise.Exercise
 import com.bali.core.exercise.ExerciseScope
 import com.bali.core.exercise.ExerciseType
@@ -15,6 +16,8 @@ data class ExerciseResponse(
     val muscleGroupDisplayName: String,
     val type: ExerciseType,
     val scope: ExerciseScope,
+    val equipment: Equipment?,
+    val equipmentDisplayName: String?,
 ) {
     companion object {
         // Exercise 도메인 모델을 ExerciseResponse로 변환
@@ -26,6 +29,8 @@ data class ExerciseResponse(
             muscleGroupDisplayName = exercise.muscleGroup.displayName,
             type = exercise.type,
             scope = exercise.scope,
+            equipment = exercise.equipment,
+            equipmentDisplayName = exercise.equipment?.displayName,
         )
     }
 }

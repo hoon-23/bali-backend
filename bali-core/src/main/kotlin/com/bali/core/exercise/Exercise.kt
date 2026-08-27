@@ -11,6 +11,7 @@ data class Exercise(
     val type: ExerciseType,
     val scope: ExerciseScope,
     val ownerId: UUID?,
+    val equipment: Equipment? = null,
 ) {
     init {
         // scope와 ownerId의 일관성을 생성 시점에 강제

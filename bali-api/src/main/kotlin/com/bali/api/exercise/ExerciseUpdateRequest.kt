@@ -1,5 +1,6 @@
 package com.bali.api.exercise
 
+import com.bali.core.exercise.Equipment
 import com.bali.core.exercise.MuscleGroup
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.Size
@@ -12,4 +13,5 @@ data class ExerciseUpdateRequest(
     @field:Size(max = 255)
     val variant: String?,
     val muscleGroup: MuscleGroup,
+    val equipment: Equipment? = null,
 )
