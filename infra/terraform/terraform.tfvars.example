@@ -1,0 +1,3 @@
+google_client_id = "여기에-실제-Google-client-id-입력"
+apple_bundle_id  = "여기에-실제-Apple-bundle-id-입력"
+kakao_client_id  = "여기에-실제-Kakao-client-id-입력"

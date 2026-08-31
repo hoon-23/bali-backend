@@ -9,3 +9,21 @@ variable "project" {
   type        = string
   default     = "bali-dev"
 }
+
+variable "google_client_id" {
+  description = "Google OAuth client-id (dev)"
+  type        = string
+  sensitive   = true
+}
+
+variable "apple_bundle_id" {
+  description = "Apple bundle id (dev)"
+  type        = string
+  sensitive   = true
+}
+
+variable "kakao_client_id" {
+  description = "Kakao OAuth client-id (dev)"
+  type        = string
+  sensitive   = true
+}
