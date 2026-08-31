@@ -21,3 +21,7 @@ output "rds_endpoint" {
 output "rds_credentials_secret_arn" {
   value = aws_db_instance.main.master_user_secret[0].secret_arn
 }
+
+output "alb_dns_name" {
+  value = aws_lb.main.dns_name
+}
