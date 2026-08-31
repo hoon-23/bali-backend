@@ -13,3 +13,11 @@ output "private_subnet_ids" {
 output "ecr_repository_url" {
   value = aws_ecr_repository.bali_api.repository_url
 }
+
+output "rds_endpoint" {
+  value = aws_db_instance.main.address
+}
+
+output "rds_credentials_secret_arn" {
+  value = aws_db_instance.main.master_user_secret[0].secret_arn
+}
