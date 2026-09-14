@@ -139,6 +139,16 @@ class WorkoutSessionRepositoryAdapter(
     override fun findLastActiveDate(userId: UUID): LocalDate? =
         sessionJpaRepository.findLastActiveDate(userId)
 
+    // 종목별 마지막 기록 actualWeight. 최신순으로 정렬된 후보 중 exerciseId별 첫 값을 채택
+    override fun findLastActualWeightsByExerciseIds(userId: UUID, exerciseIds: Collection<UUID>): Map<UUID, BigDecimal> {
+        if (exerciseIds.isEmpty()) return emptyMap()
+        return sessionJpaRepository.findRecentLogsWithActualWeight(userId, exerciseIds)
+            .groupingBy { it.exerciseId }
+            .fold(null as BigDecimal?) { acc, log -> acc ?: log.actualWeight }
+            .filterValues { it != null }
+            .mapValues { it.value!! }
+    }
+
     // 세션의 status만 갱신
     @Transactional
     override fun updateStatus(sessionId: UUID, status: SessionStatus): WorkoutSession? {

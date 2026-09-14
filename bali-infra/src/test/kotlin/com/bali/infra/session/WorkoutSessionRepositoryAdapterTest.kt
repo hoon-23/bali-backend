@@ -257,4 +257,36 @@ class WorkoutSessionRepositoryAdapterTest {
     fun `완료된 로그가 없으면 findLastActiveDate는 null을 반환한다`() {
         assertEquals(null, adapter.findLastActiveDate(UUID.randomUUID()))
     }
+
+    @Test
+    fun `findLastActualWeightsByExerciseIds는 종목별 가장 최근 세션의 actualWeight를 반환한다`() {
+        val userId = UUID.randomUUID()
+        val exerciseId = UUID.randomUUID()
+        val oldLog = completedLog(exerciseId).copy(actualWeight = BigDecimal("40.0"))
+        val recentLog = completedLog(exerciseId).copy(actualWeight = BigDecimal("50.0"))
+        adapter.save(WorkoutSession(id = null, userId = userId, date = LocalDate.now().minusDays(10), templateId = null, status = SessionStatus.COMPLETED, logs = listOf(oldLog)))
+        adapter.save(WorkoutSession(id = null, userId = userId, date = LocalDate.now().minusDays(2), templateId = null, status = SessionStatus.COMPLETED, logs = listOf(recentLog)))
+
+        val result = adapter.findLastActualWeightsByExerciseIds(userId, listOf(exerciseId))
+
+        assertEquals(BigDecimal("50.0"), result[exerciseId])
+    }
+
+    @Test
+    fun `findLastActualWeightsByExerciseIds는 actualWeight가 없는 로그와 다른 유저 기록은 제외한다`() {
+        val userId = UUID.randomUUID()
+        val otherUserId = UUID.randomUUID()
+        val exerciseId = UUID.randomUUID()
+        adapter.save(WorkoutSession(id = null, userId = userId, date = LocalDate.now(), templateId = null, status = SessionStatus.SCHEDULED, logs = listOf(log(exerciseId))))
+        adapter.save(WorkoutSession(id = null, userId = otherUserId, date = LocalDate.now(), templateId = null, status = SessionStatus.COMPLETED, logs = listOf(completedLog(exerciseId))))
+
+        val result = adapter.findLastActualWeightsByExerciseIds(userId, listOf(exerciseId))
+
+        assertTrue(result.isEmpty())
+    }
+
+    @Test
+    fun `findLastActualWeightsByExerciseIds는 exerciseIds가 비어있으면 빈 맵을 반환한다`() {
+        assertEquals(emptyMap<UUID, BigDecimal>(), adapter.findLastActualWeightsByExerciseIds(UUID.randomUUID(), emptyList()))
+    }
 }

@@ -67,4 +67,17 @@ interface WorkoutSessionJpaRepository : JpaRepository<WorkoutSessionJpaEntity, U
         WHERE s.userId = :userId AND l.completed = true
     """)
     fun findLastActiveDate(@Param("userId") userId: UUID): LocalDate?
+
+    // exerciseId별 마지막 기록 actualWeight 후보를 최신순(date DESC, id DESC)으로 조회.
+    // JPQL엔 Postgres DISTINCT ON이 없어 exerciseId별 첫 값 선택은 호출부(어댑터)에서 처리한다
+    @Query("""
+        SELECT l FROM WorkoutSessionJpaEntity s
+        JOIN SessionLogJpaEntity l ON l.sessionId = s.id
+        WHERE s.userId = :userId AND l.exerciseId IN :exerciseIds AND l.actualWeight IS NOT NULL
+        ORDER BY s.date DESC, l.id DESC
+    """)
+    fun findRecentLogsWithActualWeight(
+        @Param("userId") userId: UUID,
+        @Param("exerciseIds") exerciseIds: Collection<UUID>,
+    ): List<SessionLogJpaEntity>
 }

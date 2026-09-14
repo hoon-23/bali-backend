@@ -609,4 +609,39 @@ class SessionControllerTest {
         mockMvc.perform(delete("/api/v1/sessions/${UUID.randomUUID()}").header("Authorization", "Bearer $token"))
             .andExpect(status().isNotFound)
     }
+
+    @Test
+    fun `같은 종목으로 새 세션을 만들면 log의 lastWeight에 이전 세션의 actualWeight가 채워진다`() {
+        val (token, _) = issueTokenForNewUser()
+        val exerciseId = savedStrengthExerciseId()
+        val (firstSessionId, firstLogId) = createSessionWithLog(token, exerciseId)
+        mockMvc.perform(patch("/api/v1/sessions/$firstSessionId/logs/$firstLogId").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON)
+            .content("""{"completed":true,"actualSets":3,"actualReps":10,"actualWeight":65.5,"actualDurationSeconds":null,"actualPace":null}"""))
+            .andExpect(status().isOk)
+
+        val addBody = """{"addItems":[{"exerciseId":"$exerciseId","sortOrder":0,"targetSets":null,"targetReps":null,"targetWeight":null,"targetDurationSeconds":null,"targetPace":null}],"updateItems":[],"removeLogIds":[]}"""
+        val secondCreated = mockMvc.perform(post("/api/v1/sessions").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON).content("""{"date":"2026-08-13","templateId":null}"""))
+            .andExpect(status().isCreated).andReturn().response.contentAsString
+        val secondSessionId = objectMapper.readTree(secondCreated).get("id").asText()
+
+        mockMvc.perform(patch("/api/v1/sessions/$secondSessionId").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON).content(addBody))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.logs[0].lastWeight").value(65.5))
+
+        mockMvc.perform(get("/api/v1/sessions/$secondSessionId").header("Authorization", "Bearer $token"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.logs[0].lastWeight").value(65.5))
+    }
+
+    @Test
+    fun `이전 기록이 없는 종목의 lastWeight는 null이다`() {
+        val (token, _) = issueTokenForNewUser()
+        val exerciseId = savedStrengthExerciseId()
+
+        val (sessionId, _) = createSessionWithLog(token, exerciseId)
+
+        mockMvc.perform(get("/api/v1/sessions/$sessionId").header("Authorization", "Bearer $token"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.logs[0].lastWeight").value(org.hamcrest.Matchers.nullValue()))
+    }
 }

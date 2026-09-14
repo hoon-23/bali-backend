@@ -20,13 +20,14 @@ data class SessionResponse(
     val title: String,
 ) {
     companion object {
-        // WorkoutSession 도메인 모델 + 서버에서 미리 계산한 title(템플릿 이름 또는 종목 이름 조합)을 SessionResponse로 변환
-        fun from(session: WorkoutSession, title: String) = SessionResponse(
+        // WorkoutSession 도메인 모델 + 서버에서 미리 계산한 title(템플릿 이름 또는 종목 이름 조합)을 SessionResponse로 변환.
+        // lastWeightByExerciseId는 무게 입력 자동 채움용 참고값으로, 없으면(기본값) 모든 log의 lastWeight가 null로 내려간다
+        fun from(session: WorkoutSession, title: String, lastWeightByExerciseId: Map<UUID, BigDecimal> = emptyMap()) = SessionResponse(
             id = session.id!!,
             date = session.date,
             templateId = session.templateId,
             status = session.status,
-            logs = session.logs.map { SessionLogResponse.from(it) },
+            logs = session.logs.map { SessionLogResponse.from(it, lastWeightByExerciseId[it.exerciseId]) },
             perceivedDifficulty = session.perceivedDifficulty,
             title = title,
         )
@@ -51,16 +52,19 @@ data class SessionLogResponse(
     val actualSets: Int?, val actualReps: Int?, val actualWeight: BigDecimal?,
     val actualDurationSeconds: Int?, val actualPace: String?,
     val setTimings: List<SetTimingResponse>?,
+    // 같은 종목의 가장 최근 기록 actualWeight (이 세션 이전 기록 기준). 무게 입력 자동 채움용, 기록이 없으면 null
+    val lastWeight: BigDecimal?,
 ) {
     companion object {
         // SessionLog 도메인 모델을 SessionLogResponse로 변환
-        fun from(log: SessionLog) = SessionLogResponse(
+        fun from(log: SessionLog, lastWeight: BigDecimal? = null) = SessionLogResponse(
             id = log.id!!, exerciseId = log.exerciseId, sortOrder = log.sortOrder, completed = log.completed,
             targetSets = log.targetSets, targetReps = log.targetReps, targetWeight = log.targetWeight,
             targetDurationSeconds = log.targetDurationSeconds, targetPace = log.targetPace,
             actualSets = log.actualSets, actualReps = log.actualReps, actualWeight = log.actualWeight,
             actualDurationSeconds = log.actualDurationSeconds, actualPace = log.actualPace,
             setTimings = log.setTimings?.map { SetTimingResponse.from(it) },
+            lastWeight = lastWeight,
         )
     }
 }

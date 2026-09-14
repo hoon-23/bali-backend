@@ -26,6 +26,7 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestController
+import java.math.BigDecimal
 import java.time.LocalDate
 import java.util.UUID
 
@@ -66,7 +67,8 @@ class SessionController(
                 status = SessionStatus.SCHEDULED, logs = logs,
             )
         )
-        return ResponseEntity.status(HttpStatus.CREATED).body(SessionResponse.from(saved, resolveTitle(saved)))
+        return ResponseEntity.status(HttpStatus.CREATED)
+            .body(SessionResponse.from(saved, resolveTitle(saved), lastWeightsFor(listOf(saved))))
     }
 
     // 세션 목록 커서(무한스크롤) 조회. from/to는 선택이며 있으면 그 범위 내에서, 없으면 전체 이력에서 date DESC로 조회한다
@@ -93,8 +95,9 @@ class SessionController(
         val page = sessions.take(size)
 
         val exercisesById = exercisesByIdFor(page)
+        val lastWeights = lastWeightsFor(page)
         return SessionPageResponse(
-            content = page.map { SessionResponse.from(it, resolveTitle(it, exercisesById)) },
+            content = page.map { SessionResponse.from(it, resolveTitle(it, exercisesById), lastWeights) },
             hasNext = hasNext,
             nextCursor = if (hasNext) page.last().let { SessionCursor(it.date, it.id!!).encode() } else null,
         )
@@ -105,7 +108,7 @@ class SessionController(
     @GetMapping("/{id}")
     fun get(@PathVariable id: UUID): ResponseEntity<SessionResponse> {
         val session = findOwnedOrNull(id) ?: return ResponseEntity.notFound().build()
-        return ResponseEntity.ok(SessionResponse.from(session, resolveTitle(session)))
+        return ResponseEntity.ok(SessionResponse.from(session, resolveTitle(session), lastWeightsFor(listOf(session))))
     }
 
     // 세션 아이템 구조 변경: addItems(즉흥 추가, target null 허용)/updateItems(logId 기준 전체 교체)/removeLogIds(삭제) + status 전이
@@ -167,7 +170,7 @@ class SessionController(
         }
 
         val updated = sessionRepository.findById(id)!!
-        return ResponseEntity.ok(SessionResponse.from(updated, resolveTitle(updated)))
+        return ResponseEntity.ok(SessionResponse.from(updated, resolveTitle(updated), lastWeightsFor(listOf(updated))))
     }
 
     // 실제 수행값 기록 + 완료 체크. 종목 타입에 맞는 actual 필드 조합인지 검증 후 반영
@@ -235,6 +238,12 @@ class SessionController(
         sessions.flatMap { it.logs }.map { it.exerciseId }.distinct()
             .mapNotNull { exerciseRepository.findById(it)?.let { exercise -> it to exercise } }
             .toMap()
+
+    // 여러 세션의 logs에 등장하는 exerciseId별 마지막 기록 actualWeight를 한 번에 조회 (무게 입력 자동 채움용)
+    private fun lastWeightsFor(sessions: List<WorkoutSession>): Map<UUID, BigDecimal> =
+        sessionRepository.findLastActualWeightsByExerciseIds(
+            currentUserId(), sessions.flatMap { it.logs }.map { it.exerciseId }.distinct(),
+        )
 
     // id로 조회한 세션이 현재 인증 사용자 소유일 때만 반환
     private fun findOwnedOrNull(id: UUID): WorkoutSession? {
