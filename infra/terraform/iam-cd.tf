@@ -31,7 +31,10 @@ resource "aws_iam_user_policy" "cd" {
           "ecr:UploadLayerPart",
           "ecr:CompleteLayerUpload",
         ]
-        Resource = aws_ecr_repository.bali_api.arn
+        Resource = [
+          aws_ecr_repository.bali_api.arn,
+          aws_ecr_repository.bali_batch.arn,
+        ]
       },
       {
         Sid    = "EcsDeploy"

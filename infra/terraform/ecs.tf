@@ -131,8 +131,8 @@ resource "aws_ecs_service" "bali_api" {
 
   load_balancer {
     target_group_arn = aws_lb_target_group.bali_api.arn
-    container_name    = "bali-api"
-    container_port    = 8080
+    container_name   = "bali-api"
+    container_port   = 8080
   }
 
   depends_on = [aws_iam_role_policy_attachment.ecs_task_execution]
