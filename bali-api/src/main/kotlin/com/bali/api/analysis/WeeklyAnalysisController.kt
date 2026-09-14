@@ -54,7 +54,8 @@ class WeeklyAnalysisController(
 
         val logs = sessions.flatMap { it.logs }
         val exercisesById = exerciseRepository.findAllByIds(logs.map { it.exerciseId })
-        val summary = WeeklyStatsCalculator.calculate(logs, exercisesById, previousSummary = null)
+        val previousSummary = analysisRepository.findByUserIdAndWeekOf(userId, weekOf.minusWeeks(1))?.summary
+        val summary = WeeklyStatsCalculator.calculate(logs, exercisesById, previousSummary)
         val completedSessionsCount = sessions.count { it.status == SessionStatus.COMPLETED }
 
         return CurrentWeekSummaryResponse.from(weekOf, summary, completedSessionsCount)

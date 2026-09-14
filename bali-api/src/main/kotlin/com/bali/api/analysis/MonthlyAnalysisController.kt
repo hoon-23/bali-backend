@@ -51,7 +51,8 @@ class MonthlyAnalysisController(
 
         val logs = sessions.flatMap { it.logs }
         val exercisesById = exerciseRepository.findAllByIds(logs.map { it.exerciseId })
-        val summary = MonthlyStatsCalculator.calculate(logs, exercisesById, previousSummary = null)
+        val previousSummary = analysisRepository.findByUserIdAndMonthOf(userId, monthOf.minusMonths(1))?.summary
+        val summary = MonthlyStatsCalculator.calculate(logs, exercisesById, previousSummary)
         val completedSessionsCount = sessions.count { it.status == SessionStatus.COMPLETED }
 
         return CurrentMonthSummaryResponse.from(monthOf, summary, completedSessionsCount)

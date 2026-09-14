@@ -10,6 +10,9 @@ data class CurrentWeekSummaryResponse(
     val strengthMinutes: Int,
     val cardioMinutes: Int,
     val completedSessionsCount: Int,
+    // 근육그룹별/종목별 볼륨 등 세부값. 과거 주(WeeklyAnalysisResponse.summary)와 동일한 shape이라
+    // 리포트 화면에서 진행 중/완료 주를 같은 렌더링 로직으로 처리할 수 있다
+    val summary: AnalysisSummaryResponse,
 ) {
     companion object {
         // AnalysisSummary + 완료 세션 수로부터 응답을 생성. strengthMinutes는 totalWorkoutMinutes에서
@@ -20,6 +23,7 @@ data class CurrentWeekSummaryResponse(
             strengthMinutes = summary.totalWorkoutMinutes - summary.cardioTotalMinutes,
             cardioMinutes = summary.cardioTotalMinutes,
             completedSessionsCount = completedSessionsCount,
+            summary = AnalysisSummaryResponse.from(summary),
         )
     }
 }

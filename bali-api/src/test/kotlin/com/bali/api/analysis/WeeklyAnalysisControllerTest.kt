@@ -106,6 +106,35 @@ class WeeklyAnalysisControllerTest {
             .andExpect(jsonPath("$.strengthMinutes").value(12))
             .andExpect(jsonPath("$.totalWorkoutMinutes").value(42))
             .andExpect(jsonPath("$.completedSessionsCount").value(1))
+            .andExpect(jsonPath("$.summary.volumeByMuscleGroup.CHEST").value(1800.0))
+            .andExpect(jsonPath("$.summary.completionRate").value(100.0))
+    }
+
+    @Test
+    fun `GET analysis weekly current는 지난주 배치 분석이 있으면 volumeChangeFromLastWeekPercent를 계산해 내려준다`() {
+        val (token, userId) = issueTokenForNewUser()
+        val exerciseId = exerciseRepository.save(
+            Exercise(id = null, name = "전주대비벤치프레스", variant = null, muscleGroup = MuscleGroup.CHEST, type = ExerciseType.STRENGTH, scope = ExerciseScope.GLOBAL, ownerId = null)
+        ).id!!
+        val today = LocalDate.now(ZoneId.of("Asia/Seoul"))
+        val weekOf = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+        analysisRepository.save(
+            WeeklyAnalysis(
+                id = null, userId = userId, weekOf = weekOf.minusWeeks(1), status = AnalysisStatus.SUCCESS,
+                summary = successSummary().copy(volumeByExercise = mapOf(exerciseId to BigDecimal("1000.0"))),
+                insights = emptyList(),
+            )
+        )
+        val strengthLog = SessionLog.create(ExerciseType.STRENGTH, exerciseId, sortOrder = 0, targetSets = 3, targetReps = 10, targetWeight = BigDecimal("100.0"))
+            .copy(completed = true, actualSets = 3, actualReps = 10, actualWeight = BigDecimal("100.0"))
+        sessionRepository.save(
+            WorkoutSession(id = null, userId = userId, date = today, templateId = null, status = SessionStatus.COMPLETED, logs = listOf(strengthLog))
+        )
+
+        // 이번 주 볼륨 3000.0 vs 지난주 1000.0 -> +200.0%
+        mockMvc.perform(get("/api/v1/analysis/weekly/current").header("Authorization", "Bearer $token"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.summary.volumeChangeFromLastWeekPercent").value(200.0))
     }
 
     @Test
