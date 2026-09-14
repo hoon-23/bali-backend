@@ -55,11 +55,17 @@ bin/
 ### Personal notes (not for public repo) ###
 NOTES.md
 PROGRESS.md
+TODO.md
 /docs/plans
 /docs/review
 
 ### 개인 userId/로컬 경로가 하드코딩된 1회성 실행 진입점만 제외 (파서/리졸버 로직은 재사용 가치가 있어 추적) ###
 /bali-batch/src/main/kotlin/com/bali/batch/personalarchive/PersonalArchiveSeedMain.kt
+
+### 개인 운동 데이터 1회성 마이그레이션 소스/이미지 (2026-09-11, dev RDS 이관용) ###
+/bali-batch/personal-archive-2026/
+/bali-batch/Dockerfile.migration
+/bali-batch/src/main/kotlin/com/bali/batch/personalarchive/FixMuscleGroupMain.kt
 
 ### Superpowers subagent-driven-development scratch workspace ###
 .superpowers/

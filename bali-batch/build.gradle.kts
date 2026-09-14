@@ -32,3 +32,11 @@ tasks.register<JavaExec>("personalArchiveSeed") {
     mainClass.set("com.bali.batch.personalarchive.PersonalArchiveSeedMainKt")
     classpath = sourceSets["main"].runtimeClasspath
 }
+
+// 2026-09-11: dev RDS 마이그레이션에서 잘못 생성된 PERSONAL 종목 muscleGroup 보정용 1회성 스크립트
+tasks.register<JavaExec>("fixMuscleGroup") {
+    group = "application"
+    description = "PersonalArchiveSeedMain으로 새로 생성된 PERSONAL 종목의 muscleGroup 오기입 보정"
+    mainClass.set("com.bali.batch.personalarchive.FixMuscleGroupMainKt")
+    classpath = sourceSets["main"].runtimeClasspath
+}
