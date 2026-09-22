@@ -163,6 +163,7 @@ class SessionController(
         }
 
         request.status?.let { sessionRepository.updateStatus(id, it) }
+        request.date?.let { sessionRepository.updateDate(id, it) }
 
         request.perceivedDifficulty?.let {
             WorkoutSession.validatePerceivedDifficulty(it)

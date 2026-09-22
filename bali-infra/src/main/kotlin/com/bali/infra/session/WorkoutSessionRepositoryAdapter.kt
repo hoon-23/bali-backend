@@ -158,6 +158,15 @@ class WorkoutSessionRepositoryAdapter(
         return saved.toDomain(logJpaRepository.findBySessionIdOrderBySortOrderAsc(sessionId))
     }
 
+    // 세션의 date만 갱신
+    @Transactional
+    override fun updateDate(sessionId: UUID, date: LocalDate): WorkoutSession? {
+        val entity = sessionJpaRepository.findById(sessionId).orElse(null) ?: return null
+        entity.date = date
+        val saved = sessionJpaRepository.save(entity)
+        return saved.toDomain(logJpaRepository.findBySessionIdOrderBySortOrderAsc(sessionId))
+    }
+
     // 세션의 perceivedDifficulty만 갱신
     @Transactional
     override fun updatePerceivedDifficulty(sessionId: UUID, perceivedDifficulty: Int): WorkoutSession? {

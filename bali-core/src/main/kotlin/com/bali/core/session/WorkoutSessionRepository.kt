@@ -51,6 +51,9 @@ interface WorkoutSessionRepository {
     // 세션의 status만 갱신 (없으면 null)
     fun updateStatus(sessionId: UUID, status: SessionStatus): WorkoutSession?
 
+    // 세션의 date만 갱신 (없으면 null). 예정보다 일찍/늦게 시작해 실제 수행일이 예약일과 달라진 경우에 씀
+    fun updateDate(sessionId: UUID, date: LocalDate): WorkoutSession?
+
     // 세션의 perceivedDifficulty만 갱신 (없으면 null)
     fun updatePerceivedDifficulty(sessionId: UUID, perceivedDifficulty: Int): WorkoutSession?
 

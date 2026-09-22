@@ -182,6 +182,23 @@ class SessionControllerTest {
     }
 
     @Test
+    fun `PATCH sessions id date를 바꾸면 반영되고, 생략하면 기존 date가 유지된다`() {
+        val (token, _) = issueTokenForNewUser()
+        val created = mockMvc.perform(post("/api/v1/sessions").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON).content("""{"date":"2026-09-25","templateId":null}"""))
+            .andExpect(status().isCreated).andReturn().response.contentAsString
+        val sessionId = objectMapper.readTree(created).get("id").asText()
+
+        mockMvc.perform(patch("/api/v1/sessions/$sessionId").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON).content("""{"status":"IN_PROGRESS","date":"2026-09-22"}"""))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.date").value("2026-09-22"))
+            .andExpect(jsonPath("$.status").value("IN_PROGRESS"))
+
+        mockMvc.perform(patch("/api/v1/sessions/$sessionId").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON).content("""{"addItems":[]}"""))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.date").value("2026-09-22"))
+    }
+
+    @Test
     fun `PATCH sessions id perceivedDifficulty로 체감 난이도를 기록하면 반영되고, 생략하면 기존 값이 유지된다`() {
         val (token, _) = issueTokenForNewUser()
         val created = mockMvc.perform(post("/api/v1/sessions").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON).content("""{"date":"2026-08-06","templateId":null}"""))
