@@ -105,9 +105,9 @@ class UserControllerTest {
         org.junit.jupiter.api.Assertions.assertEquals("탈퇴한사용자", reloaded.nickname)
     }
 
-    // GET /api/v1/users/me 응답에 nickname/weeklyGoalSessions/consecutiveDays가 포함되는지 확인
+    // GET /api/v1/users/me 응답에 nickname/weeklyGoalSessions/weeklyWorkoutDays가 포함되는지 확인
     @Test
-    fun `GET me 응답에 nickname weeklyGoalSessions consecutiveDays가 포함된다`() {
+    fun `GET me 응답에 nickname weeklyGoalSessions weeklyWorkoutDays가 포함된다`() {
         val entity = userJpaRepository.save(
             com.bali.infra.user.UserJpaEntity(
                 email = "profile@example.com",
@@ -137,7 +137,7 @@ class UserControllerTest {
         val json = objectMapper.readTree(String(response.contentAsByteArray, Charsets.UTF_8))
         org.junit.jupiter.api.Assertions.assertEquals("행복한옥수수07", json.get("nickname").asText())
         org.junit.jupiter.api.Assertions.assertEquals(5, json.get("weeklyGoalSessions").asInt())
-        org.junit.jupiter.api.Assertions.assertEquals(1, json.get("consecutiveDays").asInt())
+        org.junit.jupiter.api.Assertions.assertEquals(1, json.get("weeklyWorkoutDays").asInt())
     }
 
     // PATCH /api/v1/users/me로 nickname만 바꾸면 weeklyGoalSessions는 유지되는지 확인 (부분 업데이트)

@@ -2,7 +2,6 @@ package com.bali.api.user
 
 import com.bali.api.auth.currentUserId
 import com.bali.core.session.WorkoutSessionRepository
-import com.bali.core.user.StreakCalculator
 import com.bali.core.user.UserRepository
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
@@ -13,8 +12,10 @@ import org.springframework.web.bind.annotation.PatchMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
+import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.ZoneId
+import java.time.temporal.TemporalAdjusters
 import java.util.UUID
 
 // 사용자 관련 API 엔드포인트를 처리하는 REST 컨트롤러
@@ -26,10 +27,7 @@ class UserController(
     private val sessionRepository: WorkoutSessionRepository,
 ) {
     companion object {
-        // 연속운동일 계산 시 조회할 최대 과거 범위 (주 3회 기준으로도 넉넉한 상한선, 쿼리 비용 제한용)
-        private const val STREAK_LOOKBACK_DAYS = 400L
-
-        // 서버 실행 환경(JVM 기본 타임존)에 관계없이 연속운동일 계산을 한국 기준으로 고정
+        // 서버 실행 환경(JVM 기본 타임존)에 관계없이 이번 주 운동일수 계산을 한국 기준으로 고정
         private val APP_ZONE = ZoneId.of("Asia/Seoul")
     }
 
@@ -39,7 +37,7 @@ class UserController(
     fun getMe(): ResponseEntity<UserResponse> {
         val user = userRepository.findById(currentUserId())
             ?: return ResponseEntity.notFound().build()
-        return ResponseEntity.ok(UserResponse.from(user, consecutiveDays(user.id!!)))
+        return ResponseEntity.ok(UserResponse.from(user, weeklyWorkoutDays(user.id!!)))
     }
 
     // 인증된 사용자의 프로필(닉네임/주간 목표 운동 횟수/이메일)을 부분 수정하는 엔드포인트
@@ -53,7 +51,7 @@ class UserController(
             require(owner == null || owner.id == user.id) { "이미 사용 중인 이메일입니다" }
         }
         val updated = userRepository.save(user.updateProfile(request.nickname, request.weeklyGoalSessions, request.email))
-        return ResponseEntity.ok(UserResponse.from(updated, consecutiveDays(updated.id!!)))
+        return ResponseEntity.ok(UserResponse.from(updated, weeklyWorkoutDays(updated.id!!)))
     }
 
     // 인증된 사용자의 계정을 탈퇴 처리하는 엔드포인트
@@ -67,10 +65,10 @@ class UserController(
         return ResponseEntity.noContent().build()
     }
 
-    // 최근 STREAK_LOOKBACK_DAYS일 내 활동 날짜로부터 연속운동일을 계산
-    private fun consecutiveDays(userId: UUID): Int {
+    // 이번 주(월~일, 한국 기준) 중 완료된 운동 기록이 있는 날짜 수를 계산
+    private fun weeklyWorkoutDays(userId: UUID): Int {
         val today = LocalDate.now(APP_ZONE)
-        val activeDates = sessionRepository.findActiveDates(userId, today.minusDays(STREAK_LOOKBACK_DAYS))
-        return StreakCalculator.calculate(activeDates, today)
+        val weekStart = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+        return sessionRepository.findActiveDates(userId, weekStart).count { !it.isAfter(today) }
     }
 }
