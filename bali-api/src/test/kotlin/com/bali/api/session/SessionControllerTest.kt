@@ -223,6 +223,19 @@ class SessionControllerTest {
     }
 
     @Test
+    fun `같은 날짜에 여러 세션을 예약하면 GET sessions from to 조회에 전부 포함된다`() {
+        val (token, _) = issueTokenForNewUser()
+        repeat(3) {
+            mockMvc.perform(post("/api/v1/sessions").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON).content("""{"date":"2026-09-21","templateId":null}"""))
+                .andExpect(status().isCreated)
+        }
+
+        mockMvc.perform(get("/api/v1/sessions").param("from", "2026-09-21").param("to", "2026-09-21").header("Authorization", "Bearer $token"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.content.length()").value(3))
+    }
+
+    @Test
     fun `GET sessions는 size보다 세션이 많으면 hasNext true와 nextCursor를 반환하고, 그 cursor로 이어서 조회하면 나머지가 반환된다`() {
         val (token, _) = issueTokenForNewUser()
         listOf("2026-08-01", "2026-08-02", "2026-08-03").forEach { date ->
