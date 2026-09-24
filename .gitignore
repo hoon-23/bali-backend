@@ -13,6 +13,7 @@ airflow/dags/__pycache__/
 .idea/compiler.xml
 .idea/libraries/
 .idea/dataSources.xml
+.idea/db-forest-config.xml
 *.iws
 *.iml
 *.ipr
@@ -76,3 +77,6 @@ infra/terraform/*.tfstate
 infra/terraform/*.tfstate.*
 infra/terraform/terraform.tfvars
 infra/terraform/.terraform.lock.hcl
+
+### dev RDS 접속용 bastion (로컬 전용 개인 편의 인프라, 원격repo에 안 올림) ###
+infra/terraform/bastion.tf
