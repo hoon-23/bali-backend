@@ -9,4 +9,5 @@ enum class MuscleGroup(val displayName: String) {
     LEGS("하체"),
     ABS("복근"),
     CARDIO("유산소"),
+    FUNCTIONAL("기능성 근력운동"),
 }
