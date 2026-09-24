@@ -17,6 +17,10 @@ import com.bali.core.session.WorkoutSessionRepository
 import com.bali.core.user.AuthProvider
 import com.bali.core.user.User
 import com.bali.core.user.UserRepository
+import com.bali.core.exercise.Exercise
+import com.bali.core.exercise.ExerciseRepository
+import com.bali.core.exercise.ExerciseScope
+import com.bali.core.exercise.MuscleGroup
 import com.bali.core.user.UserStatus
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -38,6 +42,7 @@ class InactivityAlertRunnerTest {
     @Autowired lateinit var runner: InactivityAlertRunner
     @Autowired lateinit var userRepository: UserRepository
     @Autowired lateinit var sessionRepository: WorkoutSessionRepository
+    @Autowired lateinit var exerciseRepository: ExerciseRepository
     @Autowired lateinit var deviceTokenRepository: DeviceTokenRepository
     @Autowired lateinit var notificationLogRepository: NotificationLogRepository
     @MockBean lateinit var notificationSender: NotificationSender
@@ -46,8 +51,13 @@ class InactivityAlertRunnerTest {
         User(id = null, email = "inactivity-${System.nanoTime()}@example.com", provider = AuthProvider.GOOGLE, providerId = "sub-inactivity-${System.nanoTime()}", status = UserStatus.ACTIVE, createdAt = Instant.now())
     )
 
+    // session_logs.exercise_id에 FK가 걸려 있어(V23) 실제 존재하는 exercise를 참조해야 한다
+    private fun persistExercise(): UUID = exerciseRepository.save(
+        Exercise(id = null, name = "비활성알림테스트종목", variant = null, muscleGroup = MuscleGroup.BACK, type = ExerciseType.STRENGTH, scope = ExerciseScope.GLOBAL, ownerId = null)
+    ).id!!
+
     private fun completedSessionOn(userId: UUID, date: LocalDate) {
-        val log = SessionLog.create(ExerciseType.STRENGTH, UUID.randomUUID(), sortOrder = 0, targetSets = 3, targetReps = 10, targetWeight = BigDecimal("40.0")).copy(completed = true)
+        val log = SessionLog.create(ExerciseType.STRENGTH, persistExercise(), sortOrder = 0, targetSets = 3, targetReps = 10, targetWeight = BigDecimal("40.0")).copy(completed = true)
         val session = WorkoutSession(id = null, userId = userId, date = date, templateId = null, status = SessionStatus.COMPLETED, logs = listOf(log))
         sessionRepository.save(session)
     }

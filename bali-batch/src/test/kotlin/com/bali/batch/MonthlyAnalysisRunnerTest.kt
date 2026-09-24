@@ -58,28 +58,23 @@ class MonthlyAnalysisRunnerTest {
         assertEquals(AnalysisStatus.NO_ACTIVITY, analysis?.status)
     }
 
+    // 이전엔 존재하지 않는 exerciseId를 참조하는 세션으로 FAILED 처리도 같이 검증했으나,
+    // session_logs.exercise_id에 FK가 걸리면서(V23) 그런 상태 자체를 더는 만들 수 없어 제거함 —
+    // onFailure 경로(FAILED 기록)는 여전히 코드에 남아있지만 이 시나리오로는 도달 불가능해졌다.
     @Test
-    fun `세션이 있는 유저는 SUCCESS로 집계 저장되고, 존재하지 않는 exerciseId를 참조하는 유저는 FAILED로 저장되지만 배치는 계속된다`() {
+    fun `세션이 있는 유저는 SUCCESS로 집계 저장된다`() {
         val goodUser = newUser()
         val exerciseId = savedStrengthExerciseId()
         val goodLog = SessionLog.create(ExerciseType.STRENGTH, exerciseId, sortOrder = 0, targetSets = 3, targetReps = 10, targetWeight = BigDecimal("60.0"))
             .copy(completed = true, actualSets = 3, actualReps = 10, actualWeight = BigDecimal("60.0"))
         sessionRepository.save(WorkoutSession(id = null, userId = goodUser.id!!, date = aDayLastMonth(), templateId = null, status = SessionStatus.SCHEDULED, logs = listOf(goodLog)))
 
-        val badUser = newUser()
-        val nonExistentExerciseId = java.util.UUID.randomUUID()
-        val badLog = SessionLog.create(ExerciseType.STRENGTH, nonExistentExerciseId, sortOrder = 0, targetSets = 3, targetReps = 10, targetWeight = BigDecimal("60.0"))
-            .copy(completed = true, actualSets = 3, actualReps = 10, actualWeight = BigDecimal("60.0"))
-        sessionRepository.save(WorkoutSession(id = null, userId = badUser.id!!, date = aDayLastMonth(), templateId = null, status = SessionStatus.SCHEDULED, logs = listOf(badLog)))
-
         val exitCode = runner.run()
 
         val goodAnalysis = analysisRepository.findByUserIdAndMonthOf(goodUser.id!!, lastMonthOf())
-        val badAnalysis = analysisRepository.findByUserIdAndMonthOf(badUser.id!!, lastMonthOf())
 
         assertEquals(AnalysisStatus.SUCCESS, goodAnalysis?.status)
         assertEquals(BigDecimal("1800.0"), goodAnalysis?.summary?.volumeByExercise?.get(exerciseId))
-        assertEquals(AnalysisStatus.FAILED, badAnalysis?.status)
-        assertEquals(1, exitCode)
+        assertEquals(0, exitCode)
     }
 }
