@@ -6,6 +6,8 @@ import com.bali.core.session.SessionStatus
 import com.bali.core.session.SetTiming
 import com.bali.core.session.WorkoutSession
 import com.bali.infra.InfraTestConfig
+import com.bali.infra.exercise.ExerciseJpaEntity
+import com.bali.infra.exercise.ExerciseJpaRepository
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -41,12 +43,18 @@ class WorkoutSessionRepositoryAdapterTest {
     @Autowired
     lateinit var adapter: WorkoutSessionRepositoryAdapter
 
-    private fun log(exerciseId: UUID = UUID.randomUUID()) = SessionLog.create(
+    @Autowired
+    lateinit var exerciseJpaRepository: ExerciseJpaRepository
+
+    // session_logs.exercise_id에 FK가 걸려 있어(V23) 실제 존재하는 exercise를 참조해야 한다
+    private fun persistExercise(): UUID = exerciseJpaRepository.save(ExerciseJpaEntity()).id
+
+    private fun log(exerciseId: UUID = persistExercise()) = SessionLog.create(
         exerciseType = ExerciseType.STRENGTH, exerciseId = exerciseId, sortOrder = 0,
         targetSets = 3, targetReps = 10, targetWeight = BigDecimal("60.0"),
     )
 
-    private fun completedLog(exerciseId: UUID = UUID.randomUUID()) = log(exerciseId).copy(
+    private fun completedLog(exerciseId: UUID = persistExercise()) = log(exerciseId).copy(
         completed = true, actualSets = 3, actualReps = 10, actualWeight = BigDecimal("60.0"),
     )
 
@@ -63,9 +71,9 @@ class WorkoutSessionRepositoryAdapterTest {
     @Test
     fun `findAllByUserId only returns sessions within the date range, each with its own logs`() {
         val userId = UUID.randomUUID()
-        val firstExerciseId = UUID.randomUUID()
-        val secondExerciseId = UUID.randomUUID()
-        val outOfRangeExerciseId = UUID.randomUUID()
+        val firstExerciseId = persistExercise()
+        val secondExerciseId = persistExercise()
+        val outOfRangeExerciseId = persistExercise()
         val first = adapter.save(WorkoutSession(id = null, userId = userId, date = LocalDate.of(2026, 8, 6), templateId = null, status = SessionStatus.SCHEDULED, logs = listOf(log(firstExerciseId))))
         val second = adapter.save(WorkoutSession(id = null, userId = userId, date = LocalDate.of(2026, 8, 10), templateId = null, status = SessionStatus.SCHEDULED, logs = listOf(log(secondExerciseId))))
         adapter.save(WorkoutSession(id = null, userId = userId, date = LocalDate.of(2026, 1, 1), templateId = null, status = SessionStatus.SCHEDULED, logs = listOf(log(outOfRangeExerciseId))))
@@ -244,7 +252,7 @@ class WorkoutSessionRepositoryAdapterTest {
     @Test
     fun `findLastActiveDate는 완료된 로그가 있는 가장 최근 날짜를 반환한다`() {
         val userId = UUID.randomUUID()
-        val exerciseId = UUID.randomUUID()
+        val exerciseId = persistExercise()
         val oldLog = SessionLog.create(ExerciseType.STRENGTH, exerciseId, sortOrder = 0, targetSets = 3, targetReps = 10, targetWeight = BigDecimal("40.0")).copy(completed = true)
         val recentLog = SessionLog.create(ExerciseType.STRENGTH, exerciseId, sortOrder = 0, targetSets = 3, targetReps = 10, targetWeight = BigDecimal("40.0")).copy(completed = true)
         adapter.save(WorkoutSession(id = null, userId = userId, date = LocalDate.now().minusDays(10), templateId = null, status = SessionStatus.COMPLETED, logs = listOf(oldLog)))
@@ -261,7 +269,7 @@ class WorkoutSessionRepositoryAdapterTest {
     @Test
     fun `findLastActualWeightsByExerciseIds는 종목별 가장 최근 세션의 actualWeight를 반환한다`() {
         val userId = UUID.randomUUID()
-        val exerciseId = UUID.randomUUID()
+        val exerciseId = persistExercise()
         val oldLog = completedLog(exerciseId).copy(actualWeight = BigDecimal("40.0"))
         val recentLog = completedLog(exerciseId).copy(actualWeight = BigDecimal("50.0"))
         adapter.save(WorkoutSession(id = null, userId = userId, date = LocalDate.now().minusDays(10), templateId = null, status = SessionStatus.COMPLETED, logs = listOf(oldLog)))
@@ -276,7 +284,7 @@ class WorkoutSessionRepositoryAdapterTest {
     fun `findLastActualWeightsByExerciseIds는 actualWeight가 없는 로그와 다른 유저 기록은 제외한다`() {
         val userId = UUID.randomUUID()
         val otherUserId = UUID.randomUUID()
-        val exerciseId = UUID.randomUUID()
+        val exerciseId = persistExercise()
         adapter.save(WorkoutSession(id = null, userId = userId, date = LocalDate.now(), templateId = null, status = SessionStatus.SCHEDULED, logs = listOf(log(exerciseId))))
         adapter.save(WorkoutSession(id = null, userId = otherUserId, date = LocalDate.now(), templateId = null, status = SessionStatus.COMPLETED, logs = listOf(completedLog(exerciseId))))
 

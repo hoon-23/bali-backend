@@ -4,6 +4,8 @@ import com.bali.core.template.TemplateCategory
 import com.bali.core.template.TemplateItem
 import com.bali.core.template.WorkoutTemplate
 import com.bali.infra.InfraTestConfig
+import com.bali.infra.exercise.ExerciseJpaEntity
+import com.bali.infra.exercise.ExerciseJpaRepository
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -37,7 +39,13 @@ class WorkoutTemplateRepositoryAdapterTest {
     @Autowired
     lateinit var adapter: WorkoutTemplateRepositoryAdapter
 
-    private fun templateItem(exerciseId: UUID = UUID.randomUUID(), sortOrder: Int = 0) = TemplateItem.create(
+    @Autowired
+    lateinit var exerciseJpaRepository: ExerciseJpaRepository
+
+    // template_items.exercise_id에 FK가 걸려 있어(V23) 실제 존재하는 exercise를 참조해야 한다
+    private fun persistExercise(): UUID = exerciseJpaRepository.save(ExerciseJpaEntity()).id
+
+    private fun templateItem(exerciseId: UUID = persistExercise(), sortOrder: Int = 0) = TemplateItem.create(
         exerciseType = com.bali.core.exercise.ExerciseType.STRENGTH,
         exerciseId = exerciseId, sortOrder = sortOrder,
         targetSets = 3, targetReps = 10, targetWeight = BigDecimal("60.0"),
@@ -115,7 +123,7 @@ class WorkoutTemplateRepositoryAdapterTest {
     @Test
     fun `existsActiveReferenceToExercise는 활성 템플릿이 참조하면 true를 반환한다`() {
         val userId = UUID.randomUUID()
-        val exerciseId = UUID.randomUUID()
+        val exerciseId = persistExercise()
         adapter.save(WorkoutTemplate(id = null, userId = userId, category = TemplateCategory.PUSH, name = "참조템플릿", items = listOf(templateItem(exerciseId))))
 
         assertTrue(adapter.existsActiveReferenceToExercise(exerciseId))
@@ -124,7 +132,7 @@ class WorkoutTemplateRepositoryAdapterTest {
     @Test
     fun `existsActiveReferenceToExercise는 소프트 삭제된 템플릿만 참조하면 false를 반환한다`() {
         val userId = UUID.randomUUID()
-        val exerciseId = UUID.randomUUID()
+        val exerciseId = persistExercise()
         val saved = adapter.save(WorkoutTemplate(id = null, userId = userId, category = TemplateCategory.PUSH, name = "삭제될템플릿", items = listOf(templateItem(exerciseId))))
         adapter.softDelete(saved.id!!)
 
