@@ -4,6 +4,14 @@ on:
   push:
     branches: [develop]
 
+# develop에 연속으로 push되면 CD 워크플로우가 겹쳐 실행되어 각자 force-new-deployment를
+# 호출하면서 ECS 태스크를 서로 교체시키고, aws ecs wait services-stable이 10분 타임아웃을
+# 넘겨 실패하는 문제가 있었다 (배포 자체는 결국 성공하지만 워크플로우만 실패로 표시됨).
+# 최신 push의 배포만 진행되도록 이전 실행을 취소한다.
+concurrency:
+  group: cd-dev-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   AWS_REGION: ap-northeast-2
   ECR_REPOSITORY: bali-dev-bali-api

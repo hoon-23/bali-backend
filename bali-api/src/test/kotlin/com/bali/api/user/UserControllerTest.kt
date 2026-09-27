@@ -38,6 +38,9 @@ class UserControllerTest {
     @Autowired
     lateinit var sessionLogJpaRepository: com.bali.infra.session.SessionLogJpaRepository
 
+    @Autowired
+    lateinit var exerciseRepository: com.bali.core.exercise.ExerciseRepository
+
     // 인증 토큰 없이 GET /api/v1/users/me 호출시 401 Unauthorized를 반환하는지 확인
     @Test
     fun `토큰 없이 GET me 호출하면 401 반환`() {
@@ -121,9 +124,17 @@ class UserControllerTest {
         val session = sessionJpaRepository.save(
             com.bali.infra.session.WorkoutSessionJpaEntity(userId = entity.id, date = today)
         )
+        val exercise = exerciseRepository.save(
+            com.bali.core.exercise.Exercise(
+                id = null, name = "유저테스트벤치프레스", variant = null,
+                muscleGroup = com.bali.core.exercise.MuscleGroup.CHEST,
+                type = com.bali.core.exercise.ExerciseType.STRENGTH,
+                scope = com.bali.core.exercise.ExerciseScope.GLOBAL, ownerId = null,
+            )
+        )
         sessionLogJpaRepository.save(
             com.bali.infra.session.SessionLogJpaEntity(
-                sessionId = session.id, exerciseId = UUID.randomUUID(), completed = true,
+                sessionId = session.id, exerciseId = exercise.id!!, completed = true,
                 actualSets = 3, actualReps = 10, actualWeight = java.math.BigDecimal("60.0"),
             )
         )
