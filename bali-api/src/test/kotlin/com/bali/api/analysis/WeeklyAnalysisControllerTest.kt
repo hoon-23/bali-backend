@@ -63,6 +63,29 @@ class WeeklyAnalysisControllerTest {
     )
 
     @Test
+    fun `GET analysis weekly 응답 summary에 맨몸 지표가 포함된다`() {
+        val (token, userId) = issueTokenForNewUser()
+        val exerciseId = UUID.randomUUID()
+        analysisRepository.save(
+            WeeklyAnalysis(
+                id = null, userId = userId, weekOf = LocalDate.of(2026, 8, 3), status = AnalysisStatus.SUCCESS,
+                summary = successSummary().copy(
+                    bodyweightRepsByExercise = mapOf(exerciseId to 45),
+                    setsByMuscleGroup = mapOf(MuscleGroup.FUNCTIONAL to 3),
+                    bodyweightRepsChangeFromLastWeekPercent = BigDecimal("50.0"),
+                ),
+                insights = emptyList(),
+            )
+        )
+
+        mockMvc.perform(get("/api/v1/analysis/weekly").header("Authorization", "Bearer $token"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$[0].summary.bodyweightRepsByExercise['$exerciseId']").value(45))
+            .andExpect(jsonPath("$[0].summary.setsByMuscleGroup.FUNCTIONAL").value(3))
+            .andExpect(jsonPath("$[0].summary.bodyweightRepsChangeFromLastWeekPercent").value(50.0))
+    }
+
+    @Test
     fun `GET analysis weekly는 본인 분석 결과를 weekOf 내림차순으로 반환한다`() {
         val (token, userId) = issueTokenForNewUser()
         analysisRepository.save(

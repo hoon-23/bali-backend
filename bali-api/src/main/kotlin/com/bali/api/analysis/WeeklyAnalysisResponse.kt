@@ -34,6 +34,9 @@ data class AnalysisSummaryResponse(
     val cardioTotalMinutes: Int,
     val completionRate: BigDecimal,
     val volumeChangeFromLastWeekPercent: BigDecimal?,
+    val bodyweightRepsByExercise: Map<UUID, Int>,
+    val setsByMuscleGroup: Map<MuscleGroup, Int>,
+    val bodyweightRepsChangeFromLastWeekPercent: BigDecimal?,
 ) {
     companion object {
         // AnalysisSummary 도메인 모델을 AnalysisSummaryResponse로 변환
@@ -44,6 +47,9 @@ data class AnalysisSummaryResponse(
             cardioTotalMinutes = summary.cardioTotalMinutes,
             completionRate = summary.completionRate,
             volumeChangeFromLastWeekPercent = summary.volumeChangeFromLastWeekPercent,
+            bodyweightRepsByExercise = summary.bodyweightRepsByExercise,
+            setsByMuscleGroup = summary.setsByMuscleGroup,
+            bodyweightRepsChangeFromLastWeekPercent = summary.bodyweightRepsChangeFromLastWeekPercent,
         )
     }
 }
