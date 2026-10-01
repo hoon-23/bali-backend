@@ -1,5 +1,6 @@
 package com.bali.core.analysis
 
+import com.bali.core.exercise.Equipment
 import com.bali.core.exercise.Exercise
 import com.bali.core.exercise.ExerciseScope
 import com.bali.core.exercise.ExerciseType
@@ -15,15 +16,18 @@ class WeeklyStatsCalculatorTest : StringSpec({
     val benchPressId = UUID.randomUUID()
     val squatId = UUID.randomUUID()
     val runningId = UUID.randomUUID()
+    val burpeeId = UUID.randomUUID()
 
-    fun exercise(id: UUID, type: ExerciseType, muscleGroup: MuscleGroup) = Exercise(
+    fun exercise(id: UUID, type: ExerciseType, muscleGroup: MuscleGroup, equipment: Equipment? = null) = Exercise(
         id = id, name = "test", variant = null, muscleGroup = muscleGroup, type = type, scope = ExerciseScope.GLOBAL, ownerId = null,
+        equipment = equipment,
     )
 
     val exercisesById = mapOf(
         benchPressId to exercise(benchPressId, ExerciseType.STRENGTH, MuscleGroup.CHEST),
         squatId to exercise(squatId, ExerciseType.STRENGTH, MuscleGroup.LEGS),
         runningId to exercise(runningId, ExerciseType.CARDIO, MuscleGroup.CARDIO),
+        burpeeId to exercise(burpeeId, ExerciseType.STRENGTH, MuscleGroup.FUNCTIONAL, Equipment.BODYWEIGHT),
     )
 
     fun strengthLog(exerciseId: UUID, completed: Boolean, sets: Int = 3, reps: Int = 10, weight: String = "60.0") =
@@ -143,11 +147,10 @@ class WeeklyStatsCalculatorTest : StringSpec({
         insights.map { it.summaryText } shouldBe listOf("완료율이 50.0%로 낮은 편이에요")
     }
 
-    "근육군 중 하나의 비중이 15% 미만이면 불균형 인사이트가 생성된다" {
+    "근육군 중 하나의 세트 비중이 15% 미만이면 불균형 인사이트가 생성된다" {
         val summary = AnalysisSummary(
-            60, emptyMap(),
-            mapOf(MuscleGroup.CHEST to BigDecimal("900.0"), MuscleGroup.LEGS to BigDecimal("100.0")),
-            0, BigDecimal("100.0"), null,
+            60, emptyMap(), emptyMap(), 0, BigDecimal("100.0"), null,
+            setsByMuscleGroup = mapOf(MuscleGroup.CHEST to 9, MuscleGroup.LEGS to 1),
         )
 
         val insights = WeeklyStatsCalculator.generateInsights(summary)
@@ -156,7 +159,10 @@ class WeeklyStatsCalculatorTest : StringSpec({
     }
 
     "근육군이 하나뿐이면 불균형 인사이트가 생성되지 않는다" {
-        val summary = AnalysisSummary(60, emptyMap(), mapOf(MuscleGroup.CHEST to BigDecimal("900.0")), 0, BigDecimal("100.0"), null)
+        val summary = AnalysisSummary(
+            60, emptyMap(), emptyMap(), 0, BigDecimal("100.0"), null,
+            setsByMuscleGroup = mapOf(MuscleGroup.CHEST to 9),
+        )
 
         val insights = WeeklyStatsCalculator.generateInsights(summary)
 
@@ -165,13 +171,103 @@ class WeeklyStatsCalculatorTest : StringSpec({
 
     "아무 규칙도 해당하지 않으면 insights는 빈 리스트다" {
         val summary = AnalysisSummary(
-            60, emptyMap(),
-            mapOf(MuscleGroup.CHEST to BigDecimal("500.0"), MuscleGroup.LEGS to BigDecimal("500.0")),
-            0, BigDecimal("100.0"), BigDecimal("2.0"),
+            60, emptyMap(), emptyMap(), 0, BigDecimal("100.0"), BigDecimal("2.0"),
+            setsByMuscleGroup = mapOf(MuscleGroup.CHEST to 5, MuscleGroup.LEGS to 5),
         )
 
         val insights = WeeklyStatsCalculator.generateInsights(summary)
 
         insights.isEmpty() shouldBe true
+    }
+
+    "무게 볼륨이 0인 맨몸 근육군도 세트 비중이 충분하면 불균형 인사이트가 생성되지 않는다" {
+        val summary = AnalysisSummary(
+            60, emptyMap(),
+            mapOf(MuscleGroup.CHEST to BigDecimal("900.0"), MuscleGroup.FUNCTIONAL to BigDecimal.ZERO),
+            0, BigDecimal("100.0"), null,
+            setsByMuscleGroup = mapOf(MuscleGroup.CHEST to 5, MuscleGroup.FUNCTIONAL to 5),
+        )
+
+        val insights = WeeklyStatsCalculator.generateInsights(summary)
+
+        insights.isEmpty() shouldBe true
+    }
+
+    "맨몸 종목 로그는 bodyweightRepsByExercise에 sets*reps로 집계되고 무게 볼륨은 0이다" {
+        val logs = listOf(strengthLog(burpeeId, completed = true, sets = 3, reps = 15, weight = "0"))
+
+        val summary = WeeklyStatsCalculator.calculate(logs, exercisesById, previousSummary = null)
+
+        summary.bodyweightRepsByExercise shouldBe mapOf(burpeeId to 45)
+        summary.volumeByExercise.getValue(burpeeId).compareTo(BigDecimal.ZERO) shouldBe 0
+    }
+
+    "중량 종목은 bodyweightRepsByExercise에 포함되지 않는다" {
+        val logs = listOf(strengthLog(benchPressId, completed = true))
+
+        val summary = WeeklyStatsCalculator.calculate(logs, exercisesById, previousSummary = null)
+
+        summary.bodyweightRepsByExercise.isEmpty() shouldBe true
+    }
+
+    "완료되지 않았거나 reps가 비어 있는 맨몸 로그는 bodyweightRepsByExercise에서 제외된다" {
+        val incomplete = strengthLog(burpeeId, completed = false, weight = "0")
+        val noReps = strengthLog(burpeeId, completed = true, weight = "0").copy(actualReps = null)
+
+        val summary = WeeklyStatsCalculator.calculate(listOf(incomplete, noReps), exercisesById, previousSummary = null)
+
+        summary.bodyweightRepsByExercise.isEmpty() shouldBe true
+    }
+
+    "setsByMuscleGroup은 중량/맨몸 구분 없이 완료 세트를 근육군별로 합산한다" {
+        val logs = listOf(
+            strengthLog(benchPressId, completed = true, sets = 3),
+            strengthLog(burpeeId, completed = true, sets = 4, weight = "0"),
+            strengthLog(squatId, completed = false, sets = 5),
+        )
+
+        val summary = WeeklyStatsCalculator.calculate(logs, exercisesById, previousSummary = null)
+
+        summary.setsByMuscleGroup shouldBe mapOf(MuscleGroup.CHEST to 3, MuscleGroup.FUNCTIONAL to 4)
+    }
+
+    "지난주 맨몸 반복수 대비 증감률이 올바르게 계산된다" {
+        val logs = listOf(strengthLog(burpeeId, completed = true, sets = 3, reps = 15, weight = "0"))
+        val previous = AnalysisSummary(0, emptyMap(), emptyMap(), 0, BigDecimal.ZERO, null, bodyweightRepsByExercise = mapOf(burpeeId to 30))
+
+        val summary = WeeklyStatsCalculator.calculate(logs, exercisesById, previousSummary = previous)
+
+        summary.bodyweightRepsChangeFromLastWeekPercent shouldBe BigDecimal("50.0")
+    }
+
+    "지난주 맨몸 반복수가 없거나 0이면 증감률은 null이다" {
+        val logs = listOf(strengthLog(burpeeId, completed = true, weight = "0"))
+        val previous = AnalysisSummary(0, emptyMap(), emptyMap(), 0, BigDecimal.ZERO, null)
+
+        val summary = WeeklyStatsCalculator.calculate(logs, exercisesById, previousSummary = previous)
+
+        summary.bodyweightRepsChangeFromLastWeekPercent shouldBe null
+    }
+
+    "맨몸 반복수가 지난주보다 10% 이상 늘면 증가 인사이트가 생성된다" {
+        val summary = AnalysisSummary(60, emptyMap(), emptyMap(), 0, BigDecimal("100.0"), null, bodyweightRepsChangeFromLastWeekPercent = BigDecimal("50.0"))
+
+        val insights = WeeklyStatsCalculator.generateInsights(summary)
+
+        insights.map { it.summaryText } shouldBe listOf("이번 주 맨몸 운동 반복수가 지난주보다 50.0% 증가했어요")
+    }
+
+    "맨몸 반복수가 지난주보다 10% 이상 줄면 감소 인사이트가 생성된다" {
+        val summary = AnalysisSummary(60, emptyMap(), emptyMap(), 0, BigDecimal("100.0"), null, bodyweightRepsChangeFromLastWeekPercent = BigDecimal("-20.0"))
+
+        val insights = WeeklyStatsCalculator.generateInsights(summary)
+
+        insights.map { it.summaryText } shouldBe listOf("이번 주 맨몸 운동 반복수가 지난주보다 20.0% 감소했어요")
+    }
+
+    "맨몸 반복수 증감이 10% 미만이면 인사이트가 생성되지 않는다" {
+        val summary = AnalysisSummary(60, emptyMap(), emptyMap(), 0, BigDecimal("100.0"), null, bodyweightRepsChangeFromLastWeekPercent = BigDecimal("5.0"))
+
+        WeeklyStatsCalculator.generateInsights(summary).isEmpty() shouldBe true
     }
 })

@@ -12,4 +12,7 @@ data class AnalysisSummary(
     val cardioTotalMinutes: Int,
     val completionRate: BigDecimal,
     val volumeChangeFromLastWeekPercent: BigDecimal?,
+    val bodyweightRepsByExercise: Map<UUID, Int> = emptyMap(),
+    val setsByMuscleGroup: Map<MuscleGroup, Int> = emptyMap(),
+    val bodyweightRepsChangeFromLastWeekPercent: BigDecimal? = null,
 )

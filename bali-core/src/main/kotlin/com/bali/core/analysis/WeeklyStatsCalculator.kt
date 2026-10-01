@@ -14,7 +14,6 @@ object WeeklyStatsCalculator {
     private const val MINUTES_PER_STRENGTH_EXERCISE = 12
     private val WOW_CHANGE_THRESHOLD = BigDecimal(10)
     private val LOW_COMPLETION_THRESHOLD = BigDecimal(70)
-    private val LOW_MUSCLE_GROUP_SHARE_THRESHOLD = BigDecimal(15)
 
     // 최근 7일 SessionLog 목록으로부터 AnalysisSummary를 계산. exercisesById는 logs에 등장하는 모든 exerciseId를 커버해야 함
     fun calculate(
@@ -55,6 +54,11 @@ object WeeklyStatsCalculator {
             }
         }
 
+        val bodyweightRepsByExercise = BodyweightStats.repsByExercise(strengthLogs, exercisesById)
+        val bodyweightRepsChange = previousSummary?.let {
+            BodyweightStats.repsChangePercent(bodyweightRepsByExercise, it.bodyweightRepsByExercise)
+        }
+
         return AnalysisSummary(
             totalWorkoutMinutes = totalWorkoutMinutes,
             volumeByExercise = volumeByExercise,
@@ -62,6 +66,9 @@ object WeeklyStatsCalculator {
             cardioTotalMinutes = cardioTotalMinutes,
             completionRate = completionRate,
             volumeChangeFromLastWeekPercent = volumeChangeFromLastWeekPercent,
+            bodyweightRepsByExercise = bodyweightRepsByExercise,
+            setsByMuscleGroup = BodyweightStats.setsByMuscleGroup(strengthLogs, exercisesById),
+            bodyweightRepsChangeFromLastWeekPercent = bodyweightRepsChange,
         )
     }
 
@@ -90,14 +97,8 @@ object WeeklyStatsCalculator {
             insights += Insight(id = null, summaryText = "완료율이 ${summary.completionRate}%로 낮은 편이에요")
         }
 
-        val totalMuscleVolume = summary.volumeByMuscleGroup.values.fold(BigDecimal.ZERO, BigDecimal::add)
-        if (summary.volumeByMuscleGroup.size >= 2 && totalMuscleVolume.compareTo(BigDecimal.ZERO) > 0) {
-            val leastEntry = summary.volumeByMuscleGroup.entries.minBy { it.value }
-            val share = leastEntry.value.multiply(BigDecimal(100)).divide(totalMuscleVolume, 1, RoundingMode.HALF_UP)
-            if (share < LOW_MUSCLE_GROUP_SHARE_THRESHOLD) {
-                insights += Insight(id = null, summaryText = "${leastEntry.key.displayName} 비중이 ${share}%로 낮은 편이에요")
-            }
-        }
+        BodyweightStats.muscleShareInsight(summary.setsByMuscleGroup)?.let { insights += it }
+        BodyweightStats.repsChangeInsight(summary.bodyweightRepsChangeFromLastWeekPercent, "이번 주", "지난주")?.let { insights += it }
 
         return insights
     }
