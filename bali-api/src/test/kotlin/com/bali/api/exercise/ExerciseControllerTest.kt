@@ -96,6 +96,51 @@ class ExerciseControllerTest {
             .andExpect(jsonPath("$[*].muscleGroup", everyItem(equalTo("BICEPS"))))
     }
 
+    // equipment 쿼리 파라미터로 필터링했을 때 맨몸 종목만 반환하는지 확인
+    @Test
+    fun `equipment 필터로 GET exercises 호출하면 해당 장비 종목만 반환`() {
+        val token = issueTokenForNewUser()
+
+        mockMvc.perform(
+            get("/api/v1/exercises")
+                .param("equipment", "BODYWEIGHT")
+                .header("Authorization", "Bearer $token")
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$[*].equipment", everyItem(equalTo("BODYWEIGHT"))))
+            .andExpect(jsonPath("$[*].name", hasItem("푸시업")))
+    }
+
+    // muscleGroup과 equipment를 함께 주면 둘 다 만족하는 종목만 반환하는지 확인
+    @Test
+    fun `muscleGroup과 equipment를 함께 주면 AND로 필터링`() {
+        val token = issueTokenForNewUser()
+
+        mockMvc.perform(
+            get("/api/v1/exercises")
+                .param("muscleGroup", "ABS")
+                .param("equipment", "BODYWEIGHT")
+                .header("Authorization", "Bearer $token")
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$[*].muscleGroup", everyItem(equalTo("ABS"))))
+            .andExpect(jsonPath("$[*].equipment", everyItem(equalTo("BODYWEIGHT"))))
+            .andExpect(jsonPath("$[*].name", hasItem("크런치")))
+    }
+
+    // 정의되지 않은 equipment 값은 400을 반환하는지 확인
+    @Test
+    fun `알 수 없는 equipment 값이면 400 반환`() {
+        val token = issueTokenForNewUser()
+
+        mockMvc.perform(
+            get("/api/v1/exercises")
+                .param("equipment", "NOPE")
+                .header("Authorization", "Bearer $token")
+        )
+            .andExpect(status().isBadRequest)
+    }
+
     // 오타를 포함한 쿼리로 suggest 호출시 유사한 글로벌 종목이 결과에 포함되는지 확인
     @Test
     fun `GET exercises suggest 호출하면 오타에 가까운 종목을 제안`() {

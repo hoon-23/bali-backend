@@ -1,6 +1,7 @@
 package com.bali.api.exercise
 
 import com.bali.api.auth.currentUserId
+import com.bali.core.exercise.Equipment
 import com.bali.core.exercise.Exercise
 import com.bali.core.exercise.ExerciseRepository
 import com.bali.core.exercise.ExerciseScope
@@ -32,12 +33,17 @@ class ExerciseController(
     private val templateRepository: WorkoutTemplateRepository,
 ) {
 
-    // 카탈로그 조회 (GLOBAL 전체 + 본인 PERSONAL), muscleGroup으로 선택적 필터링
-    @Operation(summary = "종목 카탈로그 조회", description = "GLOBAL 전체 + 본인 PERSONAL 종목을 조회한다. muscleGroup으로 선택적 필터링 가능")
+    // 카탈로그 조회 (GLOBAL 전체 + 본인 PERSONAL), muscleGroup/equipment로 선택적 필터링(함께 주면 AND)
+    @Operation(summary = "종목 카탈로그 조회", description = "GLOBAL 전체 + 본인 PERSONAL 종목을 조회한다. muscleGroup, equipment로 선택적 필터링 가능(함께 주면 AND)")
     @GetMapping
-    fun list(@RequestParam(required = false) muscleGroup: MuscleGroup?): List<ExerciseResponse> {
+    fun list(
+        @RequestParam(required = false) muscleGroup: MuscleGroup?,
+        @RequestParam(required = false) equipment: Equipment?,
+    ): List<ExerciseResponse> {
         val visible = exerciseRepository.findVisibleTo(currentUserId())
-        val filtered = if (muscleGroup != null) visible.filter { it.muscleGroup == muscleGroup } else visible
+        val filtered = visible
+            .filter { muscleGroup == null || it.muscleGroup == muscleGroup }
+            .filter { equipment == null || it.equipment == equipment }
         return filtered.map { ExerciseResponse.from(it) }
     }
 
