@@ -6,10 +6,15 @@ import com.bali.core.exercise.ExerciseRepository
 import com.bali.core.exercise.ExerciseScope
 import com.bali.core.exercise.ExerciseType
 import com.bali.core.exercise.MuscleGroup
+import com.bali.core.session.SessionStatus
+import com.bali.core.session.WorkoutSession
+import com.bali.core.session.WorkoutSessionRepository
 import com.bali.core.user.AuthProvider
 import com.bali.infra.user.UserJpaEntity
 import com.bali.infra.user.UserJpaRepository
 import com.fasterxml.jackson.databind.ObjectMapper
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
@@ -23,6 +28,7 @@ import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import org.springframework.transaction.annotation.Transactional
+import java.time.LocalDate
 import java.util.UUID
 
 @SpringBootTest
@@ -35,6 +41,7 @@ class TemplateControllerTest {
     @Autowired lateinit var userJpaRepository: UserJpaRepository
     @Autowired lateinit var exerciseRepository: ExerciseRepository
     @Autowired lateinit var objectMapper: ObjectMapper
+    @Autowired lateinit var sessionRepository: WorkoutSessionRepository
 
     // 테스트용 사용자를 만들고 그 사용자의 JWT를 발급
     private fun issueTokenForNewUser(): String {
@@ -49,6 +56,61 @@ class TemplateControllerTest {
         exerciseRepository.save(
             Exercise(id = null, name = "템플릿테스트벤치프레스", variant = null, muscleGroup = MuscleGroup.CHEST, type = ExerciseType.STRENGTH, scope = ExerciseScope.GLOBAL, ownerId = null)
         ).id!!
+
+    // 테스트용 사용자를 만들고 (JWT, userId)를 반환
+    private fun issueTokenAndUserId(): Pair<String, UUID> {
+        val entity = userJpaRepository.save(
+            UserJpaEntity(email = "template-test-${System.nanoTime()}@example.com", provider = AuthProvider.GOOGLE, providerId = "sub-template-${System.nanoTime()}")
+        )
+        return jwtTokenProvider.generateToken(entity.id, entity.email) to entity.id
+    }
+
+    // 테스트용 STRENGTH 템플릿을 POST로 만들고 id 반환
+    private fun createTemplate(token: String, exerciseId: UUID, name: String): UUID {
+        val body = """{"category":"PUSH","name":"$name","items":[{"exerciseId":"$exerciseId","sortOrder":0,"targetSets":3,"targetReps":10,"targetWeight":60.0,"targetDurationSeconds":null,"targetPace":null}]}"""
+        val response = mockMvc.perform(post("/api/v1/templates").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON).content(body))
+            .andExpect(status().isCreated)
+            .andReturn().response.contentAsString
+        return UUID.fromString(objectMapper.readTree(response)["id"].asText())
+    }
+
+    // 템플릿으로 만든 세션을 지정 상태/날짜로 저장
+    private fun saveSession(userId: UUID, templateId: UUID, date: LocalDate, status: SessionStatus) {
+        sessionRepository.save(WorkoutSession(id = null, userId = userId, date = date, templateId = templateId, status = status, logs = emptyList()))
+    }
+
+    @Test
+    fun `GET templates 목록의 lastUsedAt은 해당 템플릿의 가장 최근 완료 세션 날짜다`() {
+        val (token, userId) = issueTokenAndUserId()
+        val exerciseId = savedStrengthExerciseId()
+        val used = createTemplate(token, exerciseId, "사용한루틴")
+        val unused = createTemplate(token, exerciseId, "안쓴루틴")
+        val onlyScheduled = createTemplate(token, exerciseId, "예정만있는루틴")
+        saveSession(userId, used, LocalDate.of(2026, 9, 20), SessionStatus.COMPLETED)
+        saveSession(userId, used, LocalDate.of(2026, 9, 28), SessionStatus.COMPLETED)
+        saveSession(userId, used, LocalDate.of(2026, 10, 5), SessionStatus.SCHEDULED)
+        saveSession(userId, onlyScheduled, LocalDate.of(2026, 10, 1), SessionStatus.SCHEDULED)
+
+        val response = mockMvc.perform(get("/api/v1/templates").header("Authorization", "Bearer $token"))
+            .andExpect(status().isOk)
+            .andReturn().response.contentAsString
+        val byId = objectMapper.readTree(response).associateBy { it["id"].asText() }
+
+        assertEquals("2026-09-28", byId.getValue(used.toString())["lastUsedAt"].asText())
+        assertTrue(byId.getValue(unused.toString())["lastUsedAt"].isNull)
+        assertTrue(byId.getValue(onlyScheduled.toString())["lastUsedAt"].isNull)
+    }
+
+    @Test
+    fun `GET templates id 응답에도 lastUsedAt이 포함된다`() {
+        val (token, userId) = issueTokenAndUserId()
+        val used = createTemplate(token, savedStrengthExerciseId(), "단건조회루틴")
+        saveSession(userId, used, LocalDate.of(2026, 9, 28), SessionStatus.COMPLETED)
+
+        mockMvc.perform(get("/api/v1/templates/$used").header("Authorization", "Bearer $token"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.lastUsedAt").value("2026-09-28"))
+    }
 
     @Test
     fun `POST templates 호출하면 STRENGTH 종목이 포함된 템플릿을 생성한다`() {

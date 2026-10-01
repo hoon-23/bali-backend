@@ -2,6 +2,7 @@ package com.bali.api.template
 
 import com.bali.api.auth.currentUserId
 import com.bali.core.exercise.ExerciseRepository
+import com.bali.core.session.WorkoutSessionRepository
 import com.bali.core.template.TemplateItem
 import com.bali.core.template.WorkoutTemplate
 import com.bali.core.template.WorkoutTemplateRepository
@@ -28,6 +29,7 @@ import java.util.UUID
 class TemplateController(
     private val templateRepository: WorkoutTemplateRepository,
     private val exerciseRepository: ExerciseRepository,
+    private val sessionRepository: WorkoutSessionRepository,
 ) {
 
     // 템플릿 등록 (items의 각 exerciseId 타입을 조회해 STRENGTH/CARDIO 필드 검증 후 저장)
@@ -45,15 +47,19 @@ class TemplateController(
     // 내 템플릿 목록 조회 (소프트 삭제된 템플릿 제외)
     @Operation(summary = "템플릿 목록 조회", description = "본인의 템플릿 목록을 조회한다 (소프트 삭제된 템플릿 제외)")
     @GetMapping
-    fun list(): List<TemplateResponse> =
-        templateRepository.findAllByUserId(currentUserId()).map { TemplateResponse.from(it) }
+    fun list(): List<TemplateResponse> {
+        val userId = currentUserId()
+        val templates = templateRepository.findAllByUserId(userId)
+        val lastUsed = sessionRepository.findLastCompletedDatesByTemplateIds(userId, templates.map { it.id!! })
+        return templates.map { TemplateResponse.from(it, lastUsed[it.id]) }
+    }
 
     // 템플릿 단건 조회. 없거나 다른 유저 소유면 404 (존재 노출 방지)
     @Operation(summary = "템플릿 단건 조회", description = "없거나 다른 유저 소유면 404 (존재 노출 방지)")
     @GetMapping("/{id}")
     fun get(@PathVariable id: UUID): ResponseEntity<TemplateResponse> {
         val template = findOwnedOrNull(id) ?: return ResponseEntity.notFound().build()
-        return ResponseEntity.ok(TemplateResponse.from(template))
+        return ResponseEntity.ok(responseWithLastUsed(template))
     }
 
     // 템플릿 전체 교체 (items 포함). 없거나 다른 유저 소유면 404
@@ -63,7 +69,7 @@ class TemplateController(
         val existing = findOwnedOrNull(id) ?: return ResponseEntity.notFound().build()
         val items = request.items.map { it.toDomainItem() }
         val saved = templateRepository.save(existing.copy(category = request.category, name = request.name, items = items))
-        return ResponseEntity.ok(TemplateResponse.from(saved))
+        return ResponseEntity.ok(responseWithLastUsed(saved))
     }
 
     // 템플릿 소프트 삭제. 없거나 다른 유저 소유면 404
@@ -85,6 +91,11 @@ class TemplateController(
             targetDurationSeconds = targetDurationSeconds, targetPace = targetPace,
         )
     }
+
+
+    // 템플릿 1건을 lastUsedAt(가장 최근 완료 세션 날짜)과 함께 응답으로 변환
+    private fun responseWithLastUsed(template: WorkoutTemplate): TemplateResponse =
+        TemplateResponse.from(template, sessionRepository.findLastCompletedDatesByTemplateIds(currentUserId(), listOf(template.id!!))[template.id])
 
     // id로 조회한 템플릿이 현재 인증 사용자 소유일 때만 반환
     private fun findOwnedOrNull(id: UUID): WorkoutTemplate? {

@@ -66,6 +66,9 @@ interface WorkoutSessionRepository {
     // 완료된 로그가 있는 가장 최근 날짜 (없으면 null). 이탈 알림 판정에 사용
     fun findLastActiveDate(userId: UUID): LocalDate?
 
+    // 템플릿별로 가장 최근에 완료된 세션 날짜 (templateId -> date). 완료 이력이 없는 템플릿은 키가 없다
+    fun findLastCompletedDatesByTemplateIds(userId: UUID, templateIds: Collection<UUID>): Map<UUID, LocalDate>
+
     // 종목별 마지막으로 기록된 actualWeight (exerciseId -> weight). 무게 입력 시 자동 채움용
     fun findLastActualWeightsByExerciseIds(userId: UUID, exerciseIds: Collection<UUID>): Map<UUID, BigDecimal>
 }

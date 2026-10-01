@@ -80,4 +80,22 @@ interface WorkoutSessionJpaRepository : JpaRepository<WorkoutSessionJpaEntity, U
         @Param("userId") userId: UUID,
         @Param("exerciseIds") exerciseIds: Collection<UUID>,
     ): List<SessionLogJpaEntity>
+    // 템플릿별 가장 최근 세션 날짜 (status로 완료 세션만 집계)
+    @Query("""
+        SELECT s.templateId AS templateId, MAX(s.date) AS lastDate
+        FROM WorkoutSessionJpaEntity s
+        WHERE s.userId = :userId AND s.status = :status AND s.templateId IN :templateIds
+        GROUP BY s.templateId
+    """)
+    fun findLastDatesByTemplateId(
+        @Param("userId") userId: UUID,
+        @Param("status") status: SessionStatus,
+        @Param("templateIds") templateIds: Collection<UUID>,
+    ): List<TemplateLastDate>
+}
+
+// 템플릿별 최근 세션 날짜 집계 결과 프로젝션
+interface TemplateLastDate {
+    val templateId: UUID
+    val lastDate: LocalDate
 }
