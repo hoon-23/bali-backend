@@ -8,7 +8,7 @@
 
 **Tech Stack:** Kotlin, Spring Boot, Spring Data JPA, Flyway, JUnit5 + MockMvc, 로컬 Postgres(`docker compose`).
 
-**Spec:** `docs/superpowers/specs/2026-10-01-notification-inbox-design.md`
+**Spec:** `docs/specs/2026-10-01-notification-inbox-design.md`
 
 ## Global Constraints
 
@@ -597,7 +597,7 @@ git commit -m "feat(api): 알림함 목록/안 읽은 개수/읽음 처리 API �
 **Files:** 코드 변경 없음.
 
 - [ ] **Step 1:** `./gradlew test --continue` 로 전 모듈 확인. 실패는 Swagger dev 프로필 테스트(환경 변수 부재) 1개만 허용하고, 그 외는 원인을 고친다.
-- [ ] **Step 2:** 스펙 `docs/superpowers/specs/2026-10-01-notification-inbox-design.md`와 계획서를 커밋한다.
+- [ ] **Step 2:** 스펙 `docs/specs/2026-10-01-notification-inbox-design.md`와 계획서를 커밋한다.
 - [ ] **Step 3:** 로컬 API 서버를 재기동(`./gradlew :bali-api:bootRun`)해 V27을 적용하고 `GET /api/v1/notifications` 401 응답을 확인한다.
 - [ ] **Step 4:** `SendMessage`로 `bali-frontend-8f`에 확정 계약(스펙의 "API" 섹션 전문과 `data` 페이로드, 로컬 서버 재기동 완료)을 전달한다.
 - [ ] **Step 5:** 세션 마무리 시 앱 서버, Gradle 데몬, docker compose를 중지한다(사용자가 계속 로컬 테스트 중이면 유지).

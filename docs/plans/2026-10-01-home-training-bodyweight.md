@@ -8,7 +8,7 @@
 
 **Tech Stack:** Kotlin, Spring Boot, Flyway, JPA, Kotest(core), JUnit5 + MockMvc(api/infra), 로컬 Postgres(`docker compose`, localhost:5432).
 
-**Spec:** `docs/superpowers/specs/2026-10-01-home-training-bodyweight-design.md`
+**Spec:** `docs/specs/2026-10-01-home-training-bodyweight-design.md`
 
 ## Global Constraints
 
