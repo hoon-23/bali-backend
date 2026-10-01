@@ -123,6 +123,9 @@ resource "aws_ecs_service" "bali_api" {
   desired_count   = 1
   launch_type     = "FARGATE"
 
+  # 앱 기동이 65~75초 걸려서(512 CPU/1GB) 유예가 0이면 ALB 헬스체크(30초 x 3회)가 기동 직전에 태스크를 교체해 배포가 안정화되지 않는다(2026-10-01 CD 실패)
+  health_check_grace_period_seconds = 180
+
   network_configuration {
     subnets          = aws_subnet.public[*].id
     security_groups  = [aws_security_group.ecs.id]
