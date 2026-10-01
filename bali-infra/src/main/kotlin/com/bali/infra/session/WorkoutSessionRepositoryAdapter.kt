@@ -139,6 +139,11 @@ class WorkoutSessionRepositoryAdapter(
     override fun findLastActiveDate(userId: UUID): LocalDate? =
         sessionJpaRepository.findLastActiveDate(userId)
 
+    // 기준 날짜 이전의 IN_PROGRESS 세션을 ABANDONED로 일괄 전환
+    @Transactional
+    override fun abandonInProgressBefore(date: LocalDate): Int =
+        sessionJpaRepository.updateStatusBefore(SessionStatus.IN_PROGRESS, SessionStatus.ABANDONED, date)
+
     // 템플릿별 가장 최근 완료 세션 날짜
     override fun findLastCompletedDatesByTemplateIds(userId: UUID, templateIds: Collection<UUID>): Map<UUID, LocalDate> {
         if (templateIds.isEmpty()) return emptyMap()

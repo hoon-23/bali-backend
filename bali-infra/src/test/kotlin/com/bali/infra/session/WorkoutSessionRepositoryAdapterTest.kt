@@ -297,4 +297,27 @@ class WorkoutSessionRepositoryAdapterTest {
     fun `findLastActualWeightsByExerciseIds는 exerciseIds가 비어있으면 빈 맵을 반환한다`() {
         assertEquals(emptyMap<UUID, BigDecimal>(), adapter.findLastActualWeightsByExerciseIds(UUID.randomUUID(), emptyList()))
     }
+
+    // 기준 날짜 이전의 IN_PROGRESS만 ABANDONED로 바뀌고, 다른 상태/오늘 날짜/로그는 그대로인지 확인
+    @Test
+    fun `abandonInProgressBefore는 기준 날짜 이전의 IN_PROGRESS만 ABANDONED로 바꾸고 로그를 보존한다`() {
+        val userId = UUID.randomUUID()
+        val today = LocalDate.of(2026, 10, 1)
+        val stale = adapter.save(WorkoutSession(id = null, userId = userId, date = today.minusDays(1), templateId = null, status = SessionStatus.IN_PROGRESS, logs = listOf(completedLog())))
+        val todays = adapter.save(WorkoutSession(id = null, userId = userId, date = today, templateId = null, status = SessionStatus.IN_PROGRESS, logs = emptyList()))
+        val oldCompleted = adapter.save(WorkoutSession(id = null, userId = userId, date = today.minusDays(5), templateId = null, status = SessionStatus.COMPLETED, logs = emptyList()))
+        val oldScheduled = adapter.save(WorkoutSession(id = null, userId = userId, date = today.minusDays(2), templateId = null, status = SessionStatus.SCHEDULED, logs = emptyList()))
+
+        val updated = adapter.abandonInProgressBefore(today)
+
+        assertTrue(updated >= 1)
+        assertEquals(SessionStatus.ABANDONED, adapter.findById(stale.id!!)?.status)
+        assertEquals(SessionStatus.IN_PROGRESS, adapter.findById(todays.id!!)?.status)
+        assertEquals(SessionStatus.COMPLETED, adapter.findById(oldCompleted.id!!)?.status)
+        assertEquals(SessionStatus.SCHEDULED, adapter.findById(oldScheduled.id!!)?.status)
+        val preserved = adapter.findById(stale.id!!)!!.logs.single()
+        assertTrue(preserved.completed)
+        assertEquals(3, preserved.actualSets)
+        assertEquals(0, adapter.abandonInProgressBefore(today))
+    }
 }

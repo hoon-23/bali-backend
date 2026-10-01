@@ -28,6 +28,7 @@ fun main(args: Array<String>) {
         "monthly" -> context.getBean<MonthlyAnalysisRunner>().run()
         "routine-reminder" -> context.getBean<com.bali.batch.notification.RoutineReminderRunner>().run()
         "inactivity-alert" -> context.getBean<com.bali.batch.notification.InactivityAlertRunner>().run()
+        "abandon-stale-sessions" -> context.getBean<AbandonStaleSessionsRunner>().run()
         "weekly-summary-push" -> context.getBean<com.bali.batch.notification.WeeklySummaryPushRunner>().run()
         "monthly-summary-push" -> context.getBean<com.bali.batch.notification.MonthlySummaryPushRunner>().run()
         else -> throw IllegalArgumentException("알 수 없는 배치 작업: $job")

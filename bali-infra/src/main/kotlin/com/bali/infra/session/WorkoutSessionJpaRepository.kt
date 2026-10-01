@@ -80,6 +80,15 @@ interface WorkoutSessionJpaRepository : JpaRepository<WorkoutSessionJpaEntity, U
         @Param("userId") userId: UUID,
         @Param("exerciseIds") exerciseIds: Collection<UUID>,
     ): List<SessionLogJpaEntity>
+    // from 상태이면서 date가 기준 날짜보다 이전인 세션의 status를 to로 일괄 변경
+    @Modifying(clearAutomatically = true)
+    @Query("UPDATE WorkoutSessionJpaEntity s SET s.status = :to WHERE s.status = :from AND s.date < :date")
+    fun updateStatusBefore(
+        @Param("from") from: SessionStatus,
+        @Param("to") to: SessionStatus,
+        @Param("date") date: LocalDate,
+    ): Int
+
     // 템플릿별 가장 최근 세션 날짜 (status로 완료 세션만 집계)
     @Query("""
         SELECT s.templateId AS templateId, MAX(s.date) AS lastDate

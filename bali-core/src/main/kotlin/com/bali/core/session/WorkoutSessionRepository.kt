@@ -57,6 +57,9 @@ interface WorkoutSessionRepository {
     // 세션의 perceivedDifficulty만 갱신 (없으면 null)
     fun updatePerceivedDifficulty(sessionId: UUID, perceivedDifficulty: Int): WorkoutSession?
 
+    // date가 기준 날짜보다 이전인 IN_PROGRESS 세션을 ABANDONED로 일괄 전환하고 전환 건수를 반환 (로그는 건드리지 않음)
+    fun abandonInProgressBefore(date: LocalDate): Int
+
     // 완료된 로그가 하나 이상 있는 날짜 집합을 조회 (연속운동일 계산용, since 이후만)
     fun findActiveDates(userId: UUID, since: LocalDate): Set<LocalDate>
 

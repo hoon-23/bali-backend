@@ -9,6 +9,8 @@ import com.bali.core.exercise.MuscleGroup
 import com.bali.core.template.TemplateCategory
 import com.bali.core.template.TemplateItem
 import com.bali.core.template.WorkoutTemplate
+import com.bali.core.session.SessionStatus
+import com.bali.core.session.WorkoutSession
 import com.bali.core.session.WorkoutSessionRepository
 import com.bali.core.template.WorkoutTemplateRepository
 import com.bali.core.user.AuthProvider
@@ -32,6 +34,7 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPat
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import org.springframework.transaction.annotation.Transactional
 import java.math.BigDecimal
+import java.time.LocalDate
 import java.util.UUID
 
 @SpringBootTest
@@ -179,6 +182,27 @@ class SessionControllerTest {
         mockMvc.perform(patch("/api/v1/sessions/$sessionId").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON).content("""{"addItems":[]}"""))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.status").value("IN_PROGRESS"))
+    }
+
+    @Test
+    fun `ABANDONED 세션은 응답에 ABANDONED로 내려오고 PATCH로 COMPLETED나 SCHEDULED로 복구할 수 있다`() {
+        val (token, userId) = issueTokenForNewUser()
+        val abandoned = workoutSessionRepository.save(
+            WorkoutSession(id = null, userId = userId, date = LocalDate.of(2026, 9, 24), templateId = null, status = SessionStatus.ABANDONED, logs = emptyList())
+        )
+
+        mockMvc.perform(get("/api/v1/sessions/${abandoned.id}").header("Authorization", "Bearer $token"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.status").value("ABANDONED"))
+        mockMvc.perform(patch("/api/v1/sessions/${abandoned.id}").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON).content("""{"status":"COMPLETED"}"""))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.status").value("COMPLETED"))
+        mockMvc.perform(patch("/api/v1/sessions/${abandoned.id}").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON).content("""{"status":"ABANDONED"}"""))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.status").value("ABANDONED"))
+        mockMvc.perform(patch("/api/v1/sessions/${abandoned.id}").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON).content("""{"status":"SCHEDULED"}"""))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.status").value("SCHEDULED"))
     }
 
     @Test
