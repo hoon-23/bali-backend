@@ -10,8 +10,9 @@ import org.springframework.test.context.ActiveProfiles
 import org.springframework.test.context.TestPropertySource
 
 // dev 프로필에서도 Swagger 문서 경로가 인증 없이 열리는지 확인. application-dev.yml은
-// DB_URL/DB_USERNAME/DB_PASSWORD를 fallback 없이 요구하므로, 테스트에서는 로컬 DB 좌표를
-// 직접 주입해 프로필 게이팅 로직만 독립적으로 검증한다.
+// DB_URL/DB_USERNAME/DB_PASSWORD를, application.yml은 JWT_SECRET/GOOGLE_CLIENT_ID/APPLE_BUNDLE_ID/
+// KAKAO_CLIENT_ID를 fallback 없이 요구하므로, 테스트에서는 값을 직접 주입해 환경 변수 유무와
+// 무관하게 프로필 게이팅 로직만 독립적으로 검증한다.
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("dev")
 @TestPropertySource(
@@ -19,6 +20,10 @@ import org.springframework.test.context.TestPropertySource
         "spring.datasource.url=jdbc:postgresql://localhost:5432/bali",
         "spring.datasource.username=bali",
         "spring.datasource.password=bali",
+        "bali.jwt.secret=swagger-dev-test-secret-key-at-least-32-bytes!!",
+        "bali.oauth.google.client-id=swagger-dev-test-google-client-id",
+        "bali.oauth.apple.bundle-id=com.bali.swagger-dev-test",
+        "bali.oauth.kakao.client-id=swagger-dev-test-kakao-client-id",
     ]
 )
 class SwaggerDocsAccessDevProfileTest {
