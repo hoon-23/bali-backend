@@ -1,5 +1,6 @@
 package com.bali.infra.exercise
 
+import com.bali.core.exercise.Equipment
 import com.bali.core.exercise.Exercise
 import com.bali.core.exercise.ExerciseScope
 import com.bali.core.exercise.ExerciseType
@@ -154,5 +155,44 @@ class ExerciseRepositoryAdapterTest {
         adapter.deleteById(saved.id!!)
 
         assertEquals(null, adapter.findById(saved.id!!))
+    }
+
+    // V26이 시간 버티기 운동 3종을 삭제했는지 확인
+    @Test
+    fun `V26 이후 버티기 운동 3종은 카탈로그에 없다`() {
+        val names = adapter.findVisibleTo(UUID.randomUUID()).map { it.name }
+
+        listOf("플랭크", "사이드플랭크", "할로우홀드").forEach {
+            assertTrue(it !in names, "$it 가 아직 카탈로그에 남아 있다")
+        }
+    }
+
+    // V26이 홈트용 맨몸 12종을 BODYWEIGHT GLOBAL로 시딩했는지 확인
+    @Test
+    fun `V26 이후 홈트 맨몸 12종이 BODYWEIGHT GLOBAL로 존재한다`() {
+        val expected = listOf(
+            Triple("버피", null, MuscleGroup.FUNCTIONAL),
+            Triple("숄더탭", null, MuscleGroup.FUNCTIONAL),
+            Triple("푸시업", "무릎", MuscleGroup.CHEST),
+            Triple("크런치", null, MuscleGroup.ABS),
+            Triple("바이시클크런치", null, MuscleGroup.ABS),
+            Triple("리버스크런치", null, MuscleGroup.ABS),
+            Triple("레그레이즈", null, MuscleGroup.ABS),
+            Triple("파이크푸시업", "무릎", MuscleGroup.SHOULDER),
+            Triple("벤치딥", null, MuscleGroup.TRICEPS),
+            Triple("푸시업", "클로즈", MuscleGroup.TRICEPS),
+            Triple("리버스스노우엔젤", null, MuscleGroup.BACK),
+            Triple("프론Y레이즈", null, MuscleGroup.BACK),
+        )
+        val visible = adapter.findVisibleTo(UUID.randomUUID())
+
+        expected.forEach { (name, variant, group) ->
+            val found = visible.singleOrNull { it.name == name && it.variant == variant }
+            assertTrue(found != null, "$name/$variant 가 없거나 중복이다")
+            assertEquals(group, found!!.muscleGroup)
+            assertEquals(Equipment.BODYWEIGHT, found.equipment)
+            assertEquals(ExerciseScope.GLOBAL, found.scope)
+            assertEquals(ExerciseType.STRENGTH, found.type)
+        }
     }
 }
