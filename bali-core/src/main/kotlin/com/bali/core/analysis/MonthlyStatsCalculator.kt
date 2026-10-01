@@ -20,6 +20,7 @@ object MonthlyStatsCalculator {
         logs: List<SessionLog>,
         exercisesById: Map<UUID, Exercise>,
         previousSummary: AnalysisSummary?,
+        abandonedLogIds: Set<UUID> = emptySet(),
     ): AnalysisSummary {
         val completedLogs = logs.filter { it.completed }
         val strengthLogs = completedLogs.filter { exercisesById.getValue(it.exerciseId).type == ExerciseType.STRENGTH }
@@ -36,11 +37,13 @@ object MonthlyStatsCalculator {
         val cardioTotalMinutes = cardioLogs.sumOf { it.actualDurationSeconds ?: 0 } / 60
         val totalWorkoutMinutes = strengthLogs.size * MINUTES_PER_STRENGTH_EXERCISE + cardioTotalMinutes
 
-        val completionRate = if (logs.isEmpty()) {
+        // 중단(ABANDONED) 세션의 로그는 완료율의 분자/분모 모두에서 제외한다 (볼륨 등은 completedLogs로 그대로 계산)
+        val ratedLogs = logs.filterNot { it.id != null && it.id in abandonedLogIds }
+        val completionRate = if (ratedLogs.isEmpty()) {
             BigDecimal.ZERO
         } else {
-            BigDecimal(completedLogs.size).multiply(BigDecimal(100))
-                .divide(BigDecimal(logs.size), 1, RoundingMode.HALF_UP)
+            BigDecimal(ratedLogs.count { it.completed }).multiply(BigDecimal(100))
+                .divide(BigDecimal(ratedLogs.size), 1, RoundingMode.HALF_UP)
         }
 
         val volumeChangeFromLastMonthPercent = previousSummary?.let { prev ->

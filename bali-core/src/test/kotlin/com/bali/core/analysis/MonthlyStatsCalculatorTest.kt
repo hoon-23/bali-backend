@@ -65,4 +65,23 @@ class MonthlyStatsCalculatorTest : StringSpec({
 
         MonthlyStatsCalculator.generateInsights(summary).isEmpty() shouldBe true
     }
+
+    "중단 세션의 로그는 완료율에서 제외되지만 완료한 로그의 볼륨은 그대로 포함된다" {
+        fun incompleteLog(exerciseId: UUID) =
+            SessionLog.create(ExerciseType.STRENGTH, exerciseId, sortOrder = 0, targetSets = 3, targetReps = 10, targetWeight = BigDecimal("60.0"))
+                .copy(id = UUID.randomUUID())
+        val doneNormal = strengthLog(benchPressId, 3, 10, "60.0").copy(id = UUID.randomUUID())
+        val undoneNormal = incompleteLog(benchPressId)
+        val undoneAbandoned = incompleteLog(benchPressId)
+        val doneAbandoned = strengthLog(benchPressId, 3, 10, "60.0").copy(id = UUID.randomUUID())
+        val logs = listOf(doneNormal, undoneNormal, undoneAbandoned, doneAbandoned)
+
+        val summary = MonthlyStatsCalculator.calculate(
+            logs, exercisesById, previousSummary = null,
+            abandonedLogIds = setOf(undoneAbandoned.id!!, doneAbandoned.id!!),
+        )
+
+        summary.completionRate shouldBe BigDecimal("50.0")
+        summary.volumeByExercise[benchPressId] shouldBe BigDecimal("3600.0")
+    }
 })

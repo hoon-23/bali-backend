@@ -23,3 +23,7 @@ data class WorkoutSession(
         }
     }
 }
+
+// 중단(ABANDONED)된 세션들의 로그 id 집합. 분석의 완료율 집계에서 이 로그들을 제외하려고 쓴다
+fun List<WorkoutSession>.abandonedLogIds(): Set<UUID> =
+    filter { it.status == SessionStatus.ABANDONED }.flatMap { it.logs }.mapNotNull { it.id }.toSet()

@@ -270,4 +270,32 @@ class WeeklyStatsCalculatorTest : StringSpec({
 
         WeeklyStatsCalculator.generateInsights(summary).isEmpty() shouldBe true
     }
+
+    "중단 세션의 로그는 완료율에서 제외되지만 완료한 로그의 볼륨은 그대로 포함된다" {
+        fun withId(log: SessionLog) = log.copy(id = UUID.randomUUID())
+        val doneNormal = withId(strengthLog(benchPressId, completed = true))
+        val undoneNormal = withId(strengthLog(squatId, completed = false))
+        val undoneAbandoned1 = withId(strengthLog(squatId, completed = false))
+        val undoneAbandoned2 = withId(strengthLog(squatId, completed = false))
+        val doneAbandoned = withId(strengthLog(benchPressId, completed = true))
+        val logs = listOf(doneNormal, undoneNormal, undoneAbandoned1, undoneAbandoned2, doneAbandoned)
+
+        val withoutExclusion = WeeklyStatsCalculator.calculate(logs, exercisesById, previousSummary = null)
+        val summary = WeeklyStatsCalculator.calculate(
+            logs, exercisesById, previousSummary = null,
+            abandonedLogIds = setOf(undoneAbandoned1.id!!, undoneAbandoned2.id!!, doneAbandoned.id!!),
+        )
+
+        withoutExclusion.completionRate shouldBe BigDecimal("40.0")
+        summary.completionRate shouldBe BigDecimal("50.0")
+        summary.volumeByExercise[benchPressId] shouldBe BigDecimal("3600.0")
+    }
+
+    "모든 로그가 중단 세션 소속이면 완료율은 0이다" {
+        val log = strengthLog(benchPressId, completed = true).copy(id = UUID.randomUUID())
+
+        val summary = WeeklyStatsCalculator.calculate(listOf(log), exercisesById, previousSummary = null, abandonedLogIds = setOf(log.id!!))
+
+        summary.completionRate shouldBe BigDecimal.ZERO
+    }
 })

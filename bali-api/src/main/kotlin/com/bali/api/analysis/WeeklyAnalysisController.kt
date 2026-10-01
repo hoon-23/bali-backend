@@ -7,6 +7,7 @@ import com.bali.core.exercise.ExerciseRepository
 import com.bali.core.exercise.findAllByIds
 import com.bali.core.session.SessionStatus
 import com.bali.core.session.WorkoutSessionRepository
+import com.bali.core.session.abandonedLogIds
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
 import org.springframework.format.annotation.DateTimeFormat
@@ -55,7 +56,7 @@ class WeeklyAnalysisController(
         val logs = sessions.flatMap { it.logs }
         val exercisesById = exerciseRepository.findAllByIds(logs.map { it.exerciseId })
         val previousSummary = analysisRepository.findByUserIdAndWeekOf(userId, weekOf.minusWeeks(1))?.summary
-        val summary = WeeklyStatsCalculator.calculate(logs, exercisesById, previousSummary)
+        val summary = WeeklyStatsCalculator.calculate(logs, exercisesById, previousSummary, sessions.abandonedLogIds())
         val completedSessionsCount = sessions.count { it.status == SessionStatus.COMPLETED }
 
         return CurrentWeekSummaryResponse.from(weekOf, summary, completedSessionsCount)
