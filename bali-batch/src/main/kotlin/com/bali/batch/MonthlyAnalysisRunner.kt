@@ -26,7 +26,7 @@ class MonthlyAnalysisRunner(
 
     // 실행 진입점. 전원 성공하면 0, 하나 이상 실패했으면 1을 반환 (Airflow가 재시도 여부를 판단하는 데 사용)
     fun run(): Int {
-        val monthOf = LocalDate.now().withDayOfMonth(1).minusMonths(1)
+        val monthOf = AnalysisPeriod.lastCompletedMonthOf(AnalysisPeriod.todayInApp())
         return runResiliently(
             items = userRepository.findAllByStatus(UserStatus.ACTIVE),
             process = { user -> processUser(user, monthOf) },

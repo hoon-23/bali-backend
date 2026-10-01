@@ -12,9 +12,7 @@ import com.bali.core.user.UserRepository
 import com.bali.core.user.UserStatus
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
-import java.time.DayOfWeek
 import java.time.LocalDate
-import java.time.temporal.TemporalAdjusters
 
 // 매주 월요일 실행되어 ACTIVE 유저별로 직전 완료 주(월~일)의 운동 기록을 집계하고 WeeklyAnalysis/Insight를 저장
 @Component
@@ -28,7 +26,7 @@ class WeeklyAnalysisRunner(
 
     // 실행 진입점. 전원 성공하면 0, 하나 이상 실패했으면 1을 반환 (Airflow가 재시도 여부를 판단하는 데 사용)
     fun run(): Int {
-        val weekOf = LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)).minusWeeks(1)
+        val weekOf = AnalysisPeriod.lastCompletedWeekOf(AnalysisPeriod.todayInApp())
         return runResiliently(
             items = userRepository.findAllByStatus(UserStatus.ACTIVE),
             process = { user -> processUser(user, weekOf) },

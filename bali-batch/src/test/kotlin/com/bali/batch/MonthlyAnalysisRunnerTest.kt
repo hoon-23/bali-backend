@@ -44,9 +44,9 @@ class MonthlyAnalysisRunnerTest {
     ).id!!
 
     // 직전 완료 달(러너가 집계 대상으로 삼는 달)의 아무 날짜
-    private fun aDayLastMonth(): LocalDate = LocalDate.now().withDayOfMonth(1).minusMonths(1).plusDays(1)
+    private fun aDayLastMonth(): LocalDate = AnalysisPeriod.lastCompletedMonthOf(AnalysisPeriod.todayInApp()).plusDays(1)
 
-    private fun lastMonthOf(): LocalDate = LocalDate.now().withDayOfMonth(1).minusMonths(1)
+    private fun lastMonthOf(): LocalDate = AnalysisPeriod.lastCompletedMonthOf(AnalysisPeriod.todayInApp())
 
     @Test
     fun `세션이 없는 유저는 NO_ACTIVITY로 저장된다`() {

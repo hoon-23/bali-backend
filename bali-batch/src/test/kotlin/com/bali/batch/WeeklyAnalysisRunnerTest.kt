@@ -44,7 +44,7 @@ class WeeklyAnalysisRunnerTest {
 
     // 이번 주(월요일 기준 직전 완료 주)의 아무 날짜
     private fun aDayLastWeek(): LocalDate =
-        LocalDate.now().with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY)).minusWeeks(1).plusDays(1)
+        AnalysisPeriod.lastCompletedWeekOf(AnalysisPeriod.todayInApp()).plusDays(1)
 
     @Test
     fun `세션이 없는 유저는 NO_ACTIVITY로 저장된다`() {
@@ -52,7 +52,7 @@ class WeeklyAnalysisRunnerTest {
 
         runner.run()
 
-        val weekOf = LocalDate.now().with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY)).minusWeeks(1)
+        val weekOf = AnalysisPeriod.lastCompletedWeekOf(AnalysisPeriod.todayInApp())
         val analysis = analysisRepository.findByUserIdAndWeekOf(user.id!!, weekOf)
         assertEquals(AnalysisStatus.NO_ACTIVITY, analysis?.status)
     }
@@ -70,7 +70,7 @@ class WeeklyAnalysisRunnerTest {
 
         val exitCode = runner.run()
 
-        val weekOf = LocalDate.now().with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY)).minusWeeks(1)
+        val weekOf = AnalysisPeriod.lastCompletedWeekOf(AnalysisPeriod.todayInApp())
         val goodAnalysis = analysisRepository.findByUserIdAndWeekOf(goodUser.id!!, weekOf)
 
         assertEquals(AnalysisStatus.SUCCESS, goodAnalysis?.status)
