@@ -13,4 +13,7 @@ data class NotificationLog(
     val deliveryStatus: DeliveryStatus,
     val deliveryError: String?,
     val sentAt: Instant,
+    val title: String = "",
+    val body: String = "",
+    val readAt: Instant? = null,
 )

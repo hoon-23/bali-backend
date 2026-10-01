@@ -25,7 +25,8 @@ class NotificationDispatcher(
         val tokens = deviceTokenRepository.findAllByUserId(userId)
         if (tokens.isEmpty()) return
 
-        val results = notificationSender.send(tokens.map { PushMessage(token = it.expoPushToken, title = title, body = body) })
+        val pushData = mapOf("type" to type.name, "referenceId" to (referenceId?.toString() ?: ""))
+        val results = notificationSender.send(tokens.map { PushMessage(token = it.expoPushToken, title = title, body = body, data = pushData) })
 
         results.filter { it.error == PushSendError.DEVICE_NOT_REGISTERED }
             .forEach { deviceTokenRepository.deleteByToken(it.token) }
@@ -35,7 +36,7 @@ class NotificationDispatcher(
             NotificationLog(
                 id = null, userId = userId, type = type, referenceId = referenceId,
                 expoTicketId = firstSuccess.ticketId, deliveryStatus = DeliveryStatus.PENDING,
-                deliveryError = null, sentAt = Instant.now(),
+                deliveryError = null, sentAt = Instant.now(), title = title, body = body,
             )
         )
     }

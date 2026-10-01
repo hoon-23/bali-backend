@@ -25,4 +25,7 @@ class NotificationLogJpaEntity(
     var deliveryStatus: DeliveryStatus = DeliveryStatus.PENDING,
     var deliveryError: String? = null,
     var sentAt: Instant = Instant.now(),
+    var title: String = "",
+    var body: String = "",
+    var readAt: Instant? = null,
 )
