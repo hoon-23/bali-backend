@@ -1,13 +1,13 @@
 package com.bali.batch
 
 import com.bali.core.analysis.AnalysisStatus
+import com.bali.core.analysis.PeriodStatsCalculator
 import com.bali.core.analysis.WeeklyAnalysis
 import com.bali.core.analysis.WeeklyAnalysisRepository
 import com.bali.core.analysis.WeeklyStatsCalculator
 import com.bali.core.exercise.ExerciseRepository
 import com.bali.core.exercise.findAllByIds
 import com.bali.core.session.WorkoutSessionRepository
-import com.bali.core.session.abandonedLogIds
 import com.bali.core.user.User
 import com.bali.core.user.UserRepository
 import com.bali.core.user.UserStatus
@@ -56,8 +56,11 @@ class WeeklyAnalysisRunner(
         val logs = sessions.flatMap { it.logs }
         val exercisesById = exerciseRepository.findAllByIds(logs.map { it.exerciseId })
 
-        val previousSummary = analysisRepository.findByUserIdAndWeekOf(userId, weekOf.minusWeeks(1))?.summary
-        val summary = WeeklyStatsCalculator.calculate(logs, exercisesById, previousSummary, sessions.abandonedLogIds())
+        val previous = analysisRepository.findByUserIdAndWeekOf(userId, weekOf.minusWeeks(1))
+        val summary = WeeklyStatsCalculator.calculate(
+            sessions, exercisesById, previous?.summary,
+            PeriodStatsCalculator.previousSessionCount(previous?.status, previous?.summary),
+        )
         val insights = WeeklyStatsCalculator.generateInsights(summary)
 
         analysisRepository.save(

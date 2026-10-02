@@ -120,7 +120,7 @@ class MonthlyAnalysisControllerTest {
         analysisRepository.save(
             MonthlyAnalysis(
                 id = null, userId = userId, monthOf = monthOf.minusMonths(1), status = AnalysisStatus.SUCCESS,
-                summary = successSummary().copy(volumeByExercise = mapOf(exerciseId to BigDecimal("1000.0"))),
+                summary = successSummary().copy(volumeByExercise = mapOf(exerciseId to BigDecimal("4000.0")), sessionCount = 2, weightedSessionCount = 2),
                 insights = emptyList(),
             )
         )
@@ -130,10 +130,13 @@ class MonthlyAnalysisControllerTest {
             WorkoutSession(id = null, userId = userId, date = today, templateId = null, status = SessionStatus.COMPLETED, logs = listOf(strengthLog))
         )
 
-        // 이번 달 볼륨 3000.0 vs 지난달 1000.0 -> +200.0%
+        // 이번 달 세션당 볼륨 3000.0(1회) vs 지난달 세션당 2000.0(총 4000.0, 2회) -> +50.0%
         mockMvc.perform(get("/api/v1/analysis/monthly/current").header("Authorization", "Bearer $token"))
             .andExpect(status().isOk)
-            .andExpect(jsonPath("$.summary.volumeChangeFromLastWeekPercent").value(200.0))
+            .andExpect(jsonPath("$.summary.volumeChangeFromLastWeekPercent").value(50.0))
+            .andExpect(jsonPath("$.summary.sessionCount").value(1))
+            .andExpect(jsonPath("$.summary.previousSessionCount").value(2))
+            .andExpect(jsonPath("$.summary.weightedSessionCount").value(1))
     }
 
     @Test

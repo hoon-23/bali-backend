@@ -4,10 +4,10 @@ import com.bali.core.analysis.AnalysisStatus
 import com.bali.core.analysis.MonthlyAnalysis
 import com.bali.core.analysis.MonthlyAnalysisRepository
 import com.bali.core.analysis.MonthlyStatsCalculator
+import com.bali.core.analysis.PeriodStatsCalculator
 import com.bali.core.exercise.ExerciseRepository
 import com.bali.core.exercise.findAllByIds
 import com.bali.core.session.WorkoutSessionRepository
-import com.bali.core.session.abandonedLogIds
 import com.bali.core.user.User
 import com.bali.core.user.UserRepository
 import com.bali.core.user.UserStatus
@@ -56,8 +56,11 @@ class MonthlyAnalysisRunner(
         val logs = sessions.flatMap { it.logs }
         val exercisesById = exerciseRepository.findAllByIds(logs.map { it.exerciseId })
 
-        val previousSummary = analysisRepository.findByUserIdAndMonthOf(userId, monthOf.minusMonths(1))?.summary
-        val summary = MonthlyStatsCalculator.calculate(logs, exercisesById, previousSummary, sessions.abandonedLogIds())
+        val previous = analysisRepository.findByUserIdAndMonthOf(userId, monthOf.minusMonths(1))
+        val summary = MonthlyStatsCalculator.calculate(
+            sessions, exercisesById, previous?.summary,
+            PeriodStatsCalculator.previousSessionCount(previous?.status, previous?.summary),
+        )
         val insights = MonthlyStatsCalculator.generateInsights(summary)
 
         analysisRepository.save(
