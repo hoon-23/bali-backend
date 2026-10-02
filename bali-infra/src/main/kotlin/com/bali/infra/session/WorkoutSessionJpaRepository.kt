@@ -56,6 +56,15 @@ interface WorkoutSessionJpaRepository : JpaRepository<WorkoutSessionJpaEntity, U
     """)
     fun findActiveDates(@Param("userId") userId: UUID, @Param("since") since: LocalDate): List<LocalDate>
 
+    // 상태가 일치하고 완료된 로그가 하나 이상인 세션의 날짜별 개수 (경험치 인정 세션 집계)
+    @Query("""
+        SELECT s.date AS date, COUNT(DISTINCT s.id) AS sessionCount FROM WorkoutSessionJpaEntity s
+        JOIN SessionLogJpaEntity l ON l.sessionId = s.id
+        WHERE s.userId = :userId AND s.status = :status AND l.completed = true
+        GROUP BY s.date
+    """)
+    fun countSessionsWithCompletedLogByDate(@Param("userId") userId: UUID, @Param("status") status: SessionStatus): List<SessionDateCount>
+
     // 특정 날짜/상태의 세션 전체 (유저 무관)
     @Query("SELECT s FROM WorkoutSessionJpaEntity s WHERE s.date = :date AND s.status = :status")
     fun findAllByDateAndStatus(@Param("date") date: LocalDate, @Param("status") status: SessionStatus): List<WorkoutSessionJpaEntity>
@@ -101,6 +110,12 @@ interface WorkoutSessionJpaRepository : JpaRepository<WorkoutSessionJpaEntity, U
         @Param("status") status: SessionStatus,
         @Param("templateIds") templateIds: Collection<UUID>,
     ): List<TemplateLastDate>
+}
+
+// 날짜별 세션 수 집계 결과 프로젝션
+interface SessionDateCount {
+    val date: LocalDate
+    val sessionCount: Long
 }
 
 // 템플릿별 최근 세션 날짜 집계 결과 프로젝션

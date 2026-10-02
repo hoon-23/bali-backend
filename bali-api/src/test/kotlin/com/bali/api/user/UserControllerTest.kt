@@ -151,6 +151,51 @@ class UserControllerTest {
         org.junit.jupiter.api.Assertions.assertEquals(1, json.get("weeklyWorkoutDays").asInt())
     }
 
+    // GET /api/v1/users/me의 level이 COMPLETED이고 완료 로그가 있는 세션만 XP로 인정하는지 확인
+    @Test
+    fun `GET me 응답의 level은 완료 로그가 있는 COMPLETED 세션만 XP로 센다`() {
+        val entity = userJpaRepository.save(
+            com.bali.infra.user.UserJpaEntity(
+                email = "level@example.com",
+                provider = com.bali.core.user.AuthProvider.GOOGLE,
+                providerId = "sub-level",
+            )
+        )
+        val exercise = exerciseRepository.save(
+            com.bali.core.exercise.Exercise(
+                id = null, name = "레벨테스트벤치프레스", variant = null,
+                muscleGroup = com.bali.core.exercise.MuscleGroup.CHEST,
+                type = com.bali.core.exercise.ExerciseType.STRENGTH,
+                scope = com.bali.core.exercise.ExerciseScope.GLOBAL, ownerId = null,
+            )
+        )
+        // 세션 1개를 저장하고 필요하면 완료 로그를 붙인다
+        fun session(date: java.time.LocalDate, status: com.bali.core.session.SessionStatus, completedLog: Boolean) {
+            val saved = sessionJpaRepository.save(
+                com.bali.infra.session.WorkoutSessionJpaEntity(userId = entity.id, date = date, status = status)
+            )
+            sessionLogJpaRepository.save(
+                com.bali.infra.session.SessionLogJpaEntity(sessionId = saved.id, exerciseId = exercise.id!!, completed = completedLog)
+            )
+        }
+        val base = java.time.LocalDate.of(2026, 9, 1)
+        session(base, com.bali.core.session.SessionStatus.COMPLETED, completedLog = true)
+        // 아래 셋은 인정 대상이 아니다: 완료 로그 없는 COMPLETED, ABANDONED, IN_PROGRESS
+        session(base.plusDays(10), com.bali.core.session.SessionStatus.COMPLETED, completedLog = false)
+        session(base.plusDays(20), com.bali.core.session.SessionStatus.ABANDONED, completedLog = true)
+        session(base.plusDays(30), com.bali.core.session.SessionStatus.IN_PROGRESS, completedLog = true)
+        val token = jwtTokenProvider.generateToken(entity.id, entity.email)
+
+        val response = mockMvc.perform(get("/api/v1/users/me").header("Authorization", "Bearer $token"))
+            .andExpect(status().isOk)
+            .andReturn().response
+        val level = objectMapper.readTree(String(response.contentAsByteArray, Charsets.UTF_8)).get("level")
+        org.junit.jupiter.api.Assertions.assertEquals(1, level.get("level").asInt())
+        org.junit.jupiter.api.Assertions.assertEquals(100, level.get("currentXp").asInt())
+        org.junit.jupiter.api.Assertions.assertEquals(1000, level.get("xpForNextLevel").asInt())
+        org.junit.jupiter.api.Assertions.assertEquals(100, level.get("totalXp").asInt())
+    }
+
     // PATCH /api/v1/users/me로 nickname만 바꾸면 weeklyGoalSessions는 유지되는지 확인 (부분 업데이트)
     @Test
     fun `PATCH me로 nickname만 바꾸면 weeklyGoalSessions는 유지된다`() {

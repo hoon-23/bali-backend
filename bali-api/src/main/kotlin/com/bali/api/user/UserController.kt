@@ -2,6 +2,7 @@ package com.bali.api.user
 
 import com.bali.api.auth.currentUserId
 import com.bali.core.session.WorkoutSessionRepository
+import com.bali.core.user.UserLevel
 import com.bali.core.user.UserRepository
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
@@ -37,7 +38,7 @@ class UserController(
     fun getMe(): ResponseEntity<UserResponse> {
         val user = userRepository.findById(currentUserId())
             ?: return ResponseEntity.notFound().build()
-        return ResponseEntity.ok(UserResponse.from(user, weeklyWorkoutDays(user.id!!)))
+        return ResponseEntity.ok(UserResponse.from(user, weeklyWorkoutDays(user.id!!), level(user.id!!)))
     }
 
     // 인증된 사용자의 프로필(닉네임/주간 목표 운동 횟수/이메일)을 부분 수정하는 엔드포인트
@@ -51,7 +52,7 @@ class UserController(
             require(owner == null || owner.id == user.id) { "이미 사용 중인 이메일입니다" }
         }
         val updated = userRepository.save(user.updateProfile(request.nickname, request.weeklyGoalSessions, request.email))
-        return ResponseEntity.ok(UserResponse.from(updated, weeklyWorkoutDays(updated.id!!)))
+        return ResponseEntity.ok(UserResponse.from(updated, weeklyWorkoutDays(updated.id!!), level(updated.id!!)))
     }
 
     // 인증된 사용자의 계정을 탈퇴 처리하는 엔드포인트
@@ -64,6 +65,10 @@ class UserController(
         userRepository.save(user.withdraw())
         return ResponseEntity.noContent().build()
     }
+
+    // 경험치 인정 세션 이력으로 레벨/XP를 요청 시점에 계산
+    private fun level(userId: UUID): UserLevel =
+        UserLevel.fromSessionCounts(sessionRepository.countQualifiedSessionsByDate(userId))
 
     // 이번 주(월~일, 한국 기준) 중 완료된 운동 기록이 있는 날짜 수를 계산
     private fun weeklyWorkoutDays(userId: UUID): Int {

@@ -127,6 +127,11 @@ class WorkoutSessionRepositoryAdapter(
     override fun findActiveDates(userId: UUID, since: LocalDate): Set<LocalDate> =
         sessionJpaRepository.findActiveDates(userId, since).toSet()
 
+    // 경험치 인정 세션(COMPLETED + 완료 로그 1개 이상)의 날짜별 개수
+    override fun countQualifiedSessionsByDate(userId: UUID): Map<LocalDate, Int> =
+        sessionJpaRepository.countSessionsWithCompletedLogByDate(userId, SessionStatus.COMPLETED)
+            .associate { it.date to it.sessionCount.toInt() }
+
     // 특정 날짜/상태의 세션을 유저 무관하게 logs와 함께 조회
     @Transactional
     override fun findAllByDateAndStatus(date: LocalDate, status: SessionStatus): List<WorkoutSession> {
