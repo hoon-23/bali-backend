@@ -3,6 +3,10 @@ name: CD (dev)
 on:
   push:
     branches: [develop]
+    # 문서만 바뀐 병합은 서비스에 영향이 없으므로 배포하지 않는다 (코드가 함께 바뀌면 그대로 배포)
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
 
 # develop에 연속으로 push되면 CD 워크플로우가 겹쳐 실행되어 각자 force-new-deployment를
 # 호출하면서 ECS 태스크를 서로 교체시키고, aws ecs wait services-stable이 10분 타임아웃을
