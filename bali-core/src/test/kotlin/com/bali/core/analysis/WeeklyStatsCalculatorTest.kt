@@ -7,6 +7,7 @@ import com.bali.core.exercise.ExerciseType
 import com.bali.core.exercise.MuscleGroup
 import com.bali.core.session.SessionLog
 import com.bali.core.session.SessionStatus
+import com.bali.core.session.WorkoutRecordPolicy
 import com.bali.core.session.WorkoutSession
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
@@ -409,5 +410,30 @@ class WeeklyStatsCalculatorTest : StringSpec({
         val summary = WeeklyStatsCalculator.calculate(listOf(session(log, status = SessionStatus.ABANDONED)), exercisesById, previousSummary = null)
 
         summary.completionRate shouldBe BigDecimal.ZERO
+    }
+
+    "기준일 이후 세션에서 기록 없이 완료 체크만 한 로그는 시간과 세트와 세션 수에서 빠지고 완료율을 낮춘다" {
+        fun strictSession(vararg logs: SessionLog) = session(*logs).copy(date = WorkoutRecordPolicy.STRICT_FROM)
+        val checkedOnly = strengthLog(squatId, completed = true).copy(actualSets = 0, actualReps = 0)
+        val sessions = listOf(strictSession(strengthLog(benchPressId, completed = true, sets = 3)), strictSession(checkedOnly))
+
+        val summary = WeeklyStatsCalculator.calculate(sessions, exercisesById, previousSummary = null)
+
+        summary.sessionCount shouldBe 1
+        summary.totalWorkoutMinutes shouldBe 12
+        summary.setsByMuscleGroup shouldBe mapOf(MuscleGroup.CHEST to 3)
+        summary.volumeByExercise.keys shouldBe setOf(benchPressId)
+        summary.completionRate shouldBe BigDecimal("50.0")
+    }
+
+    "기준일 이전 세션은 기록 없이 완료 체크만 해도 그대로 집계된다" {
+        val checkedOnly = strengthLog(squatId, completed = true).copy(actualSets = null, actualReps = null)
+        val sessions = listOf(session(checkedOnly).copy(date = WorkoutRecordPolicy.STRICT_FROM.minusDays(1)))
+
+        val summary = WeeklyStatsCalculator.calculate(sessions, exercisesById, previousSummary = null)
+
+        summary.sessionCount shouldBe 1
+        summary.totalWorkoutMinutes shouldBe 12
+        summary.completionRate shouldBe BigDecimal("100.0")
     }
 })

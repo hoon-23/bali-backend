@@ -47,14 +47,23 @@ interface WorkoutSessionJpaRepository : JpaRepository<WorkoutSessionJpaEntity, U
     @Query("DELETE FROM WorkoutSessionJpaEntity s WHERE s.id = :id")
     fun deleteSessionById(@Param("id") id: UUID)
 
-    // 완료된 로그가 있는 날짜 집합을 조회. WorkoutSessionJpaEntity와 SessionLogJpaEntity는
+    // 완료된 로그가 있는 날짜 집합을 조회 (strictFrom 이후 날짜는 수행 기록이 있는 로그만). WorkoutSessionJpaEntity와 SessionLogJpaEntity는
     // 객체 그래프 관계가 없어(순수 FK 컬럼) sessionId=id 조건의 명시적 JOIN ON을 쓴다
     @Query("""
         SELECT DISTINCT s.date FROM WorkoutSessionJpaEntity s
         JOIN SessionLogJpaEntity l ON l.sessionId = s.id
         WHERE s.userId = :userId AND s.date >= :since AND l.completed = true
+          AND (
+            s.date < :strictFrom
+            OR (COALESCE(l.actualSets, 0) > 0 AND COALESCE(l.actualReps, 0) > 0)
+            OR COALESCE(l.actualDurationSeconds, 0) > 0
+          )
     """)
-    fun findActiveDates(@Param("userId") userId: UUID, @Param("since") since: LocalDate): List<LocalDate>
+    fun findActiveDates(
+        @Param("userId") userId: UUID,
+        @Param("since") since: LocalDate,
+        @Param("strictFrom") strictFrom: LocalDate,
+    ): List<LocalDate>
 
     // 상태가 일치하고 완료된 로그가 하나 이상인 세션의 날짜별 개수 (경험치 인정 세션 집계)
     @Query("""
@@ -83,8 +92,13 @@ interface WorkoutSessionJpaRepository : JpaRepository<WorkoutSessionJpaEntity, U
         SELECT MAX(s.date) FROM WorkoutSessionJpaEntity s
         JOIN SessionLogJpaEntity l ON l.sessionId = s.id
         WHERE s.userId = :userId AND l.completed = true
+          AND (
+            s.date < :strictFrom
+            OR (COALESCE(l.actualSets, 0) > 0 AND COALESCE(l.actualReps, 0) > 0)
+            OR COALESCE(l.actualDurationSeconds, 0) > 0
+          )
     """)
-    fun findLastActiveDate(@Param("userId") userId: UUID): LocalDate?
+    fun findLastActiveDate(@Param("userId") userId: UUID, @Param("strictFrom") strictFrom: LocalDate): LocalDate?
 
     // exerciseId별 마지막 기록 actualWeight 후보를 최신순(date DESC, id DESC)으로 조회.
     // JPQL엔 Postgres DISTINCT ON이 없어 exerciseId별 첫 값 선택은 호출부(어댑터)에서 처리한다

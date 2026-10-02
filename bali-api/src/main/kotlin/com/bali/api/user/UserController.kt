@@ -1,6 +1,7 @@
 package com.bali.api.user
 
 import com.bali.api.auth.currentUserId
+import com.bali.core.session.WorkoutRecordPolicy
 import com.bali.core.session.WorkoutSessionRepository
 import com.bali.core.user.UserLevel
 import com.bali.core.user.UserRepository
@@ -68,12 +69,12 @@ class UserController(
 
     // 경험치 인정 세션 이력으로 레벨/XP를 요청 시점에 계산
     private fun level(userId: UUID): UserLevel =
-        UserLevel.fromSessionCounts(sessionRepository.countQualifiedSessionsByDate(userId, UserLevel.STRICT_QUALIFICATION_FROM))
+        UserLevel.fromSessionCounts(sessionRepository.countQualifiedSessionsByDate(userId, WorkoutRecordPolicy.STRICT_FROM))
 
     // 이번 주(월~일, 한국 기준) 중 완료된 운동 기록이 있는 날짜 수를 계산
     private fun weeklyWorkoutDays(userId: UUID): Int {
         val today = LocalDate.now(APP_ZONE)
         val weekStart = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
-        return sessionRepository.findActiveDates(userId, weekStart).count { !it.isAfter(today) }
+        return sessionRepository.findActiveDates(userId, weekStart, WorkoutRecordPolicy.STRICT_FROM).count { !it.isAfter(today) }
     }
 }

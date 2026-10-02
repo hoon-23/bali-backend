@@ -124,8 +124,8 @@ class WorkoutSessionRepositoryAdapter(
     }
 
     // 완료된 로그가 있는 날짜 집합을 조회
-    override fun findActiveDates(userId: UUID, since: LocalDate): Set<LocalDate> =
-        sessionJpaRepository.findActiveDates(userId, since).toSet()
+    override fun findActiveDates(userId: UUID, since: LocalDate, strictFrom: LocalDate): Set<LocalDate> =
+        sessionJpaRepository.findActiveDates(userId, since, strictFrom).toSet()
 
     // 경험치 인정 세션(COMPLETED + 완료 로그 1개 이상, strictFrom 이후는 수행 기록 필요)의 날짜별 개수
     override fun countQualifiedSessionsByDate(userId: UUID, strictFrom: LocalDate): Map<LocalDate, Int> =
@@ -141,8 +141,8 @@ class WorkoutSessionRepositoryAdapter(
     }
 
     // 완료된 로그가 있는 가장 최근 날짜
-    override fun findLastActiveDate(userId: UUID): LocalDate? =
-        sessionJpaRepository.findLastActiveDate(userId)
+    override fun findLastActiveDate(userId: UUID, strictFrom: LocalDate): LocalDate? =
+        sessionJpaRepository.findLastActiveDate(userId, strictFrom)
 
     // 기준 날짜 이전의 IN_PROGRESS 세션을 ABANDONED로 일괄 전환
     @Transactional

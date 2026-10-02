@@ -4,8 +4,10 @@ import com.bali.core.exercise.Equipment
 import com.bali.core.exercise.Exercise
 import com.bali.core.exercise.ExerciseType
 import com.bali.core.session.SessionLog
+import com.bali.core.session.SessionStatus
 import com.bali.core.session.WorkoutSession
-import com.bali.core.session.abandonedLogIds
+import com.bali.core.session.countedLogs
+import com.bali.core.session.hasCountedLog
 import java.math.BigDecimal
 import java.math.RoundingMode
 import java.util.UUID
@@ -36,8 +38,8 @@ object PeriodStatsCalculator {
         previousSummary: AnalysisSummary?,
         previousSessionCount: Int? = null,
     ): AnalysisSummary {
-        val logs = sessions.flatMap { it.logs }
-        val completedLogs = logs.filter { it.completed }
+        // 집계 대상 로그만 쓴다: 완료 체크가 있고, 기준일 이후 세션은 세트·횟수(유산소는 시간) 기록도 있어야 한다
+        val completedLogs = sessions.flatMap { it.countedLogs() }
         val strengthLogs = completedLogs.filter { exercisesById.getValue(it.exerciseId).type == ExerciseType.STRENGTH }
         val cardioLogs = completedLogs.filter { exercisesById.getValue(it.exerciseId).type == ExerciseType.CARDIO }
 
@@ -52,18 +54,19 @@ object PeriodStatsCalculator {
         val cardioTotalMinutes = cardioLogs.sumOf { it.actualDurationSeconds ?: 0 } / 60
         val totalWorkoutMinutes = strengthLogs.size * MINUTES_PER_STRENGTH_EXERCISE + cardioTotalMinutes
 
-        // 중단(ABANDONED) 세션의 로그는 완료율의 분자/분모 모두에서 제외한다 (볼륨 등은 completedLogs로 그대로 계산)
-        val abandonedLogIds = sessions.abandonedLogIds()
-        val ratedLogs = logs.filterNot { it.id != null && it.id in abandonedLogIds }
-        val completionRate = if (ratedLogs.isEmpty()) {
+        // 중단(ABANDONED) 세션의 로그는 완료율의 분자/분모 모두에서 제외한다 (볼륨 등은 completedLogs로 그대로 계산).
+        // 분자는 집계 대상 로그만 세므로, 기준일 이후 기록 없이 완료 체크만 한 로그는 하지 않은 것과 같이 완료율을 낮춘다
+        val ratedSessions = sessions.filter { it.status != SessionStatus.ABANDONED }
+        val ratedLogCount = ratedSessions.sumOf { it.logs.size }
+        val completionRate = if (ratedLogCount == 0) {
             BigDecimal.ZERO
         } else {
-            BigDecimal(ratedLogs.count { it.completed }).multiply(BigDecimal(100))
-                .divide(BigDecimal(ratedLogs.size), 1, RoundingMode.HALF_UP)
+            BigDecimal(ratedSessions.sumOf { it.countedLogs().size }).multiply(BigDecimal(100))
+                .divide(BigDecimal(ratedLogCount), 1, RoundingMode.HALF_UP)
         }
 
-        // 세션 단위 집계: 상태와 무관하게 완료 로그가 있으면 운동한 세션으로 센다 (볼륨 집계와 같은 기준)
-        val sessionCount = sessions.count { session -> session.logs.any { it.completed } }
+        // 세션 단위 집계: 상태와 무관하게 집계 대상 로그가 있으면 운동한 세션으로 센다 (볼륨 집계와 같은 기준)
+        val sessionCount = sessions.count { it.hasCountedLog() }
         val weightedSessionCount = sessions.count { sessionVolume(it, exercisesById) > BigDecimal.ZERO }
         val bodyweightSessionCount = sessions.count { sessionBodyweightReps(it, exercisesById) > 0 }
 
@@ -152,18 +155,18 @@ object PeriodStatsCalculator {
         else -> null
     }
 
-    // 세션 하나의 볼륨: 완료된 STRENGTH 로그의 볼륨 합
+    // 세션 하나의 볼륨: 집계 대상 STRENGTH 로그의 볼륨 합
     private fun sessionVolume(session: WorkoutSession, exercisesById: Map<UUID, Exercise>): BigDecimal =
-        session.logs
-            .filter { it.completed && exercisesById.getValue(it.exerciseId).type == ExerciseType.STRENGTH }
+        session.countedLogs()
+            .filter { exercisesById.getValue(it.exerciseId).type == ExerciseType.STRENGTH }
             .fold(BigDecimal.ZERO) { acc, log -> acc + volumeOf(log) }
 
-    // 세션 하나의 맨몸 반복수: 완료된 BODYWEIGHT STRENGTH 로그의 sets*reps 합
+    // 세션 하나의 맨몸 반복수: 집계 대상 BODYWEIGHT STRENGTH 로그의 sets*reps 합
     private fun sessionBodyweightReps(session: WorkoutSession, exercisesById: Map<UUID, Exercise>): Int =
-        session.logs
+        session.countedLogs()
             .filter { log ->
                 val exercise = exercisesById.getValue(log.exerciseId)
-                log.completed && exercise.type == ExerciseType.STRENGTH && exercise.equipment == Equipment.BODYWEIGHT
+                exercise.type == ExerciseType.STRENGTH && exercise.equipment == Equipment.BODYWEIGHT
             }
             .sumOf { (it.actualSets ?: 0) * (it.actualReps ?: 0) }
 
