@@ -18,7 +18,7 @@ data class UserResponse(
     companion object {
         // User 도메인 모델 + 계산된 이번 주 운동일수/레벨을 UserResponse로 변환
         fun from(user: User, weeklyWorkoutDays: Int, level: UserLevel) = UserResponse(
-            level = UserLevelResponse(level.level, level.currentXp, level.xpForNextLevel, level.totalXp),
+            level = UserLevelResponse.from(level),
             id = user.id!!,
             email = user.email,
             nickname = user.nickname,
@@ -35,4 +35,8 @@ data class UserLevelResponse(
     val currentXp: Int,
     val xpForNextLevel: Int,
     val totalXp: Int,
-)
+) {
+    companion object {
+        fun from(level: UserLevel) = UserLevelResponse(level.level, level.currentXp, level.xpForNextLevel, level.totalXp)
+    }
+}

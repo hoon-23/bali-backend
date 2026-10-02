@@ -3,7 +3,10 @@ package com.bali.api.session
 import com.bali.core.session.SessionLog
 import com.bali.core.session.SessionStatus
 import com.bali.core.session.SetTiming
+import com.bali.api.user.UserLevelResponse
 import com.bali.core.session.WorkoutSession
+import com.bali.core.user.XpGain
+import com.bali.core.user.XpZeroReason
 import java.math.BigDecimal
 import java.time.Instant
 import java.time.LocalDate
@@ -18,11 +21,14 @@ data class SessionResponse(
     val logs: List<SessionLogResponse>,
     val perceivedDifficulty: Int?,
     val title: String,
+    // 이 요청으로 세션이 COMPLETED로 전이됐을 때만 값이 있는 XP 내역 (그 외 응답은 null)
+    val xp: XpGainResponse? = null,
 ) {
     companion object {
         // WorkoutSession 도메인 모델 + 서버에서 미리 계산한 title(템플릿 이름 또는 종목 이름 조합)을 SessionResponse로 변환.
         // lastWeightByExerciseId는 무게 입력 자동 채움용 참고값으로, 없으면(기본값) 모든 log의 lastWeight가 null로 내려간다
-        fun from(session: WorkoutSession, title: String, lastWeightByExerciseId: Map<UUID, BigDecimal> = emptyMap()) = SessionResponse(
+        fun from(session: WorkoutSession, title: String, lastWeightByExerciseId: Map<UUID, BigDecimal> = emptyMap(), xpGain: XpGain? = null) = SessionResponse(
+            xp = xpGain?.let { XpGainResponse.from(it) },
             id = session.id!!,
             date = session.date,
             templateId = session.templateId,
@@ -30,6 +36,23 @@ data class SessionResponse(
             logs = session.logs.map { SessionLogResponse.from(it, lastWeightByExerciseId[it.exerciseId]) },
             perceivedDifficulty = session.perceivedDifficulty,
             title = title,
+        )
+    }
+}
+
+// 세션 완료로 얻은 XP 내역 응답. 진행 바 연출은 before -> after로 그리고, zeroReason은 earnedXp가 0일 때만 값이 있다
+data class XpGainResponse(
+    val earnedXp: Int,
+    val baseXp: Int,
+    val bonusXp: Int,
+    val zeroReason: XpZeroReason?,
+    val before: UserLevelResponse,
+    val after: UserLevelResponse,
+) {
+    companion object {
+        fun from(gain: XpGain) = XpGainResponse(
+            earnedXp = gain.earnedXp, baseXp = gain.baseXp, bonusXp = gain.bonusXp, zeroReason = gain.zeroReason,
+            before = UserLevelResponse.from(gain.before), after = UserLevelResponse.from(gain.after),
         )
     }
 }

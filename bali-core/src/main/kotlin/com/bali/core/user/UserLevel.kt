@@ -15,7 +15,7 @@ data class UserLevel(
     val totalXp: Int,
 ) {
     companion object {
-        private const val BASE_SESSION_XP = 100
+        const val BASE_SESSION_XP = 100
         private const val FIRST_LEVEL_XP = 1000
         private const val LEVEL_GROWTH = 1.05
 

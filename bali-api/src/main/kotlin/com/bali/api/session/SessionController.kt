@@ -10,6 +10,8 @@ import com.bali.core.session.SetTiming
 import com.bali.core.session.WorkoutSession
 import com.bali.core.session.WorkoutSessionRepository
 import com.bali.core.template.WorkoutTemplateRepository
+import com.bali.core.user.UserLevel
+import com.bali.core.user.XpGain
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
 import org.springframework.format.annotation.DateTimeFormat
@@ -116,7 +118,7 @@ class SessionController(
     // @Transactional: 리스트/상태 처리 중 하나라도 실패(require 예외)하면 전체가 롤백되어야 함 (부분 커밋 방지)
     @Operation(
         summary = "세션 아이템 구조 변경 + status 전이",
-        description = "addItems(즉흥 추가)/updateItems(logId 기준 전체 교체)/removeLogIds(삭제)/status(전이)를 처리한다. 언급되지 않은 log의 actual*/completed는 보존된다",
+        description = "addItems(즉흥 추가)/updateItems(logId 기준 전체 교체)/removeLogIds(삭제)/status(전이)를 처리한다. 언급되지 않은 log의 actual*/completed는 보존된다. 이 요청으로 COMPLETED가 되면 응답의 xp에 얻은 XP 내역이 담긴다(그 외에는 null)",
     )
     @Transactional
     @PatchMapping("/{id}")
@@ -162,6 +164,10 @@ class SessionController(
             sessionRepository.removeLogs(id, request.removeLogIds)
         }
 
+        // 이 요청으로 COMPLETED가 되는 경우에만 XP 내역을 계산한다 (전이 전 레벨을 먼저 잡아 둔다)
+        val levelBeforeCompletion =
+            if (request.status == SessionStatus.COMPLETED && session.status != SessionStatus.COMPLETED) currentLevel() else null
+
         request.status?.let { sessionRepository.updateStatus(id, it) }
         request.date?.let { sessionRepository.updateDate(id, it) }
 
@@ -171,8 +177,13 @@ class SessionController(
         }
 
         val updated = sessionRepository.findById(id)!!
-        return ResponseEntity.ok(SessionResponse.from(updated, resolveTitle(updated), lastWeightsFor(listOf(updated))))
+        val xpGain = levelBeforeCompletion?.let { XpGain.between(it, currentLevel(), updated.logs.any { log -> log.completed }) }
+        return ResponseEntity.ok(SessionResponse.from(updated, resolveTitle(updated), lastWeightsFor(listOf(updated)), xpGain))
     }
+
+    // 현재 사용자의 레벨/XP를 경험치 인정 세션 이력으로 계산
+    private fun currentLevel(): UserLevel =
+        UserLevel.fromSessionCounts(sessionRepository.countQualifiedSessionsByDate(currentUserId()))
 
     // 실제 수행값 기록 + 완료 체크. 종목 타입에 맞는 actual 필드 조합인지 검증 후 반영
     @Operation(summary = "세션 로그 실제 수행값 기록", description = "완료 체크와 함께 실제 수행값을 기록한다. 종목 타입에 맞는 actual 필드 조합인지 검증 후 반영")

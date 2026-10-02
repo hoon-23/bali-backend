@@ -57,4 +57,23 @@ class UserLevelTest : StringSpec({
         // 1000 + 1050 = 2050에서 레벨 3, 남은 150
         UserLevel.ofTotalXp(2200) shouldBe UserLevel(level = 3, currentXp = 150, xpForNextLevel = 1103, totalXp = 2200)
     }
+
+    "XP 내역은 전후 누적 차이를 기본 100과 보너스로 나눈다" {
+        val gain = XpGain.between(UserLevel.ofTotalXp(200), UserLevel.ofTotalXp(320), hasCompletedLog = true)
+        gain.earnedXp shouldBe 120
+        gain.baseXp shouldBe 100
+        gain.bonusXp shouldBe 20
+        gain.zeroReason shouldBe null
+    }
+
+    "완료 로그가 있는데 XP가 0이면 하루 한도 도달이다" {
+        val gain = XpGain.between(UserLevel.ofTotalXp(200), UserLevel.ofTotalXp(200), hasCompletedLog = true)
+        gain.earnedXp shouldBe 0
+        gain.baseXp shouldBe 0
+        gain.zeroReason shouldBe XpZeroReason.DAILY_LIMIT
+    }
+
+    "완료 로그가 없어 XP가 0이면 NO_COMPLETED_LOG다" {
+        XpGain.between(UserLevel.ofTotalXp(0), UserLevel.ofTotalXp(0), hasCompletedLog = false).zeroReason shouldBe XpZeroReason.NO_COMPLETED_LOG
+    }
 })

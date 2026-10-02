@@ -184,6 +184,55 @@ class SessionControllerTest {
             .andExpect(jsonPath("$.status").value("IN_PROGRESS"))
     }
 
+    // COMPLETED 전이 응답의 xp: 하루 2세션까지 100 XP, 3번째는 0 XP(DAILY_LIMIT), 전이가 아닌 PATCH는 xp가 null
+    @Test
+    fun `COMPLETED로 전이하는 PATCH 응답에 xp 내역이 담기고 하루 한도를 넘으면 DAILY_LIMIT이다`() {
+        val (token, _) = issueTokenForNewUser()
+        val exerciseId = savedStrengthExerciseId()
+        val logBody = """{"completed":true,"actualSets":3,"actualReps":10,"actualWeight":60.0,"actualDurationSeconds":null,"actualPace":null}"""
+        // 완료 로그가 있는 세션을 만들고 COMPLETED로 전이한 응답을 반환
+        fun completeNewSession(): com.fasterxml.jackson.databind.JsonNode {
+            val (sessionId, logId) = createSessionWithLog(token, exerciseId)
+            mockMvc.perform(patch("/api/v1/sessions/$sessionId/logs/$logId").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON).content(logBody))
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.xp").doesNotExist())
+            val body = mockMvc.perform(patch("/api/v1/sessions/$sessionId").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON).content("""{"status":"COMPLETED"}"""))
+                .andExpect(status().isOk).andReturn().response.contentAsString
+            return objectMapper.readTree(body).get("xp")
+        }
+
+        val first = completeNewSession()
+        org.junit.jupiter.api.Assertions.assertEquals(100, first.get("earnedXp").asInt())
+        org.junit.jupiter.api.Assertions.assertEquals(100, first.get("baseXp").asInt())
+        org.junit.jupiter.api.Assertions.assertEquals(0, first.get("bonusXp").asInt())
+        org.junit.jupiter.api.Assertions.assertTrue(first.get("zeroReason").isNull)
+        org.junit.jupiter.api.Assertions.assertEquals(0, first.get("before").get("totalXp").asInt())
+        org.junit.jupiter.api.Assertions.assertEquals(100, first.get("after").get("currentXp").asInt())
+        org.junit.jupiter.api.Assertions.assertEquals(1000, first.get("after").get("xpForNextLevel").asInt())
+
+        org.junit.jupiter.api.Assertions.assertEquals(200, completeNewSession().get("after").get("totalXp").asInt())
+
+        val third = completeNewSession()
+        org.junit.jupiter.api.Assertions.assertEquals(0, third.get("earnedXp").asInt())
+        org.junit.jupiter.api.Assertions.assertEquals("DAILY_LIMIT", third.get("zeroReason").asText())
+        org.junit.jupiter.api.Assertions.assertEquals(200, third.get("after").get("totalXp").asInt())
+    }
+
+    // 완료 로그가 없는 세션을 COMPLETED로 바꾸면 0 XP(NO_COMPLETED_LOG), 이미 COMPLETED인 세션의 재요청은 xp가 null
+    @Test
+    fun `완료 로그 없이 COMPLETED로 전이하면 xp는 NO_COMPLETED_LOG이고 재요청은 xp가 null이다`() {
+        val (token, _) = issueTokenForNewUser()
+        val (sessionId, _) = createSessionWithLog(token, savedStrengthExerciseId())
+
+        mockMvc.perform(patch("/api/v1/sessions/$sessionId").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON).content("""{"status":"COMPLETED"}"""))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.xp.earnedXp").value(0))
+            .andExpect(jsonPath("$.xp.zeroReason").value("NO_COMPLETED_LOG"))
+        mockMvc.perform(patch("/api/v1/sessions/$sessionId").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON).content("""{"status":"COMPLETED"}"""))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.xp").value(org.hamcrest.Matchers.nullValue()))
+    }
+
     @Test
     fun `ABANDONED 세션은 응답에 ABANDONED로 내려오고 PATCH로 COMPLETED나 SCHEDULED로 복구할 수 있다`() {
         val (token, userId) = issueTokenForNewUser()
