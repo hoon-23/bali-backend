@@ -1,6 +1,7 @@
 package com.bali.api.notification
 
 import com.bali.api.auth.currentUserId
+import com.bali.core.notification.NotificationLog
 import com.bali.core.notification.NotificationLogRepository
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
@@ -25,11 +26,10 @@ class NotificationInboxController(
 ) {
     companion object {
         private const val MAX_SIZE = 50
-        private const val WINDOW_DAYS = 30L
     }
 
     // 알림함 노출 기준 시각(최근 30일)
-    private fun windowStart(): Instant = Instant.now().minus(WINDOW_DAYS, ChronoUnit.DAYS)
+    private fun windowStart(): Instant = Instant.now().minus(NotificationLog.INBOX_WINDOW_DAYS, ChronoUnit.DAYS)
 
     // 최근 30일 알림 목록 (sentAt 내림차순). page<0은 0, size는 1..50으로 보정
     @Operation(summary = "알림함 목록 조회", description = "최근 30일 알림을 최신순으로 조회한다. size 기본 20, 최대 50")

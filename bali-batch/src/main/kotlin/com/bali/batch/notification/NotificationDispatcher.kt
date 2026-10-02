@@ -10,6 +10,7 @@ import com.bali.core.notification.PushMessage
 import com.bali.core.notification.PushSendError
 import org.springframework.stereotype.Component
 import java.time.Instant
+import java.time.temporal.ChronoUnit
 import java.util.UUID
 
 // 유저 1명에게 알림을 발송하고 결과를 처리하는 공용 헬퍼. 모든 XxxRunner가 공유한다.
@@ -26,7 +27,10 @@ class NotificationDispatcher(
         if (tokens.isEmpty()) return
 
         val pushData = mapOf("type" to type.name, "referenceId" to (referenceId?.toString() ?: ""))
-        val results = notificationSender.send(tokens.map { PushMessage(token = it.expoPushToken, title = title, body = body, data = pushData) })
+        // Expo badge는 절대값이라 알림함 unread-count와 같은 기준(최근 30일)의 안 읽은 수에 지금 보내는 1건을 더한다(로그는 발송 성공 후 저장됨)
+        val windowStart = Instant.now().minus(NotificationLog.INBOX_WINDOW_DAYS, ChronoUnit.DAYS)
+        val badge = notificationLogRepository.countUnreadByUserIdSentAfter(userId, windowStart).toInt() + 1
+        val results = notificationSender.send(tokens.map { PushMessage(token = it.expoPushToken, title = title, body = body, data = pushData, badge = badge) })
 
         results.filter { it.error == PushSendError.DEVICE_NOT_REGISTERED }
             .forEach { deviceTokenRepository.deleteByToken(it.token) }

@@ -90,4 +90,24 @@ class ExpoPushSenderTest {
         assertEquals("ticket-101", results[100].ticketId)
         mockServer.verify()
     }
+
+    // badge가 있으면 payload에 실리고, 없으면 필드 자체가 빠지는지(strict 비교) 확인
+    @Test
+    fun `badge가 있으면 payload에 실리고 null이면 필드가 제외된다`() {
+        val builder = RestClient.builder()
+        val mockServer = MockRestServiceServer.bindTo(builder).build()
+        val restClient = builder.build()
+
+        mockServer.expect(requestTo("https://exp.host/--/api/v2/push/send"))
+            .andExpect(content().json("""[{"to":"ExponentPushToken[a]","title":"제목","body":"본문","data":{},"badge":3},{"to":"ExponentPushToken[b]","title":"제목","body":"본문","data":{}}]""", true))
+            .andRespond(withSuccess("""{"data":[{"status":"ok","id":"t-1"},{"status":"ok","id":"t-2"}]}""", MediaType.APPLICATION_JSON))
+
+        val sender = ExpoPushSender(restClient)
+        sender.send(listOf(
+            PushMessage(token = "ExponentPushToken[a]", title = "제목", body = "본문", badge = 3),
+            PushMessage(token = "ExponentPushToken[b]", title = "제목", body = "본문"),
+        ))
+
+        mockServer.verify()
+    }
 }

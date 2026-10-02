@@ -4,6 +4,8 @@ import com.bali.batch.BaliBatchApplication
 import com.bali.core.notification.DevicePlatform
 import com.bali.core.notification.DeviceToken
 import com.bali.core.notification.DeviceTokenRepository
+import com.bali.core.notification.DeliveryStatus
+import com.bali.core.notification.NotificationLog
 import com.bali.core.notification.NotificationLogRepository
 import com.bali.core.notification.NotificationSender
 import com.bali.core.notification.NotificationType
@@ -19,6 +21,7 @@ import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.mock.mockito.MockBean
 import org.springframework.transaction.annotation.Transactional
 import java.time.Instant
+import java.time.temporal.ChronoUnit
 import java.util.UUID
 
 @SpringBootTest(classes = [BaliBatchApplication::class])
@@ -92,5 +95,49 @@ class NotificationDispatcherTest {
         dispatcher.dispatch(userId, NotificationType.INACTIVITY_ALERT, null, "제목", "본문")
 
         assertEquals(mapOf("type" to "INACTIVITY_ALERT", "referenceId" to ""), sent.single().data)
+    }
+
+    // badge = 최근 30일 안 읽은 알림 수 + 지금 보내는 1건. 읽은 알림과 30일 지난 알림은 세지 않는다
+    @Test
+    fun `badge는 최근 30일 안 읽은 알림 수에 이번 발송 1건을 더한 값이다`() {
+        val sent = mutableListOf<PushMessage>()
+        `when`(notificationSender.send(org.mockito.ArgumentMatchers.anyList())).thenAnswer { invocation ->
+            val messages = invocation.getArgument<List<PushMessage>>(0)
+            sent += messages
+            messages.map { PushSendResult(token = it.token, ticketId = "t-${it.token}", error = null) }
+        }
+        val userId = UUID.randomUUID()
+        deviceTokenRepository.upsert(DeviceToken(id = null, userId = userId, expoPushToken = "ExponentPushToken[badge-${System.nanoTime()}]", platform = DevicePlatform.IOS, createdAt = Instant.now(), updatedAt = Instant.now()))
+        val now = Instant.now()
+        fun log(sentAt: Instant, readAt: Instant?) = NotificationLog(
+            id = null, userId = userId, type = NotificationType.INACTIVITY_ALERT, referenceId = null,
+            expoTicketId = "t", deliveryStatus = DeliveryStatus.PENDING, deliveryError = null,
+            sentAt = sentAt, title = "제목", body = "본문", readAt = readAt,
+        )
+        notificationLogRepository.save(log(now.minus(1, ChronoUnit.DAYS), null))
+        notificationLogRepository.save(log(now.minus(2, ChronoUnit.DAYS), null))
+        notificationLogRepository.save(log(now.minus(3, ChronoUnit.DAYS), now))
+        notificationLogRepository.save(log(now.minus(31, ChronoUnit.DAYS), null))
+
+        dispatcher.dispatch(userId, NotificationType.WEEKLY_SUMMARY, UUID.randomUUID(), "제목", "본문")
+
+        assertEquals(3, sent.single().badge)
+    }
+
+    // 안 읽은 알림이 없으면 이번 발송 1건만 반영된다
+    @Test
+    fun `안 읽은 알림이 없으면 badge는 1이다`() {
+        val sent = mutableListOf<PushMessage>()
+        `when`(notificationSender.send(org.mockito.ArgumentMatchers.anyList())).thenAnswer { invocation ->
+            val messages = invocation.getArgument<List<PushMessage>>(0)
+            sent += messages
+            messages.map { PushSendResult(token = it.token, ticketId = "t-${it.token}", error = null) }
+        }
+        val userId = UUID.randomUUID()
+        deviceTokenRepository.upsert(DeviceToken(id = null, userId = userId, expoPushToken = "ExponentPushToken[badge1-${System.nanoTime()}]", platform = DevicePlatform.IOS, createdAt = Instant.now(), updatedAt = Instant.now()))
+
+        dispatcher.dispatch(userId, NotificationType.WEEKLY_SUMMARY, UUID.randomUUID(), "제목", "본문")
+
+        assertEquals(1, sent.single().badge)
     }
 }

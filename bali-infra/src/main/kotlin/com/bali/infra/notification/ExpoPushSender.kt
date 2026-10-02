@@ -5,6 +5,7 @@ import com.bali.core.notification.PushMessage
 import com.bali.core.notification.PushSendError
 import com.bali.core.notification.PushSendResult
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
+import com.fasterxml.jackson.annotation.JsonInclude
 import org.springframework.web.client.RestClient
 
 @JsonIgnoreProperties(ignoreUnknown = true)
@@ -16,7 +17,9 @@ data class ExpoTicket(val status: String = "error", val id: String? = null, val 
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class ExpoPushSendResponse(val data: List<ExpoTicket> = emptyList())
 
-data class ExpoPushMessageRequest(val to: String, val title: String, val body: String, val data: Map<String, String> = emptyMap())
+// badge가 null이면 JSON에서 제외해 기기의 아이콘 뱃지를 그대로 둔다
+@JsonInclude(JsonInclude.Include.NON_NULL)
+data class ExpoPushMessageRequest(val to: String, val title: String, val body: String, val data: Map<String, String> = emptyMap(), val badge: Int? = null)
 
 // Expo Push API로 알림을 발송하는 NotificationSender 구현. 최대 100개씩 배치 요청한다(Expo 제약)
 class ExpoPushSender(private val restClient: RestClient) : NotificationSender {
@@ -33,7 +36,7 @@ class ExpoPushSender(private val restClient: RestClient) : NotificationSender {
     private fun sendBatch(batch: List<PushMessage>): List<PushSendResult> {
         val response = restClient.post()
             .uri(EXPO_PUSH_URL)
-            .body(batch.map { ExpoPushMessageRequest(to = it.token, title = it.title, body = it.body, data = it.data) })
+            .body(batch.map { ExpoPushMessageRequest(to = it.token, title = it.title, body = it.body, data = it.data, badge = it.badge) })
             .retrieve()
             .body(ExpoPushSendResponse::class.java) ?: ExpoPushSendResponse()
 

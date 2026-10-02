@@ -16,4 +16,9 @@ data class NotificationLog(
     val title: String = "",
     val body: String = "",
     val readAt: Instant? = null,
-)
+) {
+    companion object {
+        // 알림함 노출 기간(일). 알림함 API와 푸시 아이콘 뱃지가 같은 기준을 쓴다
+        const val INBOX_WINDOW_DAYS = 30L
+    }
+}

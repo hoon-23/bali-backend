@@ -5,7 +5,8 @@ fun interface NotificationSender {
     fun send(messages: List<PushMessage>): List<PushSendResult>
 }
 
-data class PushMessage(val token: String, val title: String, val body: String, val data: Map<String, String> = emptyMap())
+// badge는 앱 아이콘에 표시할 절대값(iOS 전용). null이면 아이콘 뱃지를 건드리지 않는다
+data class PushMessage(val token: String, val title: String, val body: String, val data: Map<String, String> = emptyMap(), val badge: Int? = null)
 
 data class PushSendResult(val token: String, val ticketId: String?, val error: PushSendError?)
 
