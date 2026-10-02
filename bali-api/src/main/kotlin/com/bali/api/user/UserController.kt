@@ -68,7 +68,7 @@ class UserController(
 
     // 경험치 인정 세션 이력으로 레벨/XP를 요청 시점에 계산
     private fun level(userId: UUID): UserLevel =
-        UserLevel.fromSessionCounts(sessionRepository.countQualifiedSessionsByDate(userId))
+        UserLevel.fromSessionCounts(sessionRepository.countQualifiedSessionsByDate(userId, UserLevel.STRICT_QUALIFICATION_FROM))
 
     // 이번 주(월~일, 한국 기준) 중 완료된 운동 기록이 있는 날짜 수를 계산
     private fun weeklyWorkoutDays(userId: UUID): Int {

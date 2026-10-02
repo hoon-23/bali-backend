@@ -236,6 +236,29 @@ class WorkoutSessionRepositoryAdapterTest {
         assertEquals(setOf(LocalDate.of(2026, 8, 15)), activeDates)
     }
 
+    // 경험치 인정 집계: 기준일 이전은 완료 체크만으로, 이후는 세트·횟수(또는 시간) 기록이 있어야 인정. COMPLETED만 센다
+    @Test
+    fun `countQualifiedSessionsByDate는 기준일 이후 세션에만 수행 기록을 요구한다`() {
+        val userId = UUID.randomUUID()
+        val strictFrom = LocalDate.of(2026, 10, 2)
+        fun saveSession(date: LocalDate, status: SessionStatus, log: SessionLog) =
+            adapter.save(WorkoutSession(id = null, userId = userId, date = date, templateId = null, status = status, logs = listOf(log)))
+        val checkedOnly = log().copy(completed = true)
+        val performed = completedLog()
+        val cardio = log().copy(completed = true, actualDurationSeconds = 600)
+
+        saveSession(LocalDate.of(2026, 9, 30), SessionStatus.COMPLETED, checkedOnly)
+        saveSession(LocalDate.of(2026, 10, 1), SessionStatus.ABANDONED, performed)
+        saveSession(LocalDate.of(2026, 10, 2), SessionStatus.COMPLETED, checkedOnly)
+        saveSession(LocalDate.of(2026, 10, 3), SessionStatus.COMPLETED, performed)
+        saveSession(LocalDate.of(2026, 10, 3), SessionStatus.COMPLETED, cardio)
+        saveSession(LocalDate.of(2026, 10, 4), SessionStatus.COMPLETED, log())
+
+        val counts = adapter.countQualifiedSessionsByDate(userId, strictFrom)
+
+        assertEquals(mapOf(LocalDate.of(2026, 9, 30) to 1, LocalDate.of(2026, 10, 3) to 2), counts)
+    }
+
     @Test
     fun `findAllByDateAndStatus는 유저 무관하게 날짜+상태가 일치하는 세션을 반환한다`() {
         val date = LocalDate.now()

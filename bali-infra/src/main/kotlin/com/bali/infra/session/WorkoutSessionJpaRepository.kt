@@ -61,9 +61,18 @@ interface WorkoutSessionJpaRepository : JpaRepository<WorkoutSessionJpaEntity, U
         SELECT s.date AS date, COUNT(DISTINCT s.id) AS sessionCount FROM WorkoutSessionJpaEntity s
         JOIN SessionLogJpaEntity l ON l.sessionId = s.id
         WHERE s.userId = :userId AND s.status = :status AND l.completed = true
+          AND (
+            s.date < :strictFrom
+            OR (COALESCE(l.actualSets, 0) > 0 AND COALESCE(l.actualReps, 0) > 0)
+            OR COALESCE(l.actualDurationSeconds, 0) > 0
+          )
         GROUP BY s.date
     """)
-    fun countSessionsWithCompletedLogByDate(@Param("userId") userId: UUID, @Param("status") status: SessionStatus): List<SessionDateCount>
+    fun countSessionsWithCompletedLogByDate(
+        @Param("userId") userId: UUID,
+        @Param("status") status: SessionStatus,
+        @Param("strictFrom") strictFrom: LocalDate,
+    ): List<SessionDateCount>
 
     // 특정 날짜/상태의 세션 전체 (유저 무관)
     @Query("SELECT s FROM WorkoutSessionJpaEntity s WHERE s.date = :date AND s.status = :status")

@@ -12,6 +12,7 @@ import com.bali.core.session.WorkoutSessionRepository
 import com.bali.core.template.WorkoutTemplateRepository
 import com.bali.core.user.UserLevel
 import com.bali.core.user.XpGain
+import com.bali.core.user.isXpQualified
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
 import org.springframework.format.annotation.DateTimeFormat
@@ -177,13 +178,13 @@ class SessionController(
         }
 
         val updated = sessionRepository.findById(id)!!
-        val xpGain = levelBeforeCompletion?.let { XpGain.between(it, currentLevel(), updated.logs.any { log -> log.completed }) }
+        val xpGain = levelBeforeCompletion?.let { XpGain.between(it, currentLevel(), updated.isXpQualified()) }
         return ResponseEntity.ok(SessionResponse.from(updated, resolveTitle(updated), lastWeightsFor(listOf(updated)), xpGain))
     }
 
     // 현재 사용자의 레벨/XP를 경험치 인정 세션 이력으로 계산
     private fun currentLevel(): UserLevel =
-        UserLevel.fromSessionCounts(sessionRepository.countQualifiedSessionsByDate(currentUserId()))
+        UserLevel.fromSessionCounts(sessionRepository.countQualifiedSessionsByDate(currentUserId(), UserLevel.STRICT_QUALIFICATION_FROM))
 
     // 실제 수행값 기록 + 완료 체크. 종목 타입에 맞는 actual 필드 조합인지 검증 후 반영
     @Operation(summary = "세션 로그 실제 수행값 기록", description = "완료 체크와 함께 실제 수행값을 기록한다. 종목 타입에 맞는 actual 필드 조합인지 검증 후 반영")

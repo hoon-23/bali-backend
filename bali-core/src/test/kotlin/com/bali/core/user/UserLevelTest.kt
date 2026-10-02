@@ -1,8 +1,12 @@
 package com.bali.core.user
 
 import io.kotest.core.spec.style.StringSpec
+import com.bali.core.session.SessionLog
+import com.bali.core.session.SessionStatus
+import com.bali.core.session.WorkoutSession
 import io.kotest.matchers.shouldBe
 import java.time.LocalDate
+import java.util.UUID
 
 class UserLevelTest : StringSpec({
 
@@ -71,6 +75,40 @@ class UserLevelTest : StringSpec({
         gain.earnedXp shouldBe 0
         gain.baseXp shouldBe 0
         gain.zeroReason shouldBe XpZeroReason.DAILY_LIMIT
+    }
+
+    // 인정 조건 테스트용 세션: 로그 1개(완료 여부, 세트, 횟수, 시간 지정)
+    fun session(date: LocalDate, completed: Boolean, sets: Int? = null, reps: Int? = null, durationSeconds: Int? = null) = WorkoutSession(
+        id = null, userId = UUID.randomUUID(), date = date, templateId = null, status = SessionStatus.COMPLETED,
+        logs = listOf(
+            SessionLog(
+                id = UUID.randomUUID(), exerciseId = UUID.randomUUID(), sortOrder = 0, completed = completed,
+                targetSets = null, targetReps = null, targetWeight = null, targetDurationSeconds = null, targetPace = null,
+                actualSets = sets, actualReps = reps, actualWeight = null, actualDurationSeconds = durationSeconds, actualPace = null,
+            )
+        ),
+    )
+    val before = UserLevel.STRICT_QUALIFICATION_FROM.minusDays(1)
+    val after = UserLevel.STRICT_QUALIFICATION_FROM
+
+    "기준일 이전 세션은 완료 체크만 있어도 인정한다(소급 안 함)" {
+        session(before, completed = true).isXpQualified() shouldBe true
+    }
+
+    "기준일 이후 세션은 완료 체크만 있고 세트 횟수가 없으면 인정하지 않는다" {
+        session(after, completed = true).isXpQualified() shouldBe false
+        session(after, completed = true, sets = 0, reps = 0).isXpQualified() shouldBe false
+        session(after, completed = true, sets = 3, reps = 0).isXpQualified() shouldBe false
+    }
+
+    "기준일 이후 세션도 세트와 횟수가 있으면 인정하고 유산소는 시간이 있으면 인정한다" {
+        session(after, completed = true, sets = 3, reps = 10).isXpQualified() shouldBe true
+        session(after, completed = true, durationSeconds = 600).isXpQualified() shouldBe true
+    }
+
+    "완료 체크가 없으면 기록이 있어도 인정하지 않는다" {
+        session(before, completed = false, sets = 3, reps = 10).isXpQualified() shouldBe false
+        session(after, completed = false, sets = 3, reps = 10).isXpQualified() shouldBe false
     }
 
     "완료 로그가 없어 XP가 0이면 NO_COMPLETED_LOG다" {
