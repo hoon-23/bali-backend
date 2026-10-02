@@ -1,32 +1,32 @@
-# 유저 레벨/경험치(XP) 설계
+# 유저 레벨/경험치(EXP) 설계
 
-2026-10-02. bali-backend 변경. 프론트 프로필 화면의 "Lv.N, 현재XP/목표XP" 목업을 실제 데이터로 채우는 게임화 요소다.
-요청 출처: 사용자(규칙 결정)와 bali-frontend 세션(화면 요구사항, XP 인정 조건 강화 요청을 사용자 결정이라고 전달, 확인 후 반영).
+2026-10-02. bali-backend 변경. 프론트 프로필 화면의 "Lv.N, 현재EXP/목표EXP" 목업을 실제 데이터로 채우는 게임화 요소다.
+요청 출처: 사용자(규칙 결정)와 bali-frontend 세션(화면 요구사항, EXP 인정 조건 강화 요청을 사용자 결정이라고 전달, 확인 후 반영).
 
 ## 목표
 - 운동 세션 완료에 경험치를 주고 레벨을 계산해 `GET /users/me`로 내려준다.
 - 꾸준히 운동할수록 레벨업이 이어지도록 연속 운동 보너스를 둔다.
-- 세션을 일부러 많이 등록하거나 기록 없이 종료만 눌러 XP를 올리는 것을 막는다.
+- 세션을 일부러 많이 등록하거나 기록 없이 종료만 눌러 EXP를 올리는 것을 막는다.
 
 ## 결정 사항
-- **XP는 저장하지 않고 조회 시 계산한다.** 레벨 테이블, enum, XP 컬럼을 두지 않고 스키마도 바꾸지 않는다.
-  인정 세션의 날짜별 이력만으로 XP가 정해지므로(세션 수 + 연속일) 별도 저장이 필요 없고, 규칙을 바꿔도 마이그레이션이 필요 없으며, 세션 삭제나 상태 변경이 자동 반영된다.
+- **EXP는 저장하지 않고 조회 시 계산한다.** 레벨 테이블, enum, EXP 컬럼을 두지 않고 스키마도 바꾸지 않는다.
+  인정 세션의 날짜별 이력만으로 EXP가 정해지므로(세션 수 + 연속일) 별도 저장이 필요 없고, 규칙을 바꿔도 마이그레이션이 필요 없으며, 세션 삭제나 상태 변경이 자동 반영된다.
 - 레벨 곡선은 공식(`1000 × 1.05^(레벨-1)`)이라 테이블이나 enum으로 만들지 않는다. 레벨은 상한이 없어 enum이 맞지 않는다.
-- 얻은 XP/레벨업 연출은 프론트가 처리한다. 세션 완료 응답이 완료 전후 레벨 스냅샷을 내려준다.
-- 평균(같은 날 여러 세션의 평균 XP)안은 3세션을 해도 1회분이라 부당해서 기각하고, 하루 인정 세션 한도로 처리한다.
+- 얻은 EXP/레벨업 연출은 프론트가 처리한다. 세션 완료 응답이 완료 전후 레벨 스냅샷을 내려준다.
+- 평균(같은 날 여러 세션의 평균 EXP)안은 3세션을 해도 1회분이라 부당해서 기각하고, 하루 인정 세션 한도로 처리한다.
 - 곡선 증가율은 ×1.10이 후반에 너무 느려(레벨 20까지 약 3.7년) ×1.05로 정했다.
 
 ## 규칙
 | 항목 | 값 |
 |---|---|
-| 세션 기본 XP | 100 |
+| 세션 기본 EXP | 100 |
 | 인정 세션 | COMPLETED이고 아래 "인정 로그" 조건을 만족하는 로그가 1개 이상 |
-| 하루 인정 세션 | 최대 2회 (3번째 세션부터 0 XP) |
+| 하루 인정 세션 | 최대 2회 (3번째 세션부터 0 EXP) |
 | 연속 운동일 | 운동일 사이 간격이 3일 이내면 연속 (연속 이틀 휴식까지 허용, 월수금/주 5회 분할이 주말에 끊기지 않음) |
-| 연속 배수 | 연속 3번째 운동일부터 ×1.2 (세션당 120 XP, 같은 날 2세션 모두 적용) |
+| 연속 배수 | 연속 3번째 운동일부터 ×1.2 (세션당 120 EXP, 같은 날 2세션 모두 적용) |
 | 연속 끊김 | 간격이 4일 이상 벌어지면 다음 운동일부터 1로 다시 시작 |
-| 레벨 곡선 | 1→2레벨 1000 XP, 이후 레벨마다 5% 증가(반올림) |
-| 시작 | 기록이 없으면 Lv.1, 0 XP |
+| 레벨 곡선 | 1→2레벨 1000 EXP, 이후 레벨마다 5% 증가(반올림) |
+| 시작 | 기록이 없으면 Lv.1, 0 EXP |
 
 날짜는 세션의 `date`(한국 기준 날짜)이고, 연속일은 인정 세션이 있는 날만 센다.
 
@@ -35,14 +35,14 @@
 - **기준일(2026-10-02) 이후 세션**: 완료 로그가 실제 수행 기록을 가져야 인정한다.
   - 근력(맨몸 포함): `actualSets > 0`이고 `actualReps > 0`
   - 유산소: `actualDurationSeconds > 0`
-- 인정 로그가 없으면 0 XP이고 `zeroReason`은 `NO_COMPLETED_LOG`다(의미: 인정할 완료 로그가 없음). 하루 한도와 연속일 계산에도 같은 조건을 적용한다.
+- 인정 로그가 없으면 0 EXP이고 `zeroReason`은 `NO_COMPLETED_LOG`다(의미: 인정할 완료 로그가 없음). 하루 한도와 연속일 계산에도 같은 조건을 적용한다.
 - 소급하지 않는 이유: 기존 기록(과거 운동 일지를 옮긴 데이터)은 완료 체크만 있고 세트·횟수가 비어 있는 경우가 많다. 로컬 DB 실제 계정 기준으로 새 조건을 소급하면 인정 세션이 199개에서 58개로 줄어 레벨이 크게 내려간다.
 - 기준일은 `UserLevel.STRICT_QUALIFICATION_FROM` 상수 한 곳이다.
 
 ## 레벨 표
-레벨 n에 도달하는 데 필요한 누적 XP. 주 3회 환산은 연속 보너스(120 XP)가 계속 유지된다고 가정한 대략값이다.
+레벨 n에 도달하는 데 필요한 누적 EXP. 주 3회 환산은 연속 보너스(120 EXP)가 계속 유지된다고 가정한 대략값이다.
 
-| 레벨 | 다음 레벨까지 필요 XP | 도달 누적 XP | 100 XP 세션 수 | 주 3회 환산 |
+| 레벨 | 다음 레벨까지 필요 EXP | 도달 누적 EXP | 100 EXP 세션 수 | 주 3회 환산 |
 |---:|---:|---:|---:|---:|
 | 1 | 1,000 | 0 | 0 | 0주 |
 | 2 | 1,050 | 1,000 | 10 | 3주 |
@@ -65,41 +65,41 @@
 ### `GET /api/v1/users/me`, `PATCH /api/v1/users/me`
 응답 최상위에 `level` 객체를 추가한다(전부 non-null Int, 기존 필드 변경 없음).
 ```json
-"level": { "level": 5, "currentXp": 1089, "xpForNextLevel": 1216, "totalXp": 5400 }
+"level": { "level": 5, "currentEXP": 1089, "EXPForNextLevel": 1216, "totalEXP": 5400 }
 ```
 - `level`: 현재 레벨(1부터)
-- `currentXp`: 현재 레벨 안에서 쌓인 XP (진행 바 분자)
-- `xpForNextLevel`: 현재 레벨에서 다음 레벨까지 필요한 전체 XP (진행 바 분모, 레벨마다 다름)
-- `totalXp`: 누적 총 XP
+- `currentEXP`: 현재 레벨 안에서 쌓인 EXP (진행 바 분자)
+- `EXPForNextLevel`: 현재 레벨에서 다음 레벨까지 필요한 전체 EXP (진행 바 분모, 레벨마다 다름)
+- `totalEXP`: 누적 총 EXP
 
 ### `PATCH /api/v1/sessions/{id}`
-이 요청으로 status가 COMPLETED로 **바뀔 때만** 응답에 `xp` 객체를 넣는다. 그 외(이미 COMPLETED, status 없는 PATCH, 생성/조회/목록 응답)는 `null`이다.
+이 요청으로 status가 COMPLETED로 **바뀔 때만** 응답에 `EXP` 객체를 넣는다. 그 외(이미 COMPLETED, status 없는 PATCH, 생성/조회/목록 응답)는 `null`이다.
 ```json
-"xp": {
-  "earnedXp": 120, "baseXp": 100, "bonusXp": 20,
+"EXP": {
+  "earnedEXP": 120, "baseEXP": 100, "bonusEXP": 20,
   "zeroReason": null,
-  "before": { "level": 5, "currentXp": 650, "xpForNextLevel": 1216, "totalXp": 4960 },
-  "after":  { "level": 5, "currentXp": 770, "xpForNextLevel": 1216, "totalXp": 5080 }
+  "before": { "level": 5, "currentEXP": 650, "EXPForNextLevel": 1216, "totalEXP": 4960 },
+  "after":  { "level": 5, "currentEXP": 770, "EXPForNextLevel": 1216, "totalEXP": 5080 }
 }
 ```
-- `earnedXp = after.totalXp - before.totalXp = baseXp + bonusXp`. `baseXp`는 XP를 얻었으면 100, 못 얻었으면 0이다.
-- 과거 날짜 세션을 완료해 뒤 날짜의 연속 보너스가 늘면 그 몫이 `bonusXp`에 포함돼 20보다 클 수 있다.
-- `zeroReason`은 `earnedXp`가 0일 때만 값이 있다: `DAILY_LIMIT`(그날 이미 2세션 인정), `NO_COMPLETED_LOG`(인정할 완료 로그 없음).
+- `earnedEXP = after.totalEXP - before.totalEXP = baseEXP + bonusEXP`. `baseEXP`는 EXP를 얻었으면 100, 못 얻었으면 0이다.
+- 과거 날짜 세션을 완료해 뒤 날짜의 연속 보너스가 늘면 그 몫이 `bonusEXP`에 포함돼 20보다 클 수 있다.
+- `zeroReason`은 `earnedEXP`가 0일 때만 값이 있다: `DAILY_LIMIT`(그날 이미 2세션 인정), `NO_COMPLETED_LOG`(인정할 완료 로그 없음).
 - 진행 바는 before → after로 그리고, 레벨업은 `after.level > before.level`(여러 레벨 가능)이다.
-- 로그 PATCH(`/sessions/{id}/logs/{logId}`) 응답에는 `xp`가 없다.
+- 로그 PATCH(`/sessions/{id}/logs/{logId}`) 응답에는 `EXP`가 없다.
 
 ## 구현
-- core: `UserLevel`(XP/레벨 계산, 상수), `XpGain`/`XpZeroReason`(완료 내역), `SessionLog.hasPerformanceRecord()`, `WorkoutSession.isXpQualified()`, `WorkoutSessionRepository.countQualifiedSessionsByDate(userId, strictFrom)`.
+- core: `UserLevel`(EXP/레벨 계산, 상수), `EXPGain`/`EXPZeroReason`(완료 내역), `SessionLog.hasPerformanceRecord()`, `WorkoutSession.isEXPQualified()`, `WorkoutSessionRepository.countQualifiedSessionsByDate(userId, strictFrom)`.
 - infra: 완료 로그가 있는 COMPLETED 세션의 날짜별 개수를 세는 집계 쿼리(기준일 이후는 수행 기록 조건 포함).
-- api: `UserResponse.level`, `SessionResponse.xp`.
-- 인정 조건은 쿼리(집계)와 `isXpQualified()`(완료 응답의 `zeroReason` 판정) 두 곳에 있으므로 함께 바꿔야 한다.
+- api: `UserResponse.level`, `SessionResponse.EXP`.
+- 인정 조건은 쿼리(집계)와 `isEXPQualified()`(완료 응답의 `zeroReason` 판정) 두 곳에 있으므로 함께 바꿔야 한다.
 
 ## 테스트
-- `UserLevelTest`: 하루 한도, 연속 3번째부터 ×1.2, 월수금 연속 유지, 4일 간격 끊김, 레벨 경계(999/1000 XP), XP 내역, 기준일 전후 인정 조건.
+- `UserLevelTest`: 하루 한도, 연속 3번째부터 ×1.2, 월수금 연속 유지, 4일 간격 끊김, 레벨 경계(999/1000 EXP), EXP 내역, 기준일 전후 인정 조건.
 - 어댑터: 기준일 이전/이후, ABANDONED/미완료 제외, 유산소 시간 인정.
-- 컨트롤러: `/users/me` level이 인정 세션만 세는지, 세션 완료 `xp`(100, 한도 초과 0 XP `DAILY_LIMIT`, 수행 기록 없음 `NO_COMPLETED_LOG`, 재요청 null, 기준일 전후).
+- 컨트롤러: `/users/me` level이 인정 세션만 세는지, 세션 완료 `EXP`(100, 한도 초과 0 EXP `DAILY_LIMIT`, 수행 기록 없음 `NO_COMPLETED_LOG`, 재요청 null, 기준일 전후).
 
 ## 이후 후보 (착수 전)
-- 완료 응답이 아닌 곳에서도 XP 내역이 필요하거나 조회가 무거워지면 추가 전용 이력 테이블(`xp_ledger`)로 전환한다. 기존 사용자는 지금 계산 함수로 한 번에 백필할 수 있다.
+- 완료 응답이 아닌 곳에서도 EXP 내역이 필요하거나 조회가 무거워지면 추가 전용 이력 테이블(`EXP_ledger`)로 전환한다. 기존 사용자는 지금 계산 함수로 한 번에 백필할 수 있다.
 - 세션 이력으로 재현되지 않는 보상(퀘스트/업적)이 생길 때도 같다.
 - 5/10레벨 마일스톤(칭호/뱃지)은 코드의 작은 맵으로 시작하고, 배포 없이 바꿔야 할 때 테이블로 옮긴다.
