@@ -1,7 +1,7 @@
 package com.bali.core.user
 
-import com.bali.core.session.SessionLog
 import com.bali.core.session.WorkoutSession
+import com.bali.core.session.hasCountedLog
 
 // 세션 완료로 얻은 XP 내역. before/after는 완료 전후의 레벨 스냅샷이고 earnedXp는 둘의 누적 XP 차이다
 data class XpGain(
@@ -29,13 +29,8 @@ data class XpGain(
     }
 }
 
-// 로그가 실제 수행 기록을 가졌는지: 근력은 세트와 횟수가 모두 0보다 크고, 유산소는 수행 시간이 0보다 크다
-fun SessionLog.hasPerformanceRecord(): Boolean =
-    ((actualSets ?: 0) > 0 && (actualReps ?: 0) > 0) || (actualDurationSeconds ?: 0) > 0
-
-// 경험치 인정 세션인지: 완료 로그가 있어야 하고, 기준일(STRICT_QUALIFICATION_FROM) 이후 세션은 그 로그에 수행 기록도 있어야 한다
-fun WorkoutSession.isXpQualified(): Boolean =
-    logs.any { it.completed && (date < UserLevel.STRICT_QUALIFICATION_FROM || it.hasPerformanceRecord()) }
+// 경험치 인정 세션인지: 운동 통계와 같은 기준(WorkoutRecordPolicy)의 집계 대상 로그가 하나 이상 있어야 한다
+fun WorkoutSession.isXpQualified(): Boolean = hasCountedLog()
 
 // 세션을 완료했는데 XP를 얻지 못한 이유
 enum class XpZeroReason {

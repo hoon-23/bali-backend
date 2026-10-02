@@ -1,5 +1,6 @@
 package com.bali.core.user
 
+import com.bali.core.session.WorkoutRecordPolicy
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 import kotlin.math.pow
@@ -25,9 +26,8 @@ data class UserLevel(
         // 연속 운동일 판정: 운동일 사이 간격이 이 일수 이내면 연속(월수금/주 5회 분할도 이어지게 연속 이틀 휴식까지 허용)
         private const val MAX_GAP_DAYS = 3L
 
-        // 이 날짜(세션 date, 한국 기준) 이후 세션부터 "세트·횟수(또는 시간)를 실제로 기록한 완료 로그"만 XP로 인정한다.
-        // 이전 세션은 소급하지 않고 기존 조건(완료 체크된 로그 1개 이상)을 유지한다
-        val STRICT_QUALIFICATION_FROM: LocalDate = LocalDate.of(2026, 10, 2)
+        // XP 인정 기준일. 운동 통계와 같은 기준일(WorkoutRecordPolicy.STRICT_FROM)을 쓴다
+        val STRICT_QUALIFICATION_FROM: LocalDate = WorkoutRecordPolicy.STRICT_FROM
 
         // 연속 N번째 운동일부터 XP 배수 적용
         private const val STREAK_BONUS_FROM = 3

@@ -60,8 +60,9 @@ interface WorkoutSessionRepository {
     // date가 기준 날짜보다 이전인 IN_PROGRESS 세션을 ABANDONED로 일괄 전환하고 전환 건수를 반환 (로그는 건드리지 않음)
     fun abandonInProgressBefore(date: LocalDate): Int
 
-    // 완료된 로그가 하나 이상 있는 날짜 집합을 조회 (연속운동일 계산용, since 이후만)
-    fun findActiveDates(userId: UUID, since: LocalDate): Set<LocalDate>
+    // 완료된 로그가 하나 이상 있는 날짜 집합을 조회 (연속운동일 계산용, since 이후만).
+    // strictFrom 이후 날짜의 세션은 그 완료 로그에 수행 기록(근력은 세트·횟수 > 0, 유산소는 시간 > 0)도 있어야 한다
+    fun findActiveDates(userId: UUID, since: LocalDate, strictFrom: LocalDate): Set<LocalDate>
 
     // 경험치 인정 세션(COMPLETED이고 완료된 로그가 하나 이상)의 날짜별 개수 (날짜 -> 세션 수).
     // strictFrom 이후 날짜의 세션은 그 완료 로그에 수행 기록(근력은 세트·횟수 > 0, 유산소는 시간 > 0)도 있어야 인정한다
@@ -70,8 +71,8 @@ interface WorkoutSessionRepository {
     // 특정 날짜/상태의 세션 전체를 유저 무관하게 조회 (배치의 리마인더 대상 조회용)
     fun findAllByDateAndStatus(date: LocalDate, status: SessionStatus): List<WorkoutSession>
 
-    // 완료된 로그가 있는 가장 최근 날짜 (없으면 null). 이탈 알림 판정에 사용
-    fun findLastActiveDate(userId: UUID): LocalDate?
+    // 완료된 로그가 있는 가장 최근 날짜 (없으면 null). 이탈 알림 판정에 사용. strictFrom 이후 날짜는 수행 기록이 있는 완료 로그만 본다
+    fun findLastActiveDate(userId: UUID, strictFrom: LocalDate): LocalDate?
 
     // 템플릿별로 가장 최근에 완료된 세션 날짜 (templateId -> date). 완료 이력이 없는 템플릿은 키가 없다
     fun findLastCompletedDatesByTemplateIds(userId: UUID, templateIds: Collection<UUID>): Map<UUID, LocalDate>

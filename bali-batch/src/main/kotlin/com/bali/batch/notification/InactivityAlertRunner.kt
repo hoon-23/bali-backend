@@ -4,6 +4,7 @@ import com.bali.batch.runResiliently
 import com.bali.core.notification.NotificationLogRepository
 import com.bali.core.notification.NotificationSettingsRepository
 import com.bali.core.notification.NotificationType
+import com.bali.core.session.WorkoutRecordPolicy
 import com.bali.core.session.WorkoutSessionRepository
 import com.bali.core.user.User
 import com.bali.core.user.UserRepository
@@ -48,7 +49,7 @@ class InactivityAlertRunner(
         val settings = settingsRepository.findByUserId(userId)
         if (settings?.inactivityAlertEnabled == false) return
 
-        val lastActiveDate = sessionRepository.findLastActiveDate(userId) ?: return
+        val lastActiveDate = sessionRepository.findLastActiveDate(userId, WorkoutRecordPolicy.STRICT_FROM) ?: return
         if (ChronoUnit.DAYS.between(lastActiveDate, today) < INACTIVITY_THRESHOLD_DAYS) return
 
         val cooldownStart = Instant.now().minus(INACTIVITY_THRESHOLD_DAYS, ChronoUnit.DAYS)

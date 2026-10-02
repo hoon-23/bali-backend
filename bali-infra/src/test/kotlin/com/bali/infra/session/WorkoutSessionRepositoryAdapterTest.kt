@@ -40,6 +40,9 @@ class WorkoutSessionRepositoryAdapterTest {
         }
     }
 
+    // 기준일을 먼 미래로 두면 모든 세션이 "기준일 이전"이 되어 완료 체크만으로 집계된다 (기존 동작 검증용)
+    private val NO_STRICT = LocalDate.of(9999, 1, 1)
+
     @Autowired
     lateinit var adapter: WorkoutSessionRepositoryAdapter
 
@@ -231,7 +234,7 @@ class WorkoutSessionRepositoryAdapterTest {
         // 다른 사용자의 same-range completed 세션이 결과에 섞여 들어오지 않는지 검증 (userId 필터 미검증 방지)
         adapter.save(WorkoutSession(id = null, userId = otherUserId, date = LocalDate.of(2026, 8, 15), templateId = null, status = SessionStatus.SCHEDULED, logs = listOf(completedLog())))
 
-        val activeDates = adapter.findActiveDates(userId, since = LocalDate.of(2026, 8, 1))
+        val activeDates = adapter.findActiveDates(userId, since = LocalDate.of(2026, 8, 1), strictFrom = NO_STRICT)
 
         assertEquals(setOf(LocalDate.of(2026, 8, 15)), activeDates)
     }
@@ -281,12 +284,32 @@ class WorkoutSessionRepositoryAdapterTest {
         adapter.save(WorkoutSession(id = null, userId = userId, date = LocalDate.now().minusDays(10), templateId = null, status = SessionStatus.COMPLETED, logs = listOf(oldLog)))
         adapter.save(WorkoutSession(id = null, userId = userId, date = LocalDate.now().minusDays(2), templateId = null, status = SessionStatus.COMPLETED, logs = listOf(recentLog)))
 
-        assertEquals(LocalDate.now().minusDays(2), adapter.findLastActiveDate(userId))
+        assertEquals(LocalDate.now().minusDays(2), adapter.findLastActiveDate(userId, NO_STRICT))
+    }
+
+    // 기준일 이후 날짜는 세트·횟수(또는 시간) 기록이 있는 완료 로그만 운동한 날로 본다. 기준일 이전은 완료 체크만으로 인정
+    @Test
+    fun `findActiveDates와 findLastActiveDate는 기준일 이후 날짜에 수행 기록을 요구한다`() {
+        val userId = UUID.randomUUID()
+        val strictFrom = LocalDate.of(2026, 10, 2)
+        fun saveSession(date: LocalDate, log: SessionLog) =
+            adapter.save(WorkoutSession(id = null, userId = userId, date = date, templateId = null, status = SessionStatus.COMPLETED, logs = listOf(log)))
+        saveSession(LocalDate.of(2026, 9, 30), log().copy(completed = true))
+        saveSession(LocalDate.of(2026, 10, 3), completedLog())
+        saveSession(LocalDate.of(2026, 10, 4), log().copy(completed = true, actualDurationSeconds = 600))
+        saveSession(LocalDate.of(2026, 10, 5), log().copy(completed = true))
+        saveSession(LocalDate.of(2026, 10, 6), log().copy(completed = true, actualSets = 0, actualReps = 0))
+
+        assertEquals(
+            setOf(LocalDate.of(2026, 9, 30), LocalDate.of(2026, 10, 3), LocalDate.of(2026, 10, 4)),
+            adapter.findActiveDates(userId, since = LocalDate.of(2026, 9, 1), strictFrom = strictFrom),
+        )
+        assertEquals(LocalDate.of(2026, 10, 4), adapter.findLastActiveDate(userId, strictFrom))
     }
 
     @Test
     fun `완료된 로그가 없으면 findLastActiveDate는 null을 반환한다`() {
-        assertEquals(null, adapter.findLastActiveDate(UUID.randomUUID()))
+        assertEquals(null, adapter.findLastActiveDate(UUID.randomUUID(), NO_STRICT))
     }
 
     @Test

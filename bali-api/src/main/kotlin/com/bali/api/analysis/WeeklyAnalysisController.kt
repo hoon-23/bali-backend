@@ -6,8 +6,8 @@ import com.bali.core.analysis.PeriodStatsCalculator
 import com.bali.core.analysis.WeeklyStatsCalculator
 import com.bali.core.exercise.ExerciseRepository
 import com.bali.core.exercise.findAllByIds
-import com.bali.core.session.SessionStatus
 import com.bali.core.session.WorkoutSessionRepository
+import com.bali.core.session.countsAsCompletedSession
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
 import org.springframework.format.annotation.DateTimeFormat
@@ -60,7 +60,7 @@ class WeeklyAnalysisController(
             sessions, exercisesById, previous?.summary,
             PeriodStatsCalculator.previousSessionCount(previous?.status, previous?.summary),
         )
-        val completedSessionsCount = sessions.count { it.status == SessionStatus.COMPLETED }
+        val completedSessionsCount = sessions.count { it.countsAsCompletedSession() }
 
         return CurrentWeekSummaryResponse.from(weekOf, summary, completedSessionsCount)
     }

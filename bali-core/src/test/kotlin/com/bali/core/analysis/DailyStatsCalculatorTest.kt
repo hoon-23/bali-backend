@@ -6,6 +6,7 @@ import com.bali.core.exercise.ExerciseType
 import com.bali.core.exercise.MuscleGroup
 import com.bali.core.session.SessionLog
 import com.bali.core.session.SessionStatus
+import com.bali.core.session.WorkoutRecordPolicy
 import com.bali.core.session.WorkoutSession
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
@@ -82,5 +83,34 @@ class DailyStatsCalculatorTest : StringSpec({
 
     "기록 없는 날짜는 결과에 포함되지 않는다" {
         DailyStatsCalculator.calculate(emptyList(), exercisesById) shouldBe emptyList()
+    }
+
+    "기준일 이후 날짜는 기록이 있는 세션만 세고 그런 세션이 없으면 날짜가 빠진다" {
+        val strict = WorkoutRecordPolicy.STRICT_FROM
+        val checkedOnly = strengthLog().copy(actualSets = 0, actualReps = 0)
+        val sessions = listOf(
+            session(strict, listOf(checkedOnly)),
+            session(strict.plusDays(1), listOf(strengthLog(sets = 3))),
+            session(strict.plusDays(1), listOf(checkedOnly)),
+        )
+
+        val result = DailyStatsCalculator.calculate(sessions, exercisesById)
+
+        result.map { it.date } shouldBe listOf(strict.plusDays(1))
+        result.single().sessionsCount shouldBe 1
+        result.single().totalMinutes shouldBe 12
+        result.single().completedSets shouldBe 3
+    }
+
+    "기준일 이전 날짜는 소급하지 않아 로그 없는 세션만 있어도 날짜가 남는다" {
+        val before = WorkoutRecordPolicy.STRICT_FROM.minusDays(1)
+        val checkedOnly = strengthLog().copy(actualSets = null, actualReps = null)
+        val sessions = listOf(session(before.minusDays(1), emptyList()), session(before, listOf(checkedOnly)))
+
+        val result = DailyStatsCalculator.calculate(sessions, exercisesById)
+
+        result.map { it.date } shouldBe listOf(before.minusDays(1), before)
+        result.map { it.sessionsCount } shouldBe listOf(1, 1)
+        result[1].totalMinutes shouldBe 12
     }
 })

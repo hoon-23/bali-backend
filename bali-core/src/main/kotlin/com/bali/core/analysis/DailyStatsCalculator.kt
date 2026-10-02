@@ -2,7 +2,10 @@ package com.bali.core.analysis
 
 import com.bali.core.exercise.Exercise
 import com.bali.core.exercise.ExerciseType
+import com.bali.core.session.WorkoutRecordPolicy
 import com.bali.core.session.WorkoutSession
+import com.bali.core.session.countedLogs
+import com.bali.core.session.hasCountedLog
 import java.time.LocalDate
 import java.util.UUID
 
@@ -12,14 +15,19 @@ object DailyStatsCalculator {
     // 완료된 STRENGTH 로그 1개당 추정 소요 시간(분). WeeklyStatsCalculator와 동일한 추정치를 사용
     private const val MINUTES_PER_STRENGTH_EXERCISE = 12
 
-    // sessions를 날짜별로 그룹핑해 일별 통계를 계산. 기록 없는 날짜는 결과에 포함하지 않는다(sparse)
+    // sessions를 날짜별로 그룹핑해 일별 통계를 계산. 기록 없는 날짜는 결과에 포함하지 않는다(sparse).
+    // 기준일(WorkoutRecordPolicy.STRICT_FROM) 이후 날짜는 집계 대상 로그가 있는 세션만 세고, 그런 세션이 없으면 그 날짜를 뺀다.
+    // 기준일 이전 날짜는 소급하지 않아 세션이 있기만 하면 그대로 포함한다
     fun calculate(sessions: List<WorkoutSession>, exercisesById: Map<UUID, Exercise>): List<DailyStats> =
         sessions.groupBy { it.date }
-            .map { (date, sessionsOnDate) -> calculateForDate(date, sessionsOnDate, exercisesById) }
+            .mapNotNull { (date, sessionsOnDate) ->
+                val counted = if (date < WorkoutRecordPolicy.STRICT_FROM) sessionsOnDate else sessionsOnDate.filter { it.hasCountedLog() }
+                if (counted.isEmpty()) null else calculateForDate(date, counted, exercisesById)
+            }
             .sortedBy { it.date }
 
     private fun calculateForDate(date: LocalDate, sessions: List<WorkoutSession>, exercisesById: Map<UUID, Exercise>): DailyStats {
-        val completedLogs = sessions.flatMap { it.logs }.filter { it.completed }
+        val completedLogs = sessions.flatMap { it.countedLogs() }
         val strengthLogs = completedLogs.filter { exercisesById.getValue(it.exerciseId).type == ExerciseType.STRENGTH }
         val cardioLogs = completedLogs.filter { exercisesById.getValue(it.exerciseId).type == ExerciseType.CARDIO }
 
