@@ -14,6 +14,7 @@ import com.bali.core.session.WorkoutSession
 import com.bali.core.session.WorkoutSessionRepository
 import com.bali.core.template.WorkoutTemplateRepository
 import com.bali.core.user.AuthProvider
+import com.bali.infra.exercise.ExerciseJpaRepository
 import com.bali.infra.user.UserJpaEntity
 import com.bali.infra.user.UserJpaRepository
 import com.fasterxml.jackson.databind.ObjectMapper
@@ -46,6 +47,7 @@ class SessionControllerTest {
     @Autowired lateinit var jwtTokenProvider: JwtTokenProvider
     @Autowired lateinit var userJpaRepository: UserJpaRepository
     @Autowired lateinit var exerciseRepository: ExerciseRepository
+    @Autowired lateinit var exerciseJpaRepository: ExerciseJpaRepository
     @Autowired lateinit var templateRepository: WorkoutTemplateRepository
     @Autowired lateinit var workoutSessionRepository: WorkoutSessionRepository
     @Autowired lateinit var objectMapper: ObjectMapper
@@ -530,7 +532,7 @@ class SessionControllerTest {
         // 위 flagForCommit()으로 세션/종목/유저가 실제 커밋되어 클래스 레벨 @Transactional 롤백으로는
         // 지워지지 않으므로, 로컬 DB에 테스트 데이터가 누적되지 않게 직접 정리하고 그 삭제도 커밋한다
         workoutSessionRepository.deleteById(UUID.fromString(sessionId))
-        exerciseRepository.deleteById(exerciseId)
+        exerciseJpaRepository.deleteById(exerciseId)
         userJpaRepository.deleteById(userId)
         TestTransaction.flagForCommit()
         TestTransaction.end()

@@ -80,6 +80,20 @@ class PlanLimitsApiTest {
     }
 
     @Test
+    fun `삭제한 개인 운동은 한도 개수에서 빠져 다시 만들 수 있다`() {
+        val (token, _) = newUser()
+        val ids = (1..10).map {
+            val body = createExercise(token, it).andExpect(status().isCreated).andReturn().response.contentAsString
+            Regex("\"id\":\"([^\"]+)\"").find(body)!!.groupValues[1]
+        }
+        createExercise(token, 11).andExpect(status().isForbidden)
+
+        mockMvc.perform(delete("/api/v1/exercises/${ids.first()}").header("Authorization", "Bearer $token")).andExpect(status().isNoContent)
+
+        createExercise(token, 12).andExpect(status().isCreated)
+    }
+
+    @Test
     fun `PRO는 한도를 넘겨도 만들 수 있고 만료된 PRO는 FREE로 취급된다`() {
         val (proToken, _) = newUser(Plan.PRO)
         (1..6).forEach { createTemplate(proToken, it).andExpect(status().isCreated) }

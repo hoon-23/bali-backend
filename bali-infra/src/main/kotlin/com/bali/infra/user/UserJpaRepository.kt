@@ -24,7 +24,7 @@ interface UserJpaRepository : JpaRepository<UserJpaEntity, UUID> {
         """
         SELECT u.plan AS plan, u.planExpiresAt AS planExpiresAt,
             (SELECT COUNT(t) FROM WorkoutTemplateJpaEntity t WHERE t.userId = u.id AND t.deleted = false) AS templateCount,
-            (SELECT COUNT(e) FROM ExerciseJpaEntity e WHERE e.scope = 'PERSONAL' AND e.ownerId = u.id) AS personalExerciseCount
+            (SELECT COUNT(e) FROM ExerciseJpaEntity e WHERE e.scope = 'PERSONAL' AND e.ownerId = u.id AND e.deleted = false) AS personalExerciseCount
         FROM UserJpaEntity u WHERE u.id = :userId
         """
     )

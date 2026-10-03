@@ -35,5 +35,7 @@ class ExerciseJpaEntity(
 
     @Enumerated(EnumType.STRING)
     var equipment: Equipment? = null,
+
+    var deleted: Boolean = false,
 )
 
