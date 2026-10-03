@@ -2,6 +2,13 @@ server:
   port: 8080
 
 bali:
+  plan:
+    # 무료 플랜 한도. 기본 꺼짐(모두 무제한). 결제(PRO 승격) 경로를 연 뒤 true로 켠다
+    limits-enabled: false
+    free:
+      max-templates: 5
+      max-personal-exercises: 10
+      monthly-insights-allowed: false
   jwt:
     # 기본값 없음: local 프로필에서만 application-local.yml이 개발용 값을 채운다.
     # dev/prod는 JWT_SECRET 미설정 시 기동 실패해야 한다 (알려진 기본 시크릿으로 조용히 뜨는 것 방지)

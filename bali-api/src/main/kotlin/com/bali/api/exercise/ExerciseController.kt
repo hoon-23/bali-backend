@@ -1,6 +1,7 @@
 package com.bali.api.exercise
 
 import com.bali.api.auth.currentUserId
+import com.bali.api.plan.PlanGuard
 import com.bali.core.exercise.Equipment
 import com.bali.core.exercise.Exercise
 import com.bali.core.exercise.ExerciseRepository
@@ -31,6 +32,7 @@ import java.util.UUID
 class ExerciseController(
     private val exerciseRepository: ExerciseRepository,
     private val templateRepository: WorkoutTemplateRepository,
+    private val planGuard: PlanGuard,
 ) {
 
     // 카탈로그 조회 (GLOBAL 전체 + 본인 PERSONAL), muscleGroup/equipment로 선택적 필터링(함께 주면 AND)
@@ -58,6 +60,7 @@ class ExerciseController(
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     fun create(@Valid @RequestBody request: ExerciseCreateRequest): ExerciseResponse {
+        planGuard.assertCanCreatePersonalExercise(currentUserId())
         val saved = exerciseRepository.save(
             Exercise(
                 id = null,

@@ -1,6 +1,7 @@
 package com.bali.api.analysis
 
 import com.bali.api.auth.currentUserId
+import com.bali.api.plan.PlanGuard
 import com.bali.core.analysis.MonthlyAnalysisRepository
 import com.bali.core.analysis.MonthlyStatsCalculator
 import com.bali.core.analysis.PeriodStatsCalculator
@@ -27,6 +28,7 @@ class MonthlyAnalysisController(
     private val analysisRepository: MonthlyAnalysisRepository,
     private val sessionRepository: WorkoutSessionRepository,
     private val exerciseRepository: ExerciseRepository,
+    private val planGuard: PlanGuard,
 ) {
     companion object {
         // 서버 실행 환경(JVM 기본 타임존)에 관계없이 "이번 달"을 한국 기준으로 고정
@@ -36,8 +38,10 @@ class MonthlyAnalysisController(
     // 내 전체 월간 분석 결과 목록 조회 (monthOf 내림차순)
     @Operation(summary = "월간 분석 목록 조회", description = "본인의 전체 월간 분석 결과를 monthOf 내림차순으로 조회한다")
     @GetMapping
-    fun list(): List<MonthlyAnalysisResponse> =
-        analysisRepository.findAllByUserId(currentUserId()).map { MonthlyAnalysisResponse.from(it) }
+    fun list(): List<MonthlyAnalysisResponse> {
+        planGuard.assertCanViewMonthlyInsights(currentUserId())
+        return analysisRepository.findAllByUserId(currentUserId()).map { MonthlyAnalysisResponse.from(it) }
+    }
 
     // 진행 중인 이번 달 실시간 집계 조회. 배치가 아직 처리하지 않은 현재 달 데이터를 요청 시점에 즉석 계산한다
     @Operation(
@@ -47,6 +51,7 @@ class MonthlyAnalysisController(
     @GetMapping("/current")
     fun current(): CurrentMonthSummaryResponse {
         val userId = currentUserId()
+        planGuard.assertCanViewMonthlyInsights(userId)
         val monthOf = LocalDate.now(APP_ZONE).withDayOfMonth(1)
         val sessions = sessionRepository.findAllByUserId(userId, monthOf, monthOf.plusMonths(1).minusDays(1))
 
@@ -66,6 +71,7 @@ class MonthlyAnalysisController(
     @Operation(summary = "특정 월 분석 결과 조회", description = "monthOf(해당 월 1일)로 분석 결과를 조회한다. 없거나 다른 유저 소유면 404")
     @GetMapping("/{monthOf}")
     fun get(@PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) monthOf: LocalDate): ResponseEntity<MonthlyAnalysisResponse> {
+        planGuard.assertCanViewMonthlyInsights(currentUserId())
         val analysis = analysisRepository.findByUserIdAndMonthOf(currentUserId(), monthOf) ?: return ResponseEntity.notFound().build()
         return ResponseEntity.ok(MonthlyAnalysisResponse.from(analysis))
     }

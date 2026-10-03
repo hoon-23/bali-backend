@@ -1,5 +1,7 @@
 package com.bali.core.user
 
+import com.bali.core.plan.Plan
+import com.bali.core.plan.effectivePlan
 import java.time.Instant
 import java.util.UUID
 
@@ -13,7 +15,12 @@ data class User(
     val createdAt: Instant,
     val nickname: String = "",
     val weeklyGoalSessions: Int = 3,
+    val plan: Plan = Plan.FREE,
+    val planExpiresAt: Instant? = null,
 ) {
+    // 만료 시각을 반영한 현재 유효 플랜 (구독이 만료됐으면 FREE)
+    fun effectivePlan(now: Instant = Instant.now()): Plan = effectivePlan(plan, planExpiresAt, now)
+
     // 사용자 상태를 WITHDRAWN으로 전환하고 식별 가능한 개인정보(email/providerId/nickname)를 파기한다
     // (PIPA 제21조 파기 의무). providerId가 바뀌므로 이후 같은 provider 계정으로 재로그인하면
     // 기존 계정과 매칭되지 않고 신규 계정으로 생성된다 — 탈퇴를 실제로 되돌릴 수 없게 만드는 의도된 부수효과

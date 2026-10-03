@@ -2,6 +2,7 @@ package com.bali.api.common
 
 import com.bali.api.auth.login.InvalidRefreshTokenException
 import com.bali.api.auth.social.SocialProviderUnavailableException
+import com.bali.core.plan.LimitExceededException
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
@@ -49,4 +50,10 @@ class ApiExceptionHandler {
     @ExceptionHandler(DataIntegrityViolationException::class)
     fun handleDataIntegrityViolation(ex: DataIntegrityViolationException): ResponseEntity<Map<String, String?>> =
         ResponseEntity.status(HttpStatus.CONFLICT).body(mapOf("error" to "이미 사용 중인 값입니다"))
+
+    // 무료 플랜 한도 초과를 403 LIMIT_EXCEEDED로 매핑 (프론트가 code로 페이월을 띄운다)
+    @ExceptionHandler(LimitExceededException::class)
+    fun handleLimitExceeded(ex: LimitExceededException): ResponseEntity<Map<String, String?>> =
+        ResponseEntity.status(HttpStatus.FORBIDDEN)
+            .body(mapOf("error" to ex.message, "code" to "LIMIT_EXCEEDED", "limit" to ex.limit.name))
 }
