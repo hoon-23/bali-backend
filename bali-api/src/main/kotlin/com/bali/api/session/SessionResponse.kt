@@ -46,12 +46,13 @@ data class XpGainResponse(
     val baseXp: Int,
     val bonusXp: Int,
     val zeroReason: XpZeroReason?,
+    val partial: Boolean,
     val before: UserLevelResponse,
     val after: UserLevelResponse,
 ) {
     companion object {
         fun from(gain: XpGain) = XpGainResponse(
-            earnedXp = gain.earnedXp, baseXp = gain.baseXp, bonusXp = gain.bonusXp, zeroReason = gain.zeroReason,
+            earnedXp = gain.earnedXp, baseXp = gain.baseXp, bonusXp = gain.bonusXp, zeroReason = gain.zeroReason, partial = gain.partial,
             before = UserLevelResponse.from(gain.before), after = UserLevelResponse.from(gain.after),
         )
     }

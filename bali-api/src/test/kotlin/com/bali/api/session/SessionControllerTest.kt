@@ -220,6 +220,44 @@ class SessionControllerTest {
         org.junit.jupiter.api.Assertions.assertEquals(200, third.get("after").get("totalXp").asInt())
     }
 
+    // 부분 수행: 완료 체크 없이 기록만 남기고 COMPLETED로 종료하면 50 XP(partial=true), 연속 보너스 없음. 시작일(2026-10-03) 이전 날짜는 소급하지 않아 0 XP
+    @Test
+    fun `완료 체크 없이 기록된 세트가 2개 이상이면 COMPLETED 시 50 XP 부분 수행이고 시작일 이전은 0 XP이다`() {
+        val (token, _) = issueTokenForNewUser()
+        val exerciseId = savedStrengthExerciseId()
+        // 날짜와 기록값으로 세션을 만들고(completed 생략) COMPLETED로 종료한 xp 응답을 반환
+        fun finish(date: String, actualSets: Int): com.fasterxml.jackson.databind.JsonNode {
+            val created = mockMvc.perform(post("/api/v1/sessions").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON).content("""{"date":"$date","templateId":null}"""))
+                .andExpect(status().isCreated).andReturn().response.contentAsString
+            val sessionId = objectMapper.readTree(created).get("id").asText()
+            val afterAdd = mockMvc.perform(patch("/api/v1/sessions/$sessionId").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON).content("""{"addItems":[{"exerciseId":"$exerciseId","sortOrder":0}]}"""))
+                .andExpect(status().isOk).andReturn().response.contentAsString
+            val logId = objectMapper.readTree(afterAdd).get("logs").get(0).get("id").asText()
+            mockMvc.perform(patch("/api/v1/sessions/$sessionId/logs/$logId").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON)
+                .content("""{"actualSets":$actualSets,"actualReps":10,"actualWeight":0}"""))
+                .andExpect(status().isOk).andExpect(jsonPath("$.completed").value(false))
+            val body = mockMvc.perform(patch("/api/v1/sessions/$sessionId").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON).content("""{"status":"COMPLETED"}"""))
+                .andExpect(status().isOk).andReturn().response.contentAsString
+            return objectMapper.readTree(body).get("xp")
+        }
+
+        val partial = finish("2026-10-03", actualSets = 2)
+        org.junit.jupiter.api.Assertions.assertEquals(50, partial.get("earnedXp").asInt())
+        org.junit.jupiter.api.Assertions.assertEquals(50, partial.get("baseXp").asInt())
+        org.junit.jupiter.api.Assertions.assertEquals(0, partial.get("bonusXp").asInt())
+        org.junit.jupiter.api.Assertions.assertTrue(partial.get("partial").asBoolean())
+        org.junit.jupiter.api.Assertions.assertTrue(partial.get("zeroReason").isNull)
+
+        val oneSet = finish("2026-10-04", actualSets = 1)
+        org.junit.jupiter.api.Assertions.assertEquals(0, oneSet.get("earnedXp").asInt())
+        org.junit.jupiter.api.Assertions.assertEquals("NO_COMPLETED_LOG", oneSet.get("zeroReason").asText())
+        org.junit.jupiter.api.Assertions.assertFalse(oneSet.get("partial").asBoolean())
+
+        val beforeStart = finish("2026-10-02", actualSets = 3)
+        org.junit.jupiter.api.Assertions.assertEquals(0, beforeStart.get("earnedXp").asInt())
+        org.junit.jupiter.api.Assertions.assertEquals("NO_COMPLETED_LOG", beforeStart.get("zeroReason").asText())
+    }
+
     // 기준일(2026-10-02) 이후 세션은 세트·횟수 없이 완료 체크만 하면 0 XP, 기록이 있으면 100 XP. 기준일 이전 날짜는 소급하지 않아 완료 체크만으로 인정
     @Test
     fun `기준일 이후 세션은 세트 횟수가 없으면 NO_COMPLETED_LOG이고 이전 날짜 세션은 완료 체크만으로 인정된다`() {

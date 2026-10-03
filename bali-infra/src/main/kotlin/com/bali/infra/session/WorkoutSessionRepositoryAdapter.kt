@@ -132,6 +132,11 @@ class WorkoutSessionRepositoryAdapter(
         sessionJpaRepository.countSessionsWithCompletedLogByDate(userId, SessionStatus.COMPLETED, strictFrom)
             .associate { it.date to it.sessionCount.toInt() }
 
+    // 부분 수행 세션의 날짜별 개수 (인정 로그 없이 기록된 수행량만 기준 이상인 COMPLETED 세션)
+    override fun countPartialSessionsByDate(userId: UUID, from: LocalDate, minSets: Int, minCardioSeconds: Int): Map<LocalDate, Int> =
+        sessionJpaRepository.findPartialSessionDates(userId, SessionStatus.COMPLETED, from, minSets, minCardioSeconds)
+            .groupingBy { it }.eachCount()
+
     // 특정 날짜/상태의 세션을 유저 무관하게 logs와 함께 조회
     @Transactional
     override fun findAllByDateAndStatus(date: LocalDate, status: SessionStatus): List<WorkoutSession> {

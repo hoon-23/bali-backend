@@ -262,6 +262,36 @@ class WorkoutSessionRepositoryAdapterTest {
         assertEquals(mapOf(LocalDate.of(2026, 9, 30) to 1, LocalDate.of(2026, 10, 3) to 2), counts)
     }
 
+    // 부분 수행 집계: 완료 인정 로그가 없고 기록된 세트(reps>0) 합 또는 유산소 시간 합이 기준 이상인 COMPLETED 세션만, from 이후 날짜만 센다
+    @Test
+    fun `countPartialSessionsByDate는 인정 로그 없이 수행량만 기준 이상인 COMPLETED 세션을 센다`() {
+        val userId = UUID.randomUUID()
+        val from = LocalDate.of(2026, 10, 3)
+        fun saveSession(date: LocalDate, status: SessionStatus, vararg logs: SessionLog) =
+            adapter.save(WorkoutSession(id = null, userId = userId, date = date, templateId = null, status = status, logs = logs.toList()))
+        val twoSetsUnchecked = log().copy(actualSets = 2, actualReps = 10)
+        val oneSetUnchecked = log().copy(actualSets = 1, actualReps = 10)
+        val cardio20min = log().copy(actualDurationSeconds = 1200)
+        val cardio19min = log().copy(actualDurationSeconds = 1199)
+
+        saveSession(LocalDate.of(2026, 10, 3), SessionStatus.COMPLETED, twoSetsUnchecked)
+        saveSession(LocalDate.of(2026, 10, 3), SessionStatus.COMPLETED, oneSetUnchecked, oneSetUnchecked.copy(sortOrder = 1))
+        saveSession(LocalDate.of(2026, 10, 4), SessionStatus.COMPLETED, cardio20min)
+        saveSession(LocalDate.of(2026, 10, 4), SessionStatus.COMPLETED, oneSetUnchecked)
+        saveSession(LocalDate.of(2026, 10, 4), SessionStatus.COMPLETED, cardio19min)
+        // 인정 로그(완료+수행 기록)가 있으면 정상 세션이라 부분 수행에서 제외
+        saveSession(LocalDate.of(2026, 10, 5), SessionStatus.COMPLETED, completedLog(), twoSetsUnchecked)
+        // COMPLETED가 아니거나 시작일 이전이면 제외
+        saveSession(LocalDate.of(2026, 10, 6), SessionStatus.ABANDONED, twoSetsUnchecked)
+        saveSession(LocalDate.of(2026, 10, 2), SessionStatus.COMPLETED, twoSetsUnchecked)
+        // reps가 없는 세트는 합산하지 않는다
+        saveSession(LocalDate.of(2026, 10, 7), SessionStatus.COMPLETED, log().copy(actualSets = 3, actualReps = 0))
+
+        val counts = adapter.countPartialSessionsByDate(userId, from, minSets = 2, minCardioSeconds = 1200)
+
+        assertEquals(mapOf(LocalDate.of(2026, 10, 3) to 2, LocalDate.of(2026, 10, 4) to 1), counts)
+    }
+
     @Test
     fun `findAllByDateAndStatus는 유저 무관하게 날짜+상태가 일치하는 세션을 반환한다`() {
         val date = LocalDate.now()

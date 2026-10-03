@@ -68,6 +68,10 @@ interface WorkoutSessionRepository {
     // strictFrom 이후 날짜의 세션은 그 완료 로그에 수행 기록(근력은 세트·횟수 > 0, 유산소는 시간 > 0)도 있어야 인정한다
     fun countQualifiedSessionsByDate(userId: UUID, strictFrom: LocalDate): Map<LocalDate, Int>
 
+    // 부분 수행 세션(COMPLETED이고 날짜가 from 이후, 인정 로그는 없지만 기록된 수행량이 기준 이상)의 날짜별 개수.
+    // 수행량은 완료 체크와 무관하게 센다: 근력은 actualReps>0인 로그의 actualSets 합이 minSets 이상, 유산소는 actualDurationSeconds 합이 minCardioSeconds 이상
+    fun countPartialSessionsByDate(userId: UUID, from: LocalDate, minSets: Int, minCardioSeconds: Int): Map<LocalDate, Int>
+
     // 특정 날짜/상태의 세션 전체를 유저 무관하게 조회 (배치의 리마인더 대상 조회용)
     fun findAllByDateAndStatus(date: LocalDate, status: SessionStatus): List<WorkoutSession>
 
