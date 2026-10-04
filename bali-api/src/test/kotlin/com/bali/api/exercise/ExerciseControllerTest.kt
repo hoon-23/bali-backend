@@ -2,6 +2,10 @@ package com.bali.api.exercise
 
 import com.bali.api.auth.jwt.JwtTokenProvider
 import com.bali.core.exercise.ExerciseType
+import com.bali.core.session.SessionLog
+import com.bali.core.session.SessionStatus
+import com.bali.core.session.WorkoutSession
+import com.bali.core.session.WorkoutSessionRepository
 import com.bali.core.template.TemplateCategory
 import com.bali.core.template.TemplateItem
 import com.bali.core.template.WorkoutTemplate
@@ -49,6 +53,9 @@ class ExerciseControllerTest {
 
     @Autowired
     lateinit var templateRepository: WorkoutTemplateRepository
+
+    @Autowired
+    lateinit var sessionRepository: WorkoutSessionRepository
 
     // 테스트용 사용자를 만들고 그 사용자의 JWT를 발급
     private fun issueTokenForNewUser(): String {
@@ -284,6 +291,31 @@ class ExerciseControllerTest {
 
         mockMvc.perform(get("/api/v1/exercises").header("Authorization", "Bearer $token"))
             .andExpect(jsonPath("$[*].id", not(hasItem(exerciseId))))
+    }
+
+    @Test
+    fun `DELETE exercises id 호출시 세션 기록이 참조하는 종목도 소프트 삭제되어 목록에서만 사라지고 다시 삭제하면 404이다`() {
+        val token = issueTokenForNewUser()
+        val exerciseId = createPersonalExercise(token, "기록있는종목")
+        val userId = jwtTokenProvider.validateAndGetUserId(token)!!
+        sessionRepository.save(
+            WorkoutSession(
+                id = null, userId = userId, date = java.time.LocalDate.now(), templateId = null, status = SessionStatus.COMPLETED,
+                logs = listOf(SessionLog.create(exerciseType = ExerciseType.STRENGTH, exerciseId = java.util.UUID.fromString(exerciseId), sortOrder = 0)),
+            )
+        )
+
+        mockMvc.perform(delete("/api/v1/exercises/$exerciseId").header("Authorization", "Bearer $token"))
+            .andExpect(status().isNoContent)
+
+        mockMvc.perform(get("/api/v1/exercises").header("Authorization", "Bearer $token"))
+            .andExpect(jsonPath("$[*].id", not(hasItem(exerciseId))))
+        mockMvc.perform(delete("/api/v1/exercises/$exerciseId").header("Authorization", "Bearer $token"))
+            .andExpect(status().isNotFound)
+        mockMvc.perform(
+            put("/api/v1/exercises/$exerciseId").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON)
+                .content("""{"name":"수정시도","variant":null,"muscleGroup":"BACK"}""")
+        ).andExpect(status().isNotFound)
     }
 
     @Test

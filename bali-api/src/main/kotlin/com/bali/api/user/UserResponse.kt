@@ -1,8 +1,10 @@
 package com.bali.api.user
 
+import com.bali.core.plan.Plan
 import com.bali.core.user.User
 import com.bali.core.user.UserLevel
 import com.bali.core.user.UserStatus
+import java.time.Instant
 import java.util.UUID
 
 // 사용자 정보를 HTTP 응답으로 변환하는 DTO
@@ -14,6 +16,8 @@ data class UserResponse(
     val weeklyWorkoutDays: Int,
     val status: UserStatus,
     val level: UserLevelResponse,
+    val plan: Plan,
+    val planExpiresAt: Instant?,
 ) {
     companion object {
         // User 도메인 모델 + 계산된 이번 주 운동일수/레벨을 UserResponse로 변환
@@ -25,6 +29,8 @@ data class UserResponse(
             weeklyGoalSessions = user.weeklyGoalSessions,
             weeklyWorkoutDays = weeklyWorkoutDays,
             status = user.status,
+            plan = user.effectivePlan(),
+            planExpiresAt = user.planExpiresAt,
         )
     }
 }

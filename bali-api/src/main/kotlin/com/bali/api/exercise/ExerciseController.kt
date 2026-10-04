@@ -1,6 +1,7 @@
 package com.bali.api.exercise
 
 import com.bali.api.auth.currentUserId
+import com.bali.api.plan.PlanGuard
 import com.bali.core.exercise.Equipment
 import com.bali.core.exercise.Exercise
 import com.bali.core.exercise.ExerciseRepository
@@ -31,6 +32,7 @@ import java.util.UUID
 class ExerciseController(
     private val exerciseRepository: ExerciseRepository,
     private val templateRepository: WorkoutTemplateRepository,
+    private val planGuard: PlanGuard,
 ) {
 
     // 카탈로그 조회 (GLOBAL 전체 + 본인 PERSONAL), muscleGroup/equipment로 선택적 필터링(함께 주면 AND)
@@ -58,6 +60,7 @@ class ExerciseController(
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     fun create(@Valid @RequestBody request: ExerciseCreateRequest): ExerciseResponse {
+        planGuard.assertCanCreatePersonalExercise(currentUserId())
         val saved = exerciseRepository.save(
             Exercise(
                 id = null,
@@ -89,21 +92,21 @@ class ExerciseController(
         return ResponseEntity.ok(ExerciseResponse.from(saved))
     }
 
-    // 개인 종목 삭제. 활성 템플릿이 참조 중이면 409. 본인 소유 PERSONAL이 아니면 404
-    @Operation(summary = "개인 종목 삭제", description = "본인 소유 PERSONAL이 아니면 404. 활성 템플릿(소프트 삭제 안 된)이 참조 중이면 409")
+    // 개인 종목 삭제(소프트 삭제). 활성 템플릿이 참조 중이면 409. 본인 소유 PERSONAL이 아니거나 이미 삭제됐으면 404
+    @Operation(summary = "개인 종목 삭제", description = "소프트 삭제로 목록/제안에서만 숨기고 과거 기록은 보존한다. 본인 소유 PERSONAL이 아니거나 이미 삭제됐으면 404. 활성 템플릿(소프트 삭제 안 된)이 참조 중이면 409")
     @DeleteMapping("/{id}")
     fun delete(@PathVariable id: UUID): ResponseEntity<Void> {
         val existing = findOwnedPersonalOrNull(id) ?: return ResponseEntity.notFound().build()
         if (templateRepository.existsActiveReferenceToExercise(existing.id!!)) {
             return ResponseEntity.status(HttpStatus.CONFLICT).build()
         }
-        exerciseRepository.deleteById(id)
+        exerciseRepository.softDeleteById(id)
         return ResponseEntity.noContent().build()
     }
 
-    // id로 조회한 종목이 현재 인증 사용자 소유의 PERSONAL 종목일 때만 반환 (GLOBAL/타인 소유는 404 취급)
+    // id로 조회한 종목이 현재 인증 사용자 소유의 삭제되지 않은 PERSONAL 종목일 때만 반환 (GLOBAL/타인 소유/삭제됨은 404 취급)
     private fun findOwnedPersonalOrNull(id: UUID): Exercise? {
         val exercise = exerciseRepository.findById(id) ?: return null
-        return if (exercise.scope == ExerciseScope.PERSONAL && exercise.ownerId == currentUserId()) exercise else null
+        return if (!exercise.deleted && exercise.scope == ExerciseScope.PERSONAL && exercise.ownerId == currentUserId()) exercise else null
     }
 }

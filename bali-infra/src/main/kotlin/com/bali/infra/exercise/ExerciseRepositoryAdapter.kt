@@ -44,13 +44,15 @@ class ExerciseRepositoryAdapter(
             scope = exercise.scope,
             ownerId = exercise.ownerId,
             equipment = exercise.equipment,
+            deleted = exercise.deleted,
         )
         return jpaRepository.save(entity).toDomain()
     }
 
-    // 종목을 삭제.
-    override fun deleteById(id: UUID) {
-        jpaRepository.deleteExerciseById(id)
+    // 종목을 소프트 삭제. @Modifying 쿼리는 트랜잭션이 필요하므로 어댑터에서 연다.
+    @Transactional
+    override fun softDeleteById(id: UUID) {
+        jpaRepository.softDeleteExerciseById(id)
     }
 
     // JPA 엔티티를 도메인 모델로 변환.
@@ -63,5 +65,6 @@ class ExerciseRepositoryAdapter(
         scope = scope,
         ownerId = ownerId,
         equipment = equipment,
+        deleted = deleted,
     )
 }

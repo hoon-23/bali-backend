@@ -143,7 +143,7 @@ class ExerciseRepositoryAdapterTest {
     }
 
     @Test
-    fun `deleteById로 종목을 삭제하면 findById가 null을 반환한다`() {
+    fun `softDeleteById로 삭제하면 목록과 제안에서 빠지지만 findById는 deleted=true로 조회된다`() {
         val ownerId = UUID.randomUUID()
         val saved = adapter.save(
             Exercise(
@@ -152,9 +152,11 @@ class ExerciseRepositoryAdapterTest {
             )
         )
 
-        adapter.deleteById(saved.id!!)
+        adapter.softDeleteById(saved.id!!)
 
-        assertEquals(null, adapter.findById(saved.id!!))
+        assertTrue(adapter.findById(saved.id!!)!!.deleted)
+        assertTrue(adapter.findVisibleTo(ownerId).none { it.id == saved.id })
+        assertTrue(adapter.suggest("삭제될종목", ownerId).none { it.id == saved.id })
     }
 
     // V26이 시간 버티기 운동 3종을 삭제했는지 확인

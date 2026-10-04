@@ -12,6 +12,8 @@ data class Exercise(
     val scope: ExerciseScope,
     val ownerId: UUID?,
     val equipment: Equipment? = null,
+    // 사용자가 삭제한 종목(보관 처리). 카탈로그/제안에서만 숨기고 기록 참조는 그대로 유지한다
+    val deleted: Boolean = false,
 ) {
     init {
         // scope와 ownerId의 일관성을 생성 시점에 강제

@@ -83,6 +83,26 @@ interface WorkoutSessionJpaRepository : JpaRepository<WorkoutSessionJpaEntity, U
         @Param("strictFrom") strictFrom: LocalDate,
     ): List<SessionDateCount>
 
+    // 부분 수행 세션의 날짜 목록(세션당 1행). 인정 로그가 하나도 없고(HAVING 첫 조건), 기록된 수행량이 기준 이상인 세션
+    @Query("""
+        SELECT s.date FROM WorkoutSessionJpaEntity s
+        JOIN SessionLogJpaEntity l ON l.sessionId = s.id
+        WHERE s.userId = :userId AND s.status = :status AND s.date >= :from
+        GROUP BY s.id, s.date
+        HAVING SUM(CASE WHEN l.completed = true AND (
+                    (COALESCE(l.actualSets, 0) > 0 AND COALESCE(l.actualReps, 0) > 0) OR COALESCE(l.actualDurationSeconds, 0) > 0
+                ) THEN 1 ELSE 0 END) = 0
+           AND (SUM(CASE WHEN COALESCE(l.actualReps, 0) > 0 THEN COALESCE(l.actualSets, 0) ELSE 0 END) >= :minSets
+                OR SUM(COALESCE(l.actualDurationSeconds, 0)) >= :minCardioSeconds)
+    """)
+    fun findPartialSessionDates(
+        @Param("userId") userId: UUID,
+        @Param("status") status: SessionStatus,
+        @Param("from") from: LocalDate,
+        @Param("minSets") minSets: Int,
+        @Param("minCardioSeconds") minCardioSeconds: Int,
+    ): List<LocalDate>
+
     // 특정 날짜/상태의 세션 전체 (유저 무관)
     @Query("SELECT s FROM WorkoutSessionJpaEntity s WHERE s.date = :date AND s.status = :status")
     fun findAllByDateAndStatus(@Param("date") date: LocalDate, @Param("status") status: SessionStatus): List<WorkoutSessionJpaEntity>

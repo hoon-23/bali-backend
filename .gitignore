@@ -59,6 +59,7 @@ PROGRESS.md
 TODO.md
 /docs/plans
 /docs/review
+/docs/local
 
 ### 개인 userId/로컬 경로가 하드코딩된 1회성 실행 진입점만 제외 (파서/리졸버 로직은 재사용 가치가 있어 추적) ###
 /bali-batch/src/main/kotlin/com/bali/batch/personalarchive/PersonalArchiveSeedMain.kt

@@ -1,5 +1,6 @@
 package com.bali.infra.user
 
+import com.bali.core.plan.Plan
 import com.bali.core.user.AuthProvider
 import com.bali.core.user.UserStatus
 import jakarta.persistence.Entity
@@ -36,4 +37,9 @@ class UserJpaEntity(
     var nickname: String = "",
 
     var weeklyGoalSessions: Int = 3,
+
+    @Enumerated(EnumType.STRING)
+    var plan: Plan = Plan.FREE,
+
+    var planExpiresAt: Instant? = null,
 )

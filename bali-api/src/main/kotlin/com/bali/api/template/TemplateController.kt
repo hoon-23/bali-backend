@@ -1,6 +1,7 @@
 package com.bali.api.template
 
 import com.bali.api.auth.currentUserId
+import com.bali.api.plan.PlanGuard
 import com.bali.core.exercise.ExerciseRepository
 import com.bali.core.session.WorkoutSessionRepository
 import com.bali.core.template.TemplateItem
@@ -30,6 +31,7 @@ class TemplateController(
     private val templateRepository: WorkoutTemplateRepository,
     private val exerciseRepository: ExerciseRepository,
     private val sessionRepository: WorkoutSessionRepository,
+    private val planGuard: PlanGuard,
 ) {
 
     // 템플릿 등록 (items의 각 exerciseId 타입을 조회해 STRENGTH/CARDIO 필드 검증 후 저장)
@@ -37,6 +39,7 @@ class TemplateController(
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     fun create(@Valid @RequestBody request: TemplateCreateRequest): TemplateResponse {
+        planGuard.assertCanCreateTemplate(currentUserId())
         val items = request.items.map { it.toDomainItem() }
         val saved = templateRepository.save(
             WorkoutTemplate(id = null, userId = currentUserId(), category = request.category, name = request.name, items = items)

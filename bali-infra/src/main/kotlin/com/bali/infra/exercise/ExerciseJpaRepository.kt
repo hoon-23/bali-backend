@@ -8,8 +8,8 @@ import java.util.UUID
 
 interface ExerciseJpaRepository : JpaRepository<ExerciseJpaEntity, UUID> {
 
-    // userId가 볼 수 있는 종목 목록 (GLOBAL 전체 + 본인 PERSONAL)
-    @Query("SELECT e FROM ExerciseJpaEntity e WHERE e.scope = 'GLOBAL' OR (e.scope = 'PERSONAL' AND e.ownerId = :userId)")
+    // userId가 볼 수 있는 종목 목록 (GLOBAL 전체 + 본인 PERSONAL, 소프트 삭제된 종목 제외)
+    @Query("SELECT e FROM ExerciseJpaEntity e WHERE (e.scope = 'GLOBAL' OR (e.scope = 'PERSONAL' AND e.ownerId = :userId)) AND e.deleted = false")
     fun findVisibleTo(@Param("userId") userId: UUID): List<ExerciseJpaEntity>
 
     // 고유 식별자로 조회하되 userId가 볼 수 있는(GLOBAL 전체 + 본인 PERSONAL) 종목만 대상으로 함
@@ -40,6 +40,7 @@ interface ExerciseJpaRepository : JpaRepository<ExerciseJpaEntity, UUID> {
         value = """
             SELECT * FROM exercises
             WHERE (scope = 'GLOBAL' OR (scope = 'PERSONAL' AND owner_id = :userId))
+              AND deleted = false
               AND name % :query
             ORDER BY similarity(name, :query) DESC
             LIMIT :limit
@@ -52,9 +53,9 @@ interface ExerciseJpaRepository : JpaRepository<ExerciseJpaEntity, UUID> {
         @Param("limit") limit: Int,
     ): List<ExerciseJpaEntity>
 
-    // 종목을 삭제. bulk delete는 영속성 컨텍스트를 갱신하지 않아 이미 캐시된 entity가
+    // 종목을 소프트 삭제. bulk update는 영속성 컨텍스트를 갱신하지 않아 이미 캐시된 entity가
     // 스테일하게 조회될 수 있으므로 clearAutomatically로 1차 캐시를 비운다
     @Modifying(clearAutomatically = true)
-    @Query("DELETE FROM ExerciseJpaEntity e WHERE e.id = :id")
-    fun deleteExerciseById(@Param("id") id: UUID)
+    @Query("UPDATE ExerciseJpaEntity e SET e.deleted = true WHERE e.id = :id")
+    fun softDeleteExerciseById(@Param("id") id: UUID)
 }

@@ -37,6 +37,8 @@ class UserRepositoryAdapter(
             createdAt = user.createdAt,
             nickname = user.nickname,
             weeklyGoalSessions = user.weeklyGoalSessions,
+            plan = user.plan,
+            planExpiresAt = user.planExpiresAt,
         )
         return jpaRepository.save(entity).toDomain()
     }
@@ -55,5 +57,7 @@ class UserRepositoryAdapter(
         createdAt = createdAt,
         nickname = nickname,
         weeklyGoalSessions = weeklyGoalSessions,
+        plan = plan,
+        planExpiresAt = planExpiresAt,
     )
 }
