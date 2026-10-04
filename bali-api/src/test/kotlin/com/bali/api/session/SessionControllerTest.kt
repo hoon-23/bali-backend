@@ -220,6 +220,41 @@ class SessionControllerTest {
         org.junit.jupiter.api.Assertions.assertEquals(200, third.get("after").get("totalXp").asInt())
     }
 
+    // 완료 해제(completed=false만 전송): actual 값과 setTimings는 그대로 유지되고, 다시 completed=true로 PATCH하면 갱신된다. 세션이 COMPLETED여도 허용된다
+    @Test
+    fun `로그 PATCH에 completed false만 보내면 완료만 해제되고 actual 값과 setTimings는 유지되며 다시 완료할 수 있다`() {
+        val (token, _) = issueTokenForNewUser()
+        val exerciseId = savedStrengthExerciseId()
+        val (sessionId, logId) = createSessionWithLog(token, exerciseId)
+        val url = "/api/v1/sessions/$sessionId/logs/$logId"
+        val timings = """[{"setIndex":0,"startedAt":"2026-10-04T01:00:00Z","endedAt":"2026-10-04T01:01:00Z"}]"""
+
+        mockMvc.perform(patch(url).header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON)
+            .content("""{"completed":true,"actualSets":3,"actualReps":10,"actualWeight":60.0,"setTimings":$timings}"""))
+            .andExpect(status().isOk).andExpect(jsonPath("$.completed").value(true))
+
+        mockMvc.perform(patch(url).header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON).content("""{"completed":false}"""))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.completed").value(false))
+            .andExpect(jsonPath("$.actualSets").value(3))
+            .andExpect(jsonPath("$.actualReps").value(10))
+            .andExpect(jsonPath("$.actualWeight").value(60.0))
+            .andExpect(jsonPath("$.setTimings.length()").value(1))
+
+        mockMvc.perform(patch(url).header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON)
+            .content("""{"completed":true,"actualSets":4,"actualReps":8,"actualWeight":65.0}"""))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.completed").value(true))
+            .andExpect(jsonPath("$.actualSets").value(4))
+            .andExpect(jsonPath("$.setTimings.length()").value(1))
+
+        // 세션이 COMPLETED가 된 뒤에도 같은 PATCH가 허용된다
+        mockMvc.perform(patch("/api/v1/sessions/$sessionId").header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON).content("""{"status":"COMPLETED"}"""))
+            .andExpect(status().isOk)
+        mockMvc.perform(patch(url).header("Authorization", "Bearer $token").contentType(MediaType.APPLICATION_JSON).content("""{"completed":false}"""))
+            .andExpect(status().isOk).andExpect(jsonPath("$.completed").value(false))
+    }
+
     // 부분 수행: 완료 체크 없이 기록만 남기고 COMPLETED로 종료하면 50 XP(partial=true), 연속 보너스 없음. 시작일(2026-10-03) 이전 날짜는 소급하지 않아 0 XP
     @Test
     fun `완료 체크 없이 기록된 세트가 2개 이상이면 COMPLETED 시 50 XP 부분 수행이고 시작일 이전은 0 XP이다`() {
