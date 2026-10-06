@@ -84,6 +84,18 @@ class WeeklyStatsCalculatorTest : StringSpec({
         summary.cardioTotalMinutes shouldBe 30
     }
 
+    "유산소 종목별 수행 시간은 초 단위로 종목별 합산되고 미완료 로그는 제외된다" {
+        val logs = listOf(
+            cardioLog(runningId, completed = true, durationSeconds = 1800),
+            cardioLog(runningId, completed = true, durationSeconds = 600),
+            cardioLog(runningId, completed = false, durationSeconds = 900),
+        )
+
+        val summary = calculateOneSession(logs)
+
+        summary.cardioSecondsByExercise shouldBe mapOf(runningId to 2400)
+    }
+
     "totalWorkoutMinutes는 완료된 STRENGTH 로그 수*12 + cardioTotalMinutes다" {
         val logs = listOf(
             strengthLog(benchPressId, completed = true), strengthLog(squatId, completed = true),

@@ -51,6 +51,9 @@ object PeriodStatsCalculator {
             .groupBy { exercisesById.getValue(it.exerciseId).muscleGroup }
             .mapValues { (_, groupLogs) -> groupLogs.fold(BigDecimal.ZERO) { acc, log -> acc + volumeOf(log) } }
 
+        val cardioSecondsByExercise = cardioLogs
+            .groupBy { it.exerciseId }
+            .mapValues { (_, exerciseLogs) -> exerciseLogs.sumOf { it.actualDurationSeconds ?: 0 } }
         val cardioTotalMinutes = cardioLogs.sumOf { it.actualDurationSeconds ?: 0 } / 60
         val totalWorkoutMinutes = strengthLogs.size * MINUTES_PER_STRENGTH_EXERCISE + cardioTotalMinutes
 
@@ -96,6 +99,7 @@ object PeriodStatsCalculator {
             previousSessionCount = previousSessionCount,
             weightedSessionCount = weightedSessionCount,
             bodyweightSessionCount = bodyweightSessionCount,
+            cardioSecondsByExercise = cardioSecondsByExercise,
         )
     }
 
