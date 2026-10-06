@@ -25,4 +25,6 @@ data class AnalysisSummary(
     val weightedSessionCount: Int? = null,
     // 맨몸 반복수가 0보다 큰 세션 수 (세션당 맨몸 반복수의 분모)
     val bodyweightSessionCount: Int? = null,
+    // 유산소 종목별 총 수행 시간(초). 구버전 요약은 빈 맵
+    val cardioSecondsByExercise: Map<UUID, Int> = emptyMap(),
 )

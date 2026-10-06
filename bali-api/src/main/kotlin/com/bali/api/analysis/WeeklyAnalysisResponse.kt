@@ -42,6 +42,8 @@ data class AnalysisSummaryResponse(
     val previousSessionCount: Int?,
     val weightedSessionCount: Int?,
     val bodyweightSessionCount: Int?,
+    // 유산소 종목별 총 수행 시간(초). 구버전 요약은 빈 맵
+    val cardioSecondsByExercise: Map<UUID, Int>,
 ) {
     companion object {
         // AnalysisSummary 도메인 모델을 AnalysisSummaryResponse로 변환
@@ -59,6 +61,7 @@ data class AnalysisSummaryResponse(
             previousSessionCount = summary.previousSessionCount,
             weightedSessionCount = summary.weightedSessionCount,
             bodyweightSessionCount = summary.bodyweightSessionCount,
+            cardioSecondsByExercise = summary.cardioSecondsByExercise,
         )
     }
 }
