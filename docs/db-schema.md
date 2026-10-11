@@ -1,9 +1,10 @@
 # DB 스키마 (ERD)
 
-Flyway 마이그레이션(V1~V22) 기준 전체 13개 테이블. GitHub에서 mermaid 블록이 자동 렌더링된다.
+Flyway 마이그레이션(V1~V29) 기준 전체 13개 테이블. GitHub에서 mermaid 블록이 자동 렌더링된다.
 
 - **실선** — DB에 실제 `FOREIGN KEY` 제약이 있는 관계
-- **점선** — 코드에서만 참조하고 DB 제약은 없는 관계 (대부분의 `user_id`/`exercise_id` 참조가 여기 해당 — 2026-09-24, `exercises`에서 PERSONAL 종목을 직접 삭제했을 때 `session_logs`/`template_items`에 고아 `exercise_id` 참조가 남은 게 이 구조 때문)
+- **점선** — 코드에서만 참조하고 DB 제약은 없는 관계 (`user_id`/`owner_id` 참조가 여기 해당)
+- `exercise_id`는 V23(2026-09-24)에서 `ON DELETE RESTRICT` FK로 바뀌었다. PERSONAL 종목을 직접 삭제했을 때 `session_logs`/`template_items`에 고아 참조가 남은 사고 때문이다. 이후 V29에서 개인 종목 삭제 자체를 소프트 삭제(`exercises.deleted`)로 전환했다.
 
 ```mermaid
 erDiagram
@@ -15,6 +16,8 @@ erDiagram
         varchar status
         varchar nickname
         int weekly_goal_sessions
+        varchar plan
+        timestamptz plan_expires_at
         timestamptz created_at
     }
     EXERCISES {
@@ -26,6 +29,7 @@ erDiagram
         varchar scope
         uuid owner_id FK
         varchar equipment
+        boolean deleted
     }
     TEMPLATES {
         uuid id PK
@@ -107,7 +111,10 @@ erDiagram
         uuid user_id FK
         varchar type
         uuid reference_id
+        varchar title
+        varchar body
         varchar delivery_status
+        timestamptz read_at
         timestamptz sent_at
     }
 
@@ -117,6 +124,8 @@ erDiagram
     WEEKLY_ANALYSES ||--o{ INSIGHTS : "analysis_id"
     MONTHLY_ANALYSES ||--o{ MONTHLY_INSIGHTS : "analysis_id"
     USERS ||--o{ REFRESH_TOKENS : "user_id"
+    EXERCISES ||--o{ TEMPLATE_ITEMS : "exercise_id"
+    EXERCISES ||--o{ SESSION_LOGS : "exercise_id"
 
     USERS ||..o{ EXERCISES : "owner_id"
     USERS ||..o{ TEMPLATES : "user_id"
@@ -126,8 +135,6 @@ erDiagram
     USERS ||..o{ DEVICE_TOKENS : "user_id"
     USERS ||..|| NOTIFICATION_SETTINGS : "user_id"
     USERS ||..o{ NOTIFICATION_LOG : "user_id"
-    EXERCISES ||..o{ TEMPLATE_ITEMS : "exercise_id"
-    EXERCISES ||..o{ SESSION_LOGS : "exercise_id"
 ```
 
 ## 도메인별 구성
@@ -138,4 +145,4 @@ erDiagram
 | 운동 카탈로그 | `exercises` (GLOBAL/PERSONAL) |
 | 루틴·세션 기록 | `templates`, `template_items`, `sessions`, `session_logs` |
 | 분석 | `weekly_analyses`/`insights`, `monthly_analyses`/`monthly_insights` |
-| 알림 | `device_tokens`, `notification_settings`, `notification_log` |
+| 알림 | `device_tokens`, `notification_settings`, `notification_log` (알림함 겸용) |
