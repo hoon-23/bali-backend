@@ -86,11 +86,11 @@ Airflow DAG (cron)
 세 유형 모두 대상은 `UserStatus.ACTIVE`이고 해당 `notification_settings` 토글이 켜져 있는 유저다.
 
 ### 루틴 예약 리마인더
-`sessions` 테이블에 시각 컬럼을 추가하지 않는다(프론트가 지금 붙이는 "루틴 예약"이 아직 시각까지는 안 받는 것으로 확인됨. 나중에 시각이 붙으면 재검토). 대신 하루를 오전(00~12시)/오후(12~24시) 두 구간으로 나누고, 각 구간의 절반 시점(06시, 18시 KST)에 그날 날짜로 `status=SCHEDULED`인 세션이 남아있으면 리마인더를 보낸다.
+`sessions` 테이블에 시각 컬럼을 추가하지 않는다(프론트가 지금 붙이는 "루틴 예약"이 아직 시각까지는 안 받는 것으로 확인됨. 나중에 시각이 붙으면 재검토). 대신 매일 09시(KST) 한 번, 그날 날짜로 `status=SCHEDULED`인 세션이 남아있으면 리마인더를 보낸다.
 
-- DAG: `routine_reminder`, cron `0 21,9 * * *` (UTC 기준, KST 06/18시에 해당. `docker-compose.yml`에 타임존 설정이 없어 Airflow 컨테이너는 기본 UTC로 동작함을 확인함)
+- DAG: `routine_reminder`, cron `0 0 * * *` (UTC 기준, KST 09시에 해당. `docker-compose.yml`에 타임존 설정이 없어 Airflow 컨테이너는 기본 UTC로 동작함을 확인함)
 - Runner: `RoutineReminderRunner`
-- 중복 방지: `notification_log`에 `type=ROUTINE_REMINDER AND reference_id=session.id`인 기록이 이미 있으면 스킵 (06시에 보냈으면 18시엔 안 보냄)
+- 중복 방지: `notification_log`에 `type=ROUTINE_REMINDER AND reference_id=session.id`인 기록이 이미 있으면 스킵 (재실행되거나 이후 실행이 추가돼도 같은 세션에는 한 번만 보냄)
 
 ### 운동 미실행/이탈 알림
 마지막으로 세션 로그가 완료된 시점이 7일 이상 지난 ACTIVE 유저에게 발송한다.
