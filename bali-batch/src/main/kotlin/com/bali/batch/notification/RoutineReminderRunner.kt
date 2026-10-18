@@ -14,8 +14,7 @@ import org.springframework.stereotype.Component
 import java.time.LocalDate
 import java.time.ZoneId
 
-// 하루를 오전(00~12시)/오후(12~24시) 절반 지점(06시, 18시 KST)에 실행되어, 그날 날짜로 아직 시작 안 한
-// SCHEDULED 세션이 있는 유저에게 리마인더를 보낸다. sessions 테이블에 시각 컬럼이 없어 날짜 단위로만 판정한다
+// 매일 09시 KST에 실행되어, 그날 날짜로 아직 시작 안 한 SCHEDULED 세션이 있는 유저에게 리마인더를 보낸다. sessions 테이블에 시각 컬럼이 없어 날짜 단위로만 판정한다
 @Component
 class RoutineReminderRunner(
     private val sessionRepository: WorkoutSessionRepository,

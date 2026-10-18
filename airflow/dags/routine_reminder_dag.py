@@ -3,11 +3,11 @@ from datetime import timedelta
 from airflow.sdk import DAG
 from airflow.providers.docker.operators.docker import DockerOperator
 
-# 매일 06시/18시(KST) = 21시/09시(UTC)에 bali-batch:local 컨테이너를 띄워 RoutineReminderRunner를 실행한다.
-# 오전(00~12시)/오후(12~24시) 절반 지점마다 그날 아직 시작 안 한 SCHEDULED 세션이 있으면 리마인더를 보낸다.
+# 매일 09시(KST) = 00시(UTC)에 bali-batch:local 컨테이너를 띄워 RoutineReminderRunner를 실행한다.
+# 그날 아직 시작 안 한 SCHEDULED 세션이 있으면 리마인더를 보낸다. 사용자별 시각 지정은 추후 과제.
 with DAG(
     dag_id="routine_reminder",
-    schedule="0 21,9 * * *",
+    schedule="0 0 * * *",
     start_date=None,
     catchup=False,
     default_args={
