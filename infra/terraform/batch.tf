@@ -126,7 +126,7 @@ locals {
       cron = "cron(0 0 * * ? *)"
     }
     routine-reminder = {
-      cron = "cron(0 6,18 * * ? *)"
+      cron = "cron(0 9 * * ? *)"
     }
     abandon-stale-sessions = {
       cron = "cron(5 0 * * ? *)" # 자정(KST)을 넘긴 IN_PROGRESS 세션을 ABANDONED로 확정
