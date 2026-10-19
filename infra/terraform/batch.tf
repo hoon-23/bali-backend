@@ -114,13 +114,13 @@ locals {
       cron = "cron(0 0 ? * MON *)"
     }
     weekly-summary-push = {
-      cron = "cron(10 0 ? * MON *)" # weekly 완료를 기다리는 10분 오프셋
+      cron = "cron(0 13 ? * MON *)" # weekly(00:00) 집계 완료 후 오후 1시에 발송
     }
     monthly = {
       cron = "cron(0 0 1 * ? *)"
     }
     monthly-summary-push = {
-      cron = "cron(10 0 1 * ? *)" # monthly 완료를 기다리는 10분 오프셋
+      cron = "cron(0 13 1 * ? *)" # monthly(00:00) 집계 완료 후 오후 1시에 발송
     }
     inactivity-alert = {
       cron = "cron(0 0 * * ? *)"
