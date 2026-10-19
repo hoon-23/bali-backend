@@ -74,9 +74,9 @@ EventBridge Scheduler가 `ecs:RunTask`를 호출하려면 스케줄러 자신이
 | 잡 | cron (Asia/Seoul) | 비고 |
 |---|---|---|
 | `weekly` | 매주 월요일 00:00 | 주간 분석 집계 |
-| `weekly-summary-push` | 매주 월요일 00:10 | `weekly` 완료를 기다리는 10분 오프셋 |
+| `weekly-summary-push` | 매주 월요일 13:00 | `weekly`(00:00) 집계 후 오후 1시에 발송 |
 | `monthly` | 매월 1일 00:00 | 월간 분석 집계 |
-| `monthly-summary-push` | 매월 1일 00:10 | `monthly` 완료를 기다리는 10분 오프셋 |
+| `monthly-summary-push` | 매월 1일 13:00 | `monthly`(00:00) 집계 후 오후 1시에 발송 |
 | `inactivity-alert` | 매일 00:00 | 비활성 유저 알림 |
 | `routine-reminder` | 매일 06:00, 18:00 | 루틴 리마인더 |
 
