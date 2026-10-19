@@ -25,8 +25,8 @@ class MonthlySummaryPushRunner(
 ) {
     companion object {
         private val APP_ZONE = ZoneId.of("Asia/Seoul")
-        private const val TITLE = "이번 달 운동 요약이 도착했어요"
-        private const val BODY = "이번 달 운동 기록을 확인해보세요"
+        private const val TITLE = "지난달 운동 요약이 도착했어요"
+        private const val BODY = "지난달 운동 기록을 확인해보세요"
     }
 
     private val log = LoggerFactory.getLogger(MonthlySummaryPushRunner::class.java)
