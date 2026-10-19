@@ -57,7 +57,7 @@ class InactivityAlertRunnerTest {
     ).id!!
 
     private fun completedSessionOn(userId: UUID, date: LocalDate) {
-        val log = SessionLog.create(ExerciseType.STRENGTH, persistExercise(), sortOrder = 0, targetSets = 3, targetReps = 10, targetWeight = BigDecimal("40.0")).copy(completed = true)
+        val log = SessionLog.create(ExerciseType.STRENGTH, persistExercise(), sortOrder = 0, targetSets = 3, targetReps = 10, targetWeight = BigDecimal("40.0")).copy(completed = true, actualSets = 3, actualReps = 10)
         val session = WorkoutSession(id = null, userId = userId, date = date, templateId = null, status = SessionStatus.COMPLETED, logs = listOf(log))
         sessionRepository.save(session)
     }
