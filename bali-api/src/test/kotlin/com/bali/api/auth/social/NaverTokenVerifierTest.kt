@@ -25,4 +25,11 @@ class NaverTokenVerifierTest {
         assertEquals("naver-user-1", info.providerId)
         assertEquals("naver@example.com", info.email)
     }
+
+    @Test
+    fun `네이버 별명을 SocialUserInfo nickname으로 전달한다`() {
+        val verifier = NaverTokenVerifier { NaverUserInfoResponse(id = "n1", email = null, nickname = "운동하는곰") }
+
+        assertEquals("운동하는곰", verifier.verify("t").nickname)
+    }
 }

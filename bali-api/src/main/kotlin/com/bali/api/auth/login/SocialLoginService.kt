@@ -51,12 +51,26 @@ class SocialLoginService(
                 providerId = info.providerId,
                 status = UserStatus.ACTIVE,
                 createdAt = Instant.now(),
-                nickname = NicknameGenerator.generate(id),
+                nickname = providerNickname(info.nickname) ?: NicknameGenerator.generate(id),
             )
         )
+    }
+
+    // provider가 준 별명을 앱 닉네임으로 쓸 수 있게 다듬는다. 앞뒤 공백을 제거하고 프로필 수정 규칙(최대 20자)에 맞춰
+    // 자르며, 비어 있으면 null을 돌려줘 자동 생성으로 넘긴다. 잘린 위치가 이모지 등 surrogate pair 중간이면 한 글자 더 줄인다
+    private fun providerNickname(raw: String?): String? {
+        val trimmed = raw?.trim().orEmpty()
+        if (trimmed.isEmpty()) return null
+        val cut = trimmed.take(MAX_NICKNAME_LENGTH)
+        return if (cut.last().isHighSurrogate()) cut.dropLast(1).ifEmpty { null } else cut
     }
 
     // provider가 email을 못 준 경우를 위한 내부 전용 값. 실제 이메일이 아니므로 발송 용도로 쓰면 안 됨
     private fun placeholderEmail(provider: AuthProvider, providerId: String): String =
         "$providerId@${provider.name.lowercase()}.bali.internal"
+
+    private companion object {
+        // User.updateProfile의 닉네임 최대 길이와 같은 값
+        const val MAX_NICKNAME_LENGTH = 20
+    }
 }

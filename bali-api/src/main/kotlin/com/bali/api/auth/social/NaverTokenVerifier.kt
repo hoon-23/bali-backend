@@ -11,6 +11,6 @@ class NaverTokenVerifier(
 
     override fun verify(token: String): SocialUserInfo {
         val info = client.fetchMe(token)
-        return SocialUserInfo(providerId = info.id, email = info.email)
+        return SocialUserInfo(providerId = info.id, email = info.email, nickname = info.nickname)
     }
 }

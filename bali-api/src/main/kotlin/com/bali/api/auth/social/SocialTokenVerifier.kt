@@ -13,4 +13,4 @@ interface SocialTokenVerifier {
 }
 
 // 검증된 신원 정보. email은 Apple 재로그인, 카카오 비즈 미검수 등으로 비어있을 수 있어 nullable
-data class SocialUserInfo(val providerId: String, val email: String?)
+data class SocialUserInfo(val providerId: String, val email: String?, val nickname: String? = null)
