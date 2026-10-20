@@ -65,6 +65,9 @@ resource "aws_iam_role_policy" "ecs_secrets_access" {
         aws_secretsmanager_secret.google_client_id.arn,
         aws_secretsmanager_secret.apple_bundle_id.arn,
         aws_secretsmanager_secret.kakao_client_id.arn,
+        aws_secretsmanager_secret.apple_team_id.arn,
+        aws_secretsmanager_secret.apple_key_id.arn,
+        aws_secretsmanager_secret.apple_private_key.arn,
         aws_db_instance.main.master_user_secret[0].secret_arn,
       ]
     }]
@@ -101,6 +104,9 @@ resource "aws_ecs_task_definition" "bali_api" {
       { name = "GOOGLE_CLIENT_ID", valueFrom = aws_secretsmanager_secret.google_client_id.arn },
       { name = "APPLE_BUNDLE_ID", valueFrom = aws_secretsmanager_secret.apple_bundle_id.arn },
       { name = "KAKAO_CLIENT_ID", valueFrom = aws_secretsmanager_secret.kakao_client_id.arn },
+      { name = "APPLE_TEAM_ID", valueFrom = aws_secretsmanager_secret.apple_team_id.arn },
+      { name = "APPLE_KEY_ID", valueFrom = aws_secretsmanager_secret.apple_key_id.arn },
+      { name = "APPLE_PRIVATE_KEY", valueFrom = aws_secretsmanager_secret.apple_private_key.arn },
       { name = "DB_USERNAME", valueFrom = "${aws_db_instance.main.master_user_secret[0].secret_arn}:username::" },
       { name = "DB_PASSWORD", valueFrom = "${aws_db_instance.main.master_user_secret[0].secret_arn}:password::" },
     ]
