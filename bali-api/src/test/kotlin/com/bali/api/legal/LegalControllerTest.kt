@@ -30,4 +30,22 @@ class LegalControllerTest {
         assertTrue(response.body!!.contains("개인정보처리방침"))
         assertTrue(response.body!!.contains("Swayt"))
     }
+
+    // App Store Connect 등록용: 브라우저에서 그대로 보이도록 마크다운이 HTML로 렌더링되어야 한다
+    @Test
+    fun `privacy policy html endpoint is reachable without a token and renders html`() {
+        val response = restTemplate.getForEntity(
+            "http://localhost:$port/api/v1/legal/privacy-policy.html",
+            String::class.java,
+        )
+
+        assertEquals(HttpStatus.OK, response.statusCode)
+        assertTrue(response.headers.contentType.toString().startsWith("text/html"))
+        val body = response.body!!
+        assertTrue(body.contains("<!doctype html>"))
+        assertTrue(body.contains("name=\"viewport\""))
+        assertTrue(body.contains("<h1>") || body.contains("<h2>"))
+        assertTrue(body.contains("<table>"))
+        assertTrue(body.contains("Swayt"))
+    }
 }
