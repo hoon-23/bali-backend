@@ -36,6 +36,7 @@ class AuthTokenServiceTest {
         override fun findByTokenHash(tokenHash: String): RefreshToken? =
             if (tokenHash == existing.tokenHash) existing else null
         override fun revokeIfActive(id: UUID): Boolean = false
+        override fun revokeAllByUserId(userId: UUID) {}
     }
 
     @Test
@@ -50,6 +51,37 @@ class AuthTokenServiceTest {
             expiresAt = Instant.now().plusSeconds(3600),
         )
         val refreshTokenRepository = AlwaysLosesRaceRefreshTokenRepository(existingToken)
+        val tokenIssuer = TokenIssuer(
+            JwtTokenProvider(secret = "test-secret-key-must-be-at-least-32-bytes-long!!", expirationMillis = 3600_000),
+            refreshTokenRepository,
+            refreshExpirationMillis = 2_592_000_000L,
+        )
+        val service = AuthTokenService(refreshTokenRepository, SingleUserRepository(user), tokenIssuer)
+
+        assertThrows(InvalidRefreshTokenException::class.java) { service.refresh("raw-token") }
+        assertEquals(0, refreshTokenRepository.savedTokens.size)
+    }
+
+    // 탈퇴(WITHDRAWN)한 사용자의 refresh token이 폐기되지 않고 남아 있어도 재발급은 거부되어야 한다
+    @Test
+    fun `탈퇴한 사용자의 refresh token은 재발급이 거부된다`() {
+        val userId = UUID.randomUUID()
+        val user = User(
+            id = userId, email = "gone@example.com", provider = AuthProvider.GOOGLE,
+            providerId = "google-sub-gone", status = UserStatus.WITHDRAWN, createdAt = Instant.now(),
+        )
+        val existingToken = RefreshToken(
+            id = UUID.randomUUID(), userId = userId, tokenHash = TokenIssuer.hash("raw-token"),
+            expiresAt = Instant.now().plusSeconds(3600),
+        )
+        val refreshTokenRepository = object : RefreshTokenRepository {
+            val savedTokens = mutableListOf<RefreshToken>()
+            override fun save(token: RefreshToken): RefreshToken = token.also { savedTokens += it }
+            override fun findByTokenHash(tokenHash: String): RefreshToken? =
+                if (tokenHash == existingToken.tokenHash) existingToken else null
+            override fun revokeIfActive(id: UUID): Boolean = true
+            override fun revokeAllByUserId(userId: UUID) {}
+        }
         val tokenIssuer = TokenIssuer(
             JwtTokenProvider(secret = "test-secret-key-must-be-at-least-32-bytes-long!!", expirationMillis = 3600_000),
             refreshTokenRepository,

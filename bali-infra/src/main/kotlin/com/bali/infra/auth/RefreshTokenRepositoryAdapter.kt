@@ -33,6 +33,12 @@ class RefreshTokenRepositoryAdapter(
     @Transactional
     override fun revokeIfActive(id: UUID): Boolean = jpaRepository.revokeIfActive(id) > 0
 
+    // 특정 유저의 활성 토큰을 전부 폐기 처리.
+    @Transactional
+    override fun revokeAllByUserId(userId: UUID) {
+        jpaRepository.revokeAllByUserId(userId)
+    }
+
     // JPA 엔티티를 도메인 모델로 변환.
     private fun RefreshTokenJpaEntity.toDomain() = RefreshToken(
         id = id,

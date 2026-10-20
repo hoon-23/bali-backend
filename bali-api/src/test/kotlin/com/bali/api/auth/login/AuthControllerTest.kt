@@ -50,6 +50,8 @@ class AuthControllerTest {
         }
         override fun findByTokenHash(tokenHash: String): RefreshToken? =
             store.values.find { it.tokenHash == tokenHash }
+        override fun revokeAllByUserId(userId: UUID) {}
+
         override fun revokeIfActive(id: UUID): Boolean {
             val token = store[id] ?: return false
             if (token.revoked) return false
