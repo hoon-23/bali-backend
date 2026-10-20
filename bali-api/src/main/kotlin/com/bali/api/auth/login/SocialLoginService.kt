@@ -2,6 +2,7 @@ package com.bali.api.auth.login
 
 import com.bali.api.auth.jwt.TokenIssuer
 import com.bali.api.auth.jwt.TokenPair
+import com.bali.api.auth.social.AppleAccountService
 import com.bali.api.auth.social.SocialTokenVerifier
 import com.bali.api.auth.social.SocialUserInfo
 import com.bali.core.user.AuthProvider
@@ -19,9 +20,10 @@ class SocialLoginService(
     private val verifiers: List<SocialTokenVerifier>,
     private val userRepository: UserRepository,
     private val tokenIssuer: TokenIssuer,
+    private val appleAccountService: AppleAccountService,
 ) {
     // provider 토큰을 검증해 기존/신규 유저를 확인하고 access/refresh 토큰 쌍을 발급한다
-    fun login(provider: AuthProvider, token: String, email: String?): TokenPair {
+    fun login(provider: AuthProvider, token: String, email: String?, authorizationCode: String? = null): TokenPair {
         val verifier = verifiers.first { it.provider == provider }
         val info = verifier.verify(token)
 
@@ -29,6 +31,9 @@ class SocialLoginService(
         // 같은 provider 계정으로 재로그인하면 상태 변경 없이 그대로 로그인된다(재활성화 정책은 범위 밖)
         val user = userRepository.findByProviderAndProviderId(provider, info.providerId)
             ?: createUser(provider, info, email)
+
+        // Apple은 탈퇴 시 revoke가 필요하므로 로그인 때 받은 authorizationCode를 refresh token으로 교환해 보관한다
+        if (provider == AuthProvider.APPLE) appleAccountService.storeRefreshToken(user.id!!, authorizationCode)
 
         return tokenIssuer.issue(user.id!!, user.email)
     }

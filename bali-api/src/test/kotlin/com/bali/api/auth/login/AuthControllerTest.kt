@@ -88,7 +88,7 @@ class AuthControllerTest {
             refreshTokenRepository,
             refreshExpirationMillis = 2_592_000_000L,
         )
-        val loginService = SocialLoginService(verifiers, userRepository, tokenIssuer)
+        val loginService = SocialLoginService(verifiers, userRepository, tokenIssuer, noopAppleAccountService())
         val tokenService = AuthTokenService(refreshTokenRepository, userRepository, tokenIssuer)
         return MockMvcBuilders.standaloneSetup(AuthController(loginService, tokenService))
             .setControllerAdvice(ApiExceptionHandler())

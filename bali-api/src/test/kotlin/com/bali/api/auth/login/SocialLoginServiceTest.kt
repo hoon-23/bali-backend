@@ -80,7 +80,7 @@ class SocialLoginServiceTest {
             AuthProvider.GOOGLE,
             mapOf("token-1" to SocialUserInfo(providerId = "google-sub-1", email = "a@example.com")),
         )
-        val service = SocialLoginService(listOf(verifier), userRepository, newTokenIssuer())
+        val service = SocialLoginService(listOf(verifier), userRepository, newTokenIssuer(), noopAppleAccountService())
 
         val tokens = service.login(AuthProvider.GOOGLE, "token-1", email = null)
 
@@ -97,7 +97,7 @@ class SocialLoginServiceTest {
             AuthProvider.GOOGLE,
             mapOf("token-1" to SocialUserInfo(providerId = "google-sub-2", email = "b@example.com")),
         )
-        val service = SocialLoginService(listOf(verifier), userRepository, newTokenIssuer())
+        val service = SocialLoginService(listOf(verifier), userRepository, newTokenIssuer(), noopAppleAccountService())
 
         service.login(AuthProvider.GOOGLE, "token-1", email = null)
         service.login(AuthProvider.GOOGLE, "token-1", email = null)
@@ -114,7 +114,7 @@ class SocialLoginServiceTest {
             AuthProvider.GOOGLE,
             mapOf("token-1" to SocialUserInfo(providerId = "google-sub-withdraw", email = "c@example.com")),
         )
-        val service = SocialLoginService(listOf(verifier), userRepository, newTokenIssuer())
+        val service = SocialLoginService(listOf(verifier), userRepository, newTokenIssuer(), noopAppleAccountService())
         service.login(AuthProvider.GOOGLE, "token-1", email = null)
         val original = userRepository.findByProviderAndProviderId(AuthProvider.GOOGLE, "google-sub-withdraw")!!
         userRepository.save(original.withdraw())
@@ -138,7 +138,7 @@ class SocialLoginServiceTest {
             AuthProvider.APPLE,
             mapOf("apple-token" to SocialUserInfo(providerId = "apple-sub-1", email = null)),
         )
-        val service = SocialLoginService(listOf(verifier), userRepository, newTokenIssuer())
+        val service = SocialLoginService(listOf(verifier), userRepository, newTokenIssuer(), noopAppleAccountService())
 
         service.login(AuthProvider.APPLE, "apple-token", email = "apple-user@example.com")
 
@@ -153,7 +153,7 @@ class SocialLoginServiceTest {
             AuthProvider.APPLE,
             mapOf("apple-token" to SocialUserInfo(providerId = "apple-sub-2", email = null)),
         )
-        val service = SocialLoginService(listOf(verifier), userRepository, newTokenIssuer())
+        val service = SocialLoginService(listOf(verifier), userRepository, newTokenIssuer(), noopAppleAccountService())
 
         service.login(AuthProvider.APPLE, "apple-token", email = null)
 
@@ -168,11 +168,48 @@ class SocialLoginServiceTest {
             AuthProvider.GOOGLE,
             mapOf("token-nick" to SocialUserInfo(providerId = "google-sub-nick", email = "nick@example.com")),
         )
-        val service = SocialLoginService(listOf(verifier), userRepository, newTokenIssuer())
+        val service = SocialLoginService(listOf(verifier), userRepository, newTokenIssuer(), noopAppleAccountService())
 
         service.login(AuthProvider.GOOGLE, "token-nick", email = null)
 
         val saved = userRepository.findByProviderAndProviderId(AuthProvider.GOOGLE, "google-sub-nick")
         assertTrue(saved?.nickname?.isNotBlank() == true)
+    }
+
+    // Apple 로그인에서 authorizationCode를 보내면 교환한 Apple refresh token이 로그인한 유저에게 저장된다
+    @Test
+    fun `Apple 로그인에 authorizationCode가 있으면 refresh token을 저장한다`() {
+        val userRepository = InMemoryUserRepository()
+        val verifier = FakeVerifier(AuthProvider.APPLE, mapOf("apple-token" to SocialUserInfo(providerId = "apple-sub-code", email = null)))
+        val stored = mutableMapOf<java.util.UUID, String>()
+        val appleAccountService = com.bali.api.auth.social.AppleAccountService(
+            object : com.bali.api.auth.social.AppleAuthClient {
+                override fun exchangeCode(authorizationCode: String): String? = "apple-refresh-for-$authorizationCode"
+                override fun revoke(refreshToken: String): Boolean = true
+            },
+            object : com.bali.core.auth.AppleRefreshTokenRepository {
+                override fun save(userId: java.util.UUID, refreshToken: String) { stored[userId] = refreshToken }
+                override fun findByUserId(userId: java.util.UUID): String? = stored[userId]
+                override fun deleteByUserId(userId: java.util.UUID) { stored.remove(userId) }
+            },
+        )
+        val service = SocialLoginService(listOf(verifier), userRepository, newTokenIssuer(), appleAccountService)
+
+        service.login(AuthProvider.APPLE, "apple-token", email = null, authorizationCode = "code-9")
+
+        val user = userRepository.findByProviderAndProviderId(AuthProvider.APPLE, "apple-sub-code")!!
+        assertEquals("apple-refresh-for-code-9", stored[user.id])
+    }
+
+    // authorizationCode 없이(구버전 앱) 로그인해도 정상 로그인되고 아무 것도 저장되지 않는다
+    @Test
+    fun `Apple 로그인에 authorizationCode가 없어도 로그인된다`() {
+        val userRepository = InMemoryUserRepository()
+        val verifier = FakeVerifier(AuthProvider.APPLE, mapOf("apple-token" to SocialUserInfo(providerId = "apple-sub-old", email = null)))
+        val service = SocialLoginService(listOf(verifier), userRepository, newTokenIssuer(), noopAppleAccountService())
+
+        val tokens = service.login(AuthProvider.APPLE, "apple-token", email = null)
+
+        assertNotNull(tokens.accessToken)
     }
 }
