@@ -27,13 +27,14 @@ class KakaoTokenVerifierTest {
         )
     )
 
-    private fun signedToken(subject: String? = null, email: String?): String {
+    private fun signedToken(subject: String? = null, email: String?, nickname: String? = null): String {
         val builder = JWTClaimsSet.Builder()
             .issuer("https://kauth.kakao.com")
             .audience("test-kakao-rest-api-key")
             .expirationTime(Date(System.currentTimeMillis() + 3600_000))
         if (subject != null) builder.subject(subject)
         if (email != null) builder.claim("email", email)
+        if (nickname != null) builder.claim("nickname", nickname)
         val header = JWSHeader.Builder(JWSAlgorithm.RS256).keyID(rsaKey.keyID).build()
         val signedJwt = SignedJWT(header, builder.build())
         signedJwt.sign(RSASSASigner(rsaKey))
@@ -57,6 +58,19 @@ class KakaoTokenVerifierTest {
         val info = kakaoTokenVerifier.verify(signedToken(subject = "kakao-sub-2", email = null))
         assertEquals("kakao-sub-2", info.providerId)
         assertNull(info.email)
+    }
+
+    // 카카오 콘솔의 닉네임 동의 항목 + openid scope로 로그인하면 ID 토큰에 nickname 클레임이 들어온다
+    @Test
+    fun `nickname 클레임을 SocialUserInfo nickname으로 전달한다`() {
+        val info = kakaoTokenVerifier.verify(signedToken(subject = "kakao-sub-3", email = null, nickname = "운동하는곰"))
+        assertEquals("운동하는곰", info.nickname)
+    }
+
+    @Test
+    fun `nickname 클레임이 없으면 nickname이 null이다`() {
+        val info = kakaoTokenVerifier.verify(signedToken(subject = "kakao-sub-4", email = null))
+        assertNull(info.nickname)
     }
 
     @Test

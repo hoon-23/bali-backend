@@ -11,12 +11,12 @@ fun interface NaverUserInfoClient {
 }
 
 // 네이버 응답에서 우리가 쓰는 필드만 추출한 값 객체
-data class NaverUserInfoResponse(val id: String, val email: String?)
+data class NaverUserInfoResponse(val id: String, val email: String?, val nickname: String? = null)
 
 // openapi.naver.com/v1/nid/me 응답 전체 형태의 Jackson 역직렬화 DTO
 data class NaverMeApiResponse(val response: NaverProfile?) {
     // response 안에 중첩된 실제 프로필 정보
-    data class NaverProfile(val id: String, val email: String?)
+    data class NaverProfile(val id: String, val email: String?, val nickname: String? = null)
 }
 
 // RestClient로 네이버 "내 정보 조회" API를 실제로 호출하는 구현
@@ -43,6 +43,6 @@ class RestClientNaverUserInfoClient(private val restClient: RestClient) : NaverU
         }
             ?: throw IllegalArgumentException("네이버 사용자 정보를 가져오지 못했습니다")
 
-        return NaverUserInfoResponse(id = response.id, email = response.email)
+        return NaverUserInfoResponse(id = response.id, email = response.email, nickname = response.nickname)
     }
 }

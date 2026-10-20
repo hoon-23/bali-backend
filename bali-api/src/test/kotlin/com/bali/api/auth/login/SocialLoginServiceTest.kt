@@ -176,6 +176,69 @@ class SocialLoginServiceTest {
         assertTrue(saved?.nickname?.isNotBlank() == true)
     }
 
+    // provider가 준 별명(네이버 등)이 있으면 자동 생성 대신 그 별명을 앱 닉네임으로 쓴다
+    @Test
+    fun `provider 별명이 있으면 최초 로그인 닉네임으로 사용한다`() {
+        val userRepository = InMemoryUserRepository()
+        val verifier = FakeVerifier(
+            AuthProvider.NAVER,
+            mapOf("t" to SocialUserInfo(providerId = "naver-sub-1", email = null, nickname = "  운동하는곰  ")),
+        )
+        val service = SocialLoginService(listOf(verifier), userRepository, newTokenIssuer(), noopAppleAccountService())
+
+        service.login(AuthProvider.NAVER, "t", email = null)
+
+        assertEquals("운동하는곰", userRepository.findByProviderAndProviderId(AuthProvider.NAVER, "naver-sub-1")?.nickname)
+    }
+
+    // 20자를 넘는 별명은 프로필 수정 규칙(최대 20자)에 맞춰 잘라서 쓴다
+    @Test
+    fun `provider 별명이 20자를 넘으면 20자로 자른다`() {
+        val userRepository = InMemoryUserRepository()
+        val verifier = FakeVerifier(
+            AuthProvider.NAVER,
+            mapOf("t" to SocialUserInfo(providerId = "naver-sub-2", email = null, nickname = "가".repeat(30))),
+        )
+        val service = SocialLoginService(listOf(verifier), userRepository, newTokenIssuer(), noopAppleAccountService())
+
+        service.login(AuthProvider.NAVER, "t", email = null)
+
+        assertEquals("가".repeat(20), userRepository.findByProviderAndProviderId(AuthProvider.NAVER, "naver-sub-2")?.nickname)
+    }
+
+    // 별명이 없거나 공백뿐이면 기존처럼 자동 생성한다
+    @Test
+    fun `provider 별명이 비어 있으면 닉네임을 자동 생성한다`() {
+        val userRepository = InMemoryUserRepository()
+        val verifier = FakeVerifier(
+            AuthProvider.NAVER,
+            mapOf("t" to SocialUserInfo(providerId = "naver-sub-3", email = null, nickname = "   ")),
+        )
+        val service = SocialLoginService(listOf(verifier), userRepository, newTokenIssuer(), noopAppleAccountService())
+
+        service.login(AuthProvider.NAVER, "t", email = null)
+
+        assertTrue(userRepository.findByProviderAndProviderId(AuthProvider.NAVER, "naver-sub-3")?.nickname?.isNotBlank() == true)
+    }
+
+    // 이미 가입한 사용자가 재로그인할 때는 별명이 바뀌어도 앱에서 정한 닉네임을 덮어쓰지 않는다
+    @Test
+    fun `재로그인하면 별명이 달라도 기존 닉네임을 유지한다`() {
+        val userRepository = InMemoryUserRepository()
+        var nickname = "처음별명"
+        val verifier = object : SocialTokenVerifier {
+            override val provider = AuthProvider.NAVER
+            override fun verify(token: String) = SocialUserInfo(providerId = "naver-sub-4", email = null, nickname = nickname)
+        }
+        val service = SocialLoginService(listOf(verifier), userRepository, newTokenIssuer(), noopAppleAccountService())
+
+        service.login(AuthProvider.NAVER, "t", email = null)
+        nickname = "바뀐별명"
+        service.login(AuthProvider.NAVER, "t", email = null)
+
+        assertEquals("처음별명", userRepository.findByProviderAndProviderId(AuthProvider.NAVER, "naver-sub-4")?.nickname)
+    }
+
     // Apple 로그인에서 authorizationCode를 보내면 교환한 Apple refresh token이 로그인한 유저에게 저장된다
     @Test
     fun `Apple 로그인에 authorizationCode가 있으면 refresh token을 저장한다`() {

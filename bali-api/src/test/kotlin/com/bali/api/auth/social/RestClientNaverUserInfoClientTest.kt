@@ -40,6 +40,21 @@ class RestClientNaverUserInfoClientTest {
     }
 
     @Test
+    fun `응답의 nickname을 파싱하고 없으면 null이다`() {
+        val builder = RestClient.builder()
+        val mockServer = MockRestServiceServer.bindTo(builder).build()
+        val client = RestClientNaverUserInfoClient(builder.build())
+
+        mockServer.expect(requestTo("https://openapi.naver.com/v1/nid/me"))
+            .andRespond(withSuccess("""{"resultcode": "00", "response": {"id": "n1", "nickname": "운동하는곰"}}""", MediaType.APPLICATION_JSON))
+        mockServer.expect(requestTo("https://openapi.naver.com/v1/nid/me"))
+            .andRespond(withSuccess("""{"resultcode": "00", "response": {"id": "n2"}}""", MediaType.APPLICATION_JSON))
+
+        assertEquals("운동하는곰", client.fetchMe("t").nickname)
+        assertEquals(null, client.fetchMe("t").nickname)
+    }
+
+    @Test
     fun `email이 없는 response 응답도 정상 파싱한다`() {
         val builder = RestClient.builder()
         val mockServer = MockRestServiceServer.bindTo(builder).build()
