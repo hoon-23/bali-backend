@@ -15,6 +15,9 @@ class SocialAuthConfig(
     @Value("\${bali.oauth.google.client-id}") private val googleClientId: String,
     @Value("\${bali.oauth.apple.bundle-id}") private val appleBundleId: String,
     @Value("\${bali.oauth.kakao.client-id}") private val kakaoClientId: String,
+    @Value("\${bali.oauth.apple.team-id:}") private val appleTeamId: String,
+    @Value("\${bali.oauth.apple.key-id:}") private val appleKeyId: String,
+    @Value("\${bali.oauth.apple.private-key:}") private val applePrivateKey: String,
 ) {
     // Naver User-Info API 호출과 Google/Apple/Kakao JWKS fetch가 공유하는 기본 RestClient.
     // /api/v1/auth/login은 인증 없이 호출 가능한 엔드포인트라, provider가 느리거나 응답을 안 주면
@@ -49,6 +52,20 @@ class SocialAuthConfig(
             expectedAudiences = setOf(appleBundleId),
         )
     )
+
+    // Apple 토큰 교환/revoke 클라이언트: Team ID/Key ID/.p8가 모두 설정된 환경에서만 실제 호출하고,
+    // 아니면(local/test) 아무 것도 호출하지 않는 Noop으로 대체한다
+    @Bean
+    fun appleAuthClient(socialAuthRestClient: RestClient): AppleAuthClient =
+        if (appleTeamId.isBlank() || appleKeyId.isBlank() || applePrivateKey.isBlank()) {
+            NoopAppleAuthClient()
+        } else {
+            RestClientAppleAuthClient(
+                socialAuthRestClient,
+                AppleClientSecretGenerator(appleTeamId, appleKeyId, applePrivateKey, appleBundleId),
+                appleBundleId,
+            )
+        }
 
     // 카카오 ID Token 검증기: 카카오 JWKS를 캐싱해서 서명/발급자/대상을 검증(OIDC 활성화 + scope=openid 필요)
     @Bean

@@ -1,9 +1,11 @@
 package com.bali.api.user
 
 import com.bali.api.auth.currentUserId
+import com.bali.api.auth.social.AppleAccountService
 import com.bali.core.auth.RefreshTokenRepository
 import com.bali.core.notification.DeviceTokenRepository
 import com.bali.core.session.WorkoutRecordPolicy
+import com.bali.core.user.AuthProvider
 import com.bali.core.session.WorkoutSessionRepository
 import com.bali.core.user.UserLevel
 import com.bali.core.user.UserRepository
@@ -32,6 +34,7 @@ class UserController(
     private val sessionRepository: WorkoutSessionRepository,
     private val refreshTokenRepository: RefreshTokenRepository,
     private val deviceTokenRepository: DeviceTokenRepository,
+    private val appleAccountService: AppleAccountService,
 ) {
     companion object {
         // 서버 실행 환경(JVM 기본 타임존)에 관계없이 이번 주 운동일수 계산을 한국 기준으로 고정
@@ -68,6 +71,8 @@ class UserController(
     fun withdraw(): ResponseEntity<Void> {
         val user = userRepository.findById(currentUserId())
             ?: return ResponseEntity.notFound().build()
+        // Apple 연동 revoke는 providerId가 파기되기 전에 한다 (저장된 토큰은 userId 기준이라 순서 영향은 없지만 의도를 분명히 함)
+        if (user.provider == AuthProvider.APPLE) appleAccountService.revokeOnWithdraw(user.id!!)
         // 사용자 상태를 WITHDRAWN으로 변경하고 저장
         userRepository.save(user.withdraw())
         // 탈퇴 후 토큰 갱신과 푸시 수신이 계속되지 않도록 자격 증명을 함께 정리

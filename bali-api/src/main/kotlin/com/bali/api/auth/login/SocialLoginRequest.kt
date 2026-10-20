@@ -11,4 +11,6 @@ data class SocialLoginRequest(
     val provider: AuthProvider,
     @field:NotBlank val token: String,
     @field:Email val email: String? = null,
+    // Apple 로그인 시 앱이 함께 보내는 1회용 코드. 탈퇴 시 Apple 연동 revoke에 쓰이며, 구버전 앱은 생략하므로 선택값
+    val authorizationCode: String? = null,
 )
