@@ -4,6 +4,7 @@ import com.bali.api.auth.jwt.TokenIssuer
 import com.bali.api.auth.jwt.TokenPair
 import com.bali.core.auth.RefreshTokenRepository
 import com.bali.core.user.UserRepository
+import com.bali.core.user.UserStatus
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Instant
@@ -31,6 +32,10 @@ class AuthTokenService(
         }
         val user = userRepository.findById(existing.userId)
             ?: throw InvalidRefreshTokenException("사용자를 찾을 수 없습니다")
+        // 탈퇴 시 토큰을 폐기하지만, 폐기 이전에 발급된 토큰이 남는 경우를 대비한 이중 방어
+        if (user.status == UserStatus.WITHDRAWN) {
+            throw InvalidRefreshTokenException("탈퇴한 사용자입니다")
+        }
         return tokenIssuer.issue(user.id!!, user.email)
     }
 

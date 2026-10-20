@@ -19,4 +19,10 @@ interface RefreshTokenJpaRepository : JpaRepository<RefreshTokenJpaEntity, UUID>
     @Modifying(clearAutomatically = true)
     @Query("UPDATE RefreshTokenJpaEntity t SET t.revoked = true WHERE t.id = :id AND t.revoked = false")
     fun revokeIfActive(@Param("id") id: UUID): Int
+
+    // 특정 유저의 미폐기 토큰을 한 번에 폐기한다 (회원 탈퇴용). 같은 트랜잭션의 미반영 변경(사용자 WITHDRAWN 처리)이
+    // clearAutomatically로 버려지지 않도록 실행 전에 flush한다
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("UPDATE RefreshTokenJpaEntity t SET t.revoked = true WHERE t.userId = :userId AND t.revoked = false")
+    fun revokeAllByUserId(@Param("userId") userId: UUID): Int
 }

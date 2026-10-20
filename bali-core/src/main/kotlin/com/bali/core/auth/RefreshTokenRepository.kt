@@ -13,4 +13,7 @@ interface RefreshTokenRepository {
     // 지정한 id의 토큰이 아직 활성(미폐기) 상태일 때만 원자적으로 폐기 처리하고, 실제로 폐기했으면 true를 반환한다.
     // (동시에 같은 토큰으로 재발급이 시도되는 race condition에서 단 하나만 성공하도록 보장하기 위함)
     fun revokeIfActive(id: UUID): Boolean
+
+    // 특정 유저의 활성 refresh token을 전부 폐기한다 (회원 탈퇴 시 사용)
+    fun revokeAllByUserId(userId: UUID)
 }

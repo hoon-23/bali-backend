@@ -43,6 +43,11 @@ class DeviceTokenRepositoryAdapter(
         jpaRepository.deleteByUserIdAndExpoPushToken(userId, token)
     }
 
+    @Transactional
+    override fun deleteAllByUserId(userId: UUID) {
+        jpaRepository.deleteAllByUserId(userId)
+    }
+
     private fun DeviceTokenJpaEntity.toDomain() = DeviceToken(
         id = id, userId = userId, expoPushToken = expoPushToken, platform = platform,
         createdAt = createdAt, updatedAt = updatedAt,

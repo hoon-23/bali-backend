@@ -8,4 +8,5 @@ interface DeviceTokenJpaRepository : JpaRepository<DeviceTokenJpaEntity, UUID> {
     fun findAllByUserId(userId: UUID): List<DeviceTokenJpaEntity>
     fun deleteByExpoPushToken(expoPushToken: String)
     fun deleteByUserIdAndExpoPushToken(userId: UUID, expoPushToken: String)
+    fun deleteAllByUserId(userId: UUID)
 }

@@ -1,6 +1,8 @@
 package com.bali.api.user
 
 import com.bali.api.auth.currentUserId
+import com.bali.core.auth.RefreshTokenRepository
+import com.bali.core.notification.DeviceTokenRepository
 import com.bali.core.session.WorkoutRecordPolicy
 import com.bali.core.session.WorkoutSessionRepository
 import com.bali.core.user.UserLevel
@@ -8,6 +10,7 @@ import com.bali.core.user.UserRepository
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
 import org.springframework.http.ResponseEntity
+import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PatchMapping
@@ -27,6 +30,8 @@ import java.util.UUID
 class UserController(
     private val userRepository: UserRepository,
     private val sessionRepository: WorkoutSessionRepository,
+    private val refreshTokenRepository: RefreshTokenRepository,
+    private val deviceTokenRepository: DeviceTokenRepository,
 ) {
     companion object {
         // 서버 실행 환경(JVM 기본 타임존)에 관계없이 이번 주 운동일수 계산을 한국 기준으로 고정
@@ -57,13 +62,17 @@ class UserController(
     }
 
     // 인증된 사용자의 계정을 탈퇴 처리하는 엔드포인트
-    @Operation(summary = "회원 탈퇴", description = "인증된 사용자 본인의 계정을 WITHDRAWN 상태로 변경한다")
+    @Operation(summary = "회원 탈퇴", description = "인증된 사용자 본인의 계정을 WITHDRAWN 상태로 변경하고 refresh token 폐기, 기기 푸시 토큰 삭제를 함께 수행한다")
+    @Transactional
     @DeleteMapping("/me")
     fun withdraw(): ResponseEntity<Void> {
         val user = userRepository.findById(currentUserId())
             ?: return ResponseEntity.notFound().build()
         // 사용자 상태를 WITHDRAWN으로 변경하고 저장
         userRepository.save(user.withdraw())
+        // 탈퇴 후 토큰 갱신과 푸시 수신이 계속되지 않도록 자격 증명을 함께 정리
+        refreshTokenRepository.revokeAllByUserId(user.id!!)
+        deviceTokenRepository.deleteAllByUserId(user.id!!)
         return ResponseEntity.noContent().build()
     }
 

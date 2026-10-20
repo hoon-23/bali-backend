@@ -15,4 +15,7 @@ interface DeviceTokenRepository {
 
     // 클라이언트가 명시적으로 로그아웃/앱 삭제 시 호출. 본인 소유 토큰만 삭제되도록 userId도 매칭
     fun deleteByUserIdAndToken(userId: UUID, token: String)
+
+    // 특정 유저의 토큰을 전부 삭제한다 (회원 탈퇴 시 푸시 수신 차단용)
+    fun deleteAllByUserId(userId: UUID)
 }

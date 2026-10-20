@@ -41,6 +41,12 @@ class UserControllerTest {
     @Autowired
     lateinit var exerciseRepository: com.bali.core.exercise.ExerciseRepository
 
+    @Autowired
+    lateinit var refreshTokenJpaRepository: com.bali.infra.auth.RefreshTokenJpaRepository
+
+    @Autowired
+    lateinit var deviceTokenJpaRepository: com.bali.infra.notification.DeviceTokenJpaRepository
+
     // 인증 토큰 없이 GET /api/v1/users/me 호출시 401 Unauthorized를 반환하는지 확인
     @Test
     fun `토큰 없이 GET me 호출하면 401 반환`() {
@@ -106,6 +112,46 @@ class UserControllerTest {
         org.junit.jupiter.api.Assertions.assertEquals("withdrawn-${entity.id}@bali.internal", reloaded.email)
         org.junit.jupiter.api.Assertions.assertEquals("withdrawn-${entity.id}", reloaded.providerId)
         org.junit.jupiter.api.Assertions.assertEquals("탈퇴한사용자", reloaded.nickname)
+    }
+
+    // DELETE /api/v1/users/me 호출시 본인의 refresh token은 전부 폐기되고 기기 푸시 토큰은 삭제되며, 타인의 것은 그대로인지 확인
+    @Test
+    fun `DELETE me 호출하면 refresh token이 폐기되고 기기 토큰이 삭제된다`() {
+        val entity = userJpaRepository.save(
+            com.bali.infra.user.UserJpaEntity(
+                email = "withdraw3@example.com",
+                provider = com.bali.core.user.AuthProvider.GOOGLE,
+                providerId = "sub-withdraw3",
+            )
+        )
+        val other = userJpaRepository.save(
+            com.bali.infra.user.UserJpaEntity(
+                email = "other3@example.com",
+                provider = com.bali.core.user.AuthProvider.GOOGLE,
+                providerId = "sub-other3",
+            )
+        )
+        val mine = refreshTokenJpaRepository.save(
+            com.bali.infra.auth.RefreshTokenJpaEntity(userId = entity.id, tokenHash = "hash-mine-${UUID.randomUUID()}")
+        )
+        val others = refreshTokenJpaRepository.save(
+            com.bali.infra.auth.RefreshTokenJpaEntity(userId = other.id, tokenHash = "hash-other-${UUID.randomUUID()}")
+        )
+        deviceTokenJpaRepository.save(
+            com.bali.infra.notification.DeviceTokenJpaEntity(userId = entity.id, expoPushToken = "ExponentPushToken[mine-${UUID.randomUUID()}]")
+        )
+        deviceTokenJpaRepository.save(
+            com.bali.infra.notification.DeviceTokenJpaEntity(userId = other.id, expoPushToken = "ExponentPushToken[other-${UUID.randomUUID()}]")
+        )
+        val token = jwtTokenProvider.generateToken(entity.id, entity.email)
+
+        mockMvc.perform(delete("/api/v1/users/me").header("Authorization", "Bearer $token"))
+            .andExpect(status().isNoContent)
+
+        org.junit.jupiter.api.Assertions.assertTrue(refreshTokenJpaRepository.findById(mine.id).orElseThrow().revoked)
+        org.junit.jupiter.api.Assertions.assertFalse(refreshTokenJpaRepository.findById(others.id).orElseThrow().revoked)
+        org.junit.jupiter.api.Assertions.assertTrue(deviceTokenJpaRepository.findAllByUserId(entity.id).isEmpty())
+        org.junit.jupiter.api.Assertions.assertEquals(1, deviceTokenJpaRepository.findAllByUserId(other.id).size)
     }
 
     // GET /api/v1/users/me 응답에 nickname/weeklyGoalSessions/weeklyWorkoutDays가 포함되는지 확인
