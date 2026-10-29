@@ -123,7 +123,7 @@ locals {
       cron = "cron(0 13 1 * ? *)" # monthly(00:00) 집계 완료 후 오후 1시에 발송
     }
     inactivity-alert = {
-      cron = "cron(0 0 * * ? *)"
+      cron = "cron(0 12 * * ? *)" # 새벽 발송을 피하고 09시 루틴 리마인더·13시 요약 푸시와도 겹치지 않게 정오에 발송
     }
     routine-reminder = {
       cron = "cron(0 9 * * ? *)"
