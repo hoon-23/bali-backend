@@ -9,7 +9,7 @@ import org.springframework.http.HttpStatus
 import org.springframework.test.context.ActiveProfiles
 import org.springframework.test.context.TestPropertySource
 
-// dev 프로필에서도 Swagger 문서 경로가 인증 없이 열리는지 확인. application-dev.yml은
+// dev 프로필에서는 Swagger 문서 경로가 인증 없이 열리지 않는지(401) 확인. application-dev.yml은
 // DB_URL/DB_USERNAME/DB_PASSWORD를, application.yml은 JWT_SECRET/GOOGLE_CLIENT_ID/APPLE_BUNDLE_ID/
 // KAKAO_CLIENT_ID를 fallback 없이 요구하므로, 테스트에서는 값을 직접 주입해 환경 변수 유무와
 // 무관하게 프로필 게이팅 로직만 독립적으로 검증한다.
@@ -34,8 +34,8 @@ class SwaggerDocsAccessDevProfileTest {
     private val restTemplate = TestRestTemplate()
 
     @Test
-    fun `v3 api-docs is accessible without auth on dev profile`() {
+    fun `v3 api-docs requires auth on dev profile`() {
         val response = restTemplate.getForEntity("http://localhost:$port/v3/api-docs", String::class.java)
-        assertEquals(HttpStatus.OK, response.statusCode)
+        assertEquals(HttpStatus.UNAUTHORIZED, response.statusCode)
     }
 }

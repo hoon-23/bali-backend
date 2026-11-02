@@ -3,3 +3,8 @@ spring:
     url: ${DB_URL}
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
+
+bali:
+  rate-limit:
+    # CloudFront(클라이언트 IP 추가) + ALB(CloudFront IP 추가) = 2홉. 뒤에서 2번째 X-Forwarded-For 항목이 실제 클라이언트
+    trusted-proxy-hops: 2

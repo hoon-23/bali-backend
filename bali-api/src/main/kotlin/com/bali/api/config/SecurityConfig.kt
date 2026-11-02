@@ -65,8 +65,8 @@ class SecurityConfig(
                 // 잘못 가려지는 것을 막는 방어선(1차 방어는 ApiExceptionHandler가 예외를 직접
                 // 처리해 이 재전송 자체를 피하는 것)
                 authorize("/error", permitAll)
-                // Swagger 문서는 local/dev에서만 공개, prod는 인증 필요 상태 유지
-                if (environment.activeProfiles.any { it in setOf("local", "dev") }) {
+                // Swagger 문서는 local에서만 공개. dev는 실서비스 트래픽을 받으므로 prod와 동일하게 인증 필요
+                if (environment.activeProfiles.any { it == "local" }) {
                     authorize("/swagger-ui/**", permitAll)
                     authorize("/v3/api-docs/**", permitAll)
                 }
