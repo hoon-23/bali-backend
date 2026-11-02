@@ -66,4 +66,35 @@ class RateLimitFilterTest {
             assertEquals(200, res.status)
         }
     }
+
+    @Test
+    fun `프록시 홉이 설정되면 X-Forwarded-For의 신뢰 구간 항목을 클라이언트 IP로 쓴다`() {
+        val proxied = RateLimitFilter(trustedProxyHops = 2)
+        val chain = FilterChain { _, res -> (res as MockHttpServletResponse).status = 200 }
+        // 앞쪽 "spoofed"는 위조 가능한 값, 실제 클라이언트는 뒤에서 2번째
+        fun req(client: String, spoof: String) = authRequest("10.0.0.1").apply {
+            addHeader("X-Forwarded-For", "$spoof, $client, 130.176.0.1")
+        }
+        repeat(10) { proxied.doFilter(req("7.7.7.7", "a$it"), MockHttpServletResponse(), chain) }
+
+        val blocked = MockHttpServletResponse()
+        proxied.doFilter(req("7.7.7.7", "new-spoof"), blocked, chain)
+        val otherClient = MockHttpServletResponse()
+        proxied.doFilter(req("8.8.8.8", "new-spoof"), otherClient, chain)
+
+        assertEquals(429, blocked.status)
+        assertEquals(200, otherClient.status)
+    }
+
+    @Test
+    fun `X-Forwarded-For가 없거나 모자라면 remoteAddr로 되돌린다`() {
+        val proxied = RateLimitFilter(trustedProxyHops = 2)
+        val chain = FilterChain { _, res -> (res as MockHttpServletResponse).status = 200 }
+        repeat(10) { proxied.doFilter(authRequest("3.3.3.3"), MockHttpServletResponse(), chain) }
+
+        val res = MockHttpServletResponse()
+        proxied.doFilter(authRequest("3.3.3.3"), res, chain)
+
+        assertEquals(429, res.status)
+    }
 }
