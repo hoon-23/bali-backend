@@ -6,6 +6,12 @@ resource "aws_cloudfront_distribution" "main" {
     domain_name = aws_lb.main.dns_name
     origin_id   = "alb-origin"
 
+    # ALB가 이 헤더를 검증해 CloudFront를 거치지 않은 직접 호출을 거부한다 (alb.tf 리스너 규칙)
+    custom_header {
+      name  = "X-Origin-Verify"
+      value = random_password.origin_verify.result
+    }
+
     custom_origin_config {
       http_port              = 80
       https_port             = 443
