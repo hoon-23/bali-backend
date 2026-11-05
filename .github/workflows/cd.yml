@@ -24,7 +24,12 @@ env:
   BATCH_ECR_REPOSITORY: bali-dev-bali-batch
 
 jobs:
+  # 테스트가 통과해야만 배포한다. CI 워크플로우를 그대로 호출해 같은 커밋에서 실행하므로 다른 코드가 배포될 일이 없다
+  test:
+    uses: ./.github/workflows/ci.yml
+
   deploy:
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -63,6 +68,7 @@ jobs:
   # bali-batch는 상시 서비스가 아니라 EventBridge Scheduler가 주기적으로 RunTask하는 구조라
   # 재배포 트리거가 필요 없다 — 이미지를 새로 푸시해두면 다음 스케줄 실행 때 :latest를 그대로 pull한다
   deploy-batch:
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
