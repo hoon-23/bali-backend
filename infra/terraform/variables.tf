@@ -27,3 +27,9 @@ variable "kakao_client_id" {
   type        = string
   sensitive   = true
 }
+
+variable "alert_email" {
+  description = "장애 알람(SNS)을 받을 이메일 주소"
+  type        = string
+  sensitive   = true
+}
