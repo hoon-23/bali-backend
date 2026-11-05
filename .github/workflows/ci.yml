@@ -1,10 +1,12 @@
 name: CI
 
 on:
+  # develop push의 테스트는 CD가 이 워크플로우를 호출해 실행한다(중복 실행 방지). main push와 PR은 직접 실행한다
   push:
-    branches: [develop, main]
+    branches: [main]
   pull_request:
     branches: [develop, main]
+  workflow_call:
 
 jobs:
   test:
