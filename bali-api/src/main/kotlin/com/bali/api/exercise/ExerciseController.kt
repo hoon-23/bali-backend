@@ -7,6 +7,7 @@ import com.bali.core.exercise.Exercise
 import com.bali.core.exercise.ExerciseRepository
 import com.bali.core.exercise.ExerciseScope
 import com.bali.core.exercise.MuscleGroup
+import com.bali.core.session.WorkoutSessionRepository
 import com.bali.core.template.WorkoutTemplateRepository
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
@@ -32,6 +33,7 @@ import java.util.UUID
 class ExerciseController(
     private val exerciseRepository: ExerciseRepository,
     private val templateRepository: WorkoutTemplateRepository,
+    private val sessionRepository: WorkoutSessionRepository,
     private val planGuard: PlanGuard,
 ) {
 
@@ -54,6 +56,15 @@ class ExerciseController(
     @GetMapping("/suggest")
     fun suggest(@RequestParam q: String): List<ExerciseResponse> =
         exerciseRepository.suggest(q, currentUserId(), limit = 10).map { ExerciseResponse.from(it) }
+
+    // 종목별 마지막 수행 기록 조회 (루틴에 종목 추가 시 기본값 채움용). 본인 기록만, 기록 없는 종목은 응답에서 빠진다
+    @Operation(summary = "종목별 마지막 수행 기록 조회", description = "ids(쉼표 구분, 최대 100개)로 받은 종목별로 본인이 마지막으로 실제 수행한 세트/횟수/무게(유산소는 시간)를 반환한다. 기록이 없는 종목은 배열에서 빠지고, ids가 비면 빈 배열")
+    @GetMapping("/last-records")
+    fun lastRecords(@RequestParam(required = false) ids: List<UUID>?): List<ExerciseLastRecordResponse> {
+        val exerciseIds = ids.orEmpty().distinct()
+        require(exerciseIds.size <= MAX_LAST_RECORD_IDS) { "ids는 최대 ${MAX_LAST_RECORD_IDS}개까지 가능" }
+        return sessionRepository.findLastRecordsByExerciseIds(currentUserId(), exerciseIds).map { ExerciseLastRecordResponse.from(it) }
+    }
 
     // 개인 종목 등록 (scope=PERSONAL 자동, ownerId는 인증 컨텍스트에서)
     @Operation(summary = "개인 종목 등록", description = "scope=PERSONAL로 자동 등록되며 ownerId는 인증 컨텍스트에서 채워진다")
@@ -108,5 +119,10 @@ class ExerciseController(
     private fun findOwnedPersonalOrNull(id: UUID): Exercise? {
         val exercise = exerciseRepository.findById(id) ?: return null
         return if (!exercise.deleted && exercise.scope == ExerciseScope.PERSONAL && exercise.ownerId == currentUserId()) exercise else null
+    }
+
+    private companion object {
+        // 한 번에 조회할 수 있는 종목 수 상한 (IN 절 크기 제한)
+        const val MAX_LAST_RECORD_IDS = 100
     }
 }

@@ -1,5 +1,6 @@
 package com.bali.infra.session
 
+import com.bali.core.session.ExerciseLastRecord
 import com.bali.core.session.SessionLog
 import com.bali.core.session.SessionStatus
 import com.bali.core.session.SetTiming
@@ -169,6 +170,14 @@ class WorkoutSessionRepositoryAdapter(
             .fold(null as BigDecimal?) { acc, log -> acc ?: log.actualWeight }
             .filterValues { it != null }
             .mapValues { it.value!! }
+    }
+
+    // 종목별 가장 최근 수행 로그 1건씩을 골라 기록값으로 변환 (조회 결과가 최신순이라 종목별 첫 로그가 마지막 기록)
+    override fun findLastRecordsByExerciseIds(userId: UUID, exerciseIds: Collection<UUID>): List<ExerciseLastRecord> {
+        if (exerciseIds.isEmpty()) return emptyList()
+        return sessionJpaRepository.findRecentPerformedLogs(userId, exerciseIds)
+            .distinctBy { it.exerciseId }
+            .map { ExerciseLastRecord(it.exerciseId, it.actualSets, it.actualReps, it.actualWeight, it.actualDurationSeconds) }
     }
 
     // 세션의 status만 갱신

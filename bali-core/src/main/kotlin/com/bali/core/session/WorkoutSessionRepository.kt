@@ -83,4 +83,7 @@ interface WorkoutSessionRepository {
 
     // 종목별 마지막으로 기록된 actualWeight (exerciseId -> weight). 무게 입력 시 자동 채움용
     fun findLastActualWeightsByExerciseIds(userId: UUID, exerciseIds: Collection<UUID>): Map<UUID, BigDecimal>
+
+    // 종목별 마지막으로 실제 수행한 기록 (미수행 로그 제외, 기록이 없는 종목은 결과에서 빠진다)
+    fun findLastRecordsByExerciseIds(userId: UUID, exerciseIds: Collection<UUID>): List<ExerciseLastRecord>
 }
