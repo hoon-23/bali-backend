@@ -21,6 +21,7 @@ services:
   postgres:
     image: postgres:16
     container_name: bali-postgres
+    restart: always
     environment:
       POSTGRES_DB: bali
       POSTGRES_USER: bali
@@ -50,12 +51,10 @@ services:
   airflow-dag-processor:
     <<: *airflow-common
     command: dag-processor
-    restart: always
 
   airflow-scheduler:
     <<: *airflow-common
     command: scheduler
-    restart: always
     volumes:
       - ./airflow/dags:/opt/airflow/dags
       - ./airflow/simple_auth_manager_passwords.json:/opt/airflow/simple_auth_manager_passwords.json.generated
@@ -64,7 +63,6 @@ services:
   airflow-api-server:
     <<: *airflow-common
     command: api-server
-    restart: always
     ports:
       - "8181:8080"
 
