@@ -396,4 +396,61 @@ class WorkoutSessionRepositoryAdapterTest {
         assertEquals(3, preserved.actualSets)
         assertEquals(0, adapter.abandonInProgressBefore(today))
     }
+
+    // 같은 종목을 여러 번 했으면 가장 최근 세션의 수행값이 나오는지 확인
+    @Test
+    fun `findLastRecordsByExerciseIds는 종목별 가장 최근 세션의 수행 기록을 반환한다`() {
+        val userId = UUID.randomUUID()
+        val exerciseId = persistExercise()
+        val oldLog = completedLog(exerciseId).copy(actualSets = 3, actualReps = 10, actualWeight = BigDecimal("40.0"))
+        val recentLog = completedLog(exerciseId).copy(actualSets = 4, actualReps = 8, actualWeight = BigDecimal("50.0"))
+        adapter.save(WorkoutSession(id = null, userId = userId, date = LocalDate.now().minusDays(10), templateId = null, status = SessionStatus.COMPLETED, logs = listOf(oldLog)))
+        adapter.save(WorkoutSession(id = null, userId = userId, date = LocalDate.now().minusDays(2), templateId = null, status = SessionStatus.COMPLETED, logs = listOf(recentLog)))
+
+        val record = adapter.findLastRecordsByExerciseIds(userId, listOf(exerciseId)).single()
+
+        assertEquals(exerciseId, record.exerciseId)
+        assertEquals(4, record.sets)
+        assertEquals(8, record.reps)
+        assertEquals(BigDecimal("50.0"), record.weight)
+        assertEquals(null, record.durationSeconds)
+    }
+
+    // 더 최근 세션이라도 미수행(actualSets null/0) 로그는 건너뛰고, 다른 유저 기록은 섞이지 않는지 확인
+    @Test
+    fun `findLastRecordsByExerciseIds는 미수행 로그와 다른 유저 기록은 제외한다`() {
+        val userId = UUID.randomUUID()
+        val otherUserId = UUID.randomUUID()
+        val performedId = persistExercise()
+        val neverPerformedId = persistExercise()
+        adapter.save(WorkoutSession(id = null, userId = userId, date = LocalDate.now().minusDays(5), templateId = null, status = SessionStatus.COMPLETED, logs = listOf(completedLog(performedId))))
+        adapter.save(WorkoutSession(id = null, userId = userId, date = LocalDate.now().minusDays(1), templateId = null, status = SessionStatus.COMPLETED, logs = listOf(log(performedId).copy(actualSets = 0), log(neverPerformedId))))
+        adapter.save(WorkoutSession(id = null, userId = otherUserId, date = LocalDate.now(), templateId = null, status = SessionStatus.COMPLETED, logs = listOf(completedLog(neverPerformedId))))
+
+        val result = adapter.findLastRecordsByExerciseIds(userId, listOf(performedId, neverPerformedId))
+
+        assertEquals(listOf(performedId), result.map { it.exerciseId })
+        assertEquals(3, result.single().sets)
+    }
+
+    // 유산소 로그는 수행 시간만 채워져 나오는지 확인
+    @Test
+    fun `findLastRecordsByExerciseIds는 유산소 종목이면 수행 시간만 반환한다`() {
+        val userId = UUID.randomUUID()
+        val exerciseId = persistExercise()
+        val cardioLog = SessionLog.create(exerciseType = ExerciseType.CARDIO, exerciseId = exerciseId, sortOrder = 0, targetDurationSeconds = 1200)
+            .copy(completed = true, actualDurationSeconds = 1500)
+        adapter.save(WorkoutSession(id = null, userId = userId, date = LocalDate.now(), templateId = null, status = SessionStatus.COMPLETED, logs = listOf(cardioLog)))
+
+        val record = adapter.findLastRecordsByExerciseIds(userId, listOf(exerciseId)).single()
+
+        assertEquals(1500, record.durationSeconds)
+        assertEquals(null, record.sets)
+        assertEquals(null, record.weight)
+    }
+
+    @Test
+    fun `findLastRecordsByExerciseIds는 exerciseIds가 비어있으면 빈 목록을 반환한다`() {
+        assertTrue(adapter.findLastRecordsByExerciseIds(UUID.randomUUID(), emptyList()).isEmpty())
+    }
 }

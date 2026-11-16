@@ -132,6 +132,20 @@ interface WorkoutSessionJpaRepository : JpaRepository<WorkoutSessionJpaEntity, U
         @Param("userId") userId: UUID,
         @Param("exerciseIds") exerciseIds: Collection<UUID>,
     ): List<SessionLogJpaEntity>
+
+    // 종목별 실제 수행 기록이 있는 로그를 최신 세션 순으로 조회 (세트 수 또는 수행 시간이 0보다 큰 로그만)
+    @Query("""
+        SELECT l FROM WorkoutSessionJpaEntity s
+        JOIN SessionLogJpaEntity l ON l.sessionId = s.id
+        WHERE s.userId = :userId AND l.exerciseId IN :exerciseIds
+          AND (l.actualSets > 0 OR l.actualDurationSeconds > 0)
+        ORDER BY s.date DESC, l.id DESC
+    """)
+    fun findRecentPerformedLogs(
+        @Param("userId") userId: UUID,
+        @Param("exerciseIds") exerciseIds: Collection<UUID>,
+    ): List<SessionLogJpaEntity>
+
     // from 상태이면서 date가 기준 날짜보다 이전인 세션의 status를 to로 일괄 변경
     @Modifying(clearAutomatically = true)
     @Query("UPDATE WorkoutSessionJpaEntity s SET s.status = :to WHERE s.status = :from AND s.date < :date")

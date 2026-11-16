@@ -350,4 +350,55 @@ class ExerciseControllerTest {
         mockMvc.perform(delete("/api/v1/exercises/$globalId").header("Authorization", "Bearer $token"))
             .andExpect(status().isNotFound)
     }
+
+    // 기록이 있는 종목만 마지막 수행값과 함께 내려오고, 기록 없는 종목은 배열에서 빠지는지 확인
+    @Test
+    fun `GET exercises last-records 호출시 기록 있는 종목의 마지막 수행값만 반환한다`() {
+        val token = issueTokenForNewUser()
+        val recordedId = createPersonalExercise(token, "기록조회종목")
+        val unrecordedId = createPersonalExercise(token, "기록없는종목")
+        val userId = jwtTokenProvider.validateAndGetUserId(token)!!
+        sessionRepository.save(
+            WorkoutSession(
+                id = null, userId = userId, date = java.time.LocalDate.now(), templateId = null, status = SessionStatus.COMPLETED,
+                logs = listOf(
+                    SessionLog.create(exerciseType = ExerciseType.STRENGTH, exerciseId = java.util.UUID.fromString(recordedId), sortOrder = 0)
+                        .copy(completed = true, actualSets = 3, actualReps = 12, actualWeight = BigDecimal("42.5")),
+                ),
+            )
+        )
+
+        mockMvc.perform(get("/api/v1/exercises/last-records?ids=$recordedId,$unrecordedId").header("Authorization", "Bearer $token"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.length()").value(1))
+            .andExpect(jsonPath("$[0].exerciseId").value(recordedId))
+            .andExpect(jsonPath("$[0].sets").value(3))
+            .andExpect(jsonPath("$[0].reps").value(12))
+            .andExpect(jsonPath("$[0].weight").value(42.5))
+            .andExpect(jsonPath("$[0].durationSeconds").doesNotExist())
+    }
+
+    // ids가 없으면 빈 배열, 다른 유저의 기록은 보이지 않는지 확인
+    @Test
+    fun `GET exercises last-records 호출시 ids가 없으면 빈 배열이고 다른 유저 기록은 보이지 않는다`() {
+        val ownerToken = issueTokenForNewUser()
+        val exerciseId = createPersonalExercise(ownerToken, "남의기록종목")
+        sessionRepository.save(
+            WorkoutSession(
+                id = null, userId = jwtTokenProvider.validateAndGetUserId(ownerToken)!!, date = java.time.LocalDate.now(), templateId = null, status = SessionStatus.COMPLETED,
+                logs = listOf(
+                    SessionLog.create(exerciseType = ExerciseType.STRENGTH, exerciseId = java.util.UUID.fromString(exerciseId), sortOrder = 0)
+                        .copy(completed = true, actualSets = 3, actualReps = 10, actualWeight = BigDecimal("30.0")),
+                ),
+            )
+        )
+        val otherToken = issueTokenForNewUser()
+
+        mockMvc.perform(get("/api/v1/exercises/last-records").header("Authorization", "Bearer $otherToken"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.length()").value(0))
+        mockMvc.perform(get("/api/v1/exercises/last-records?ids=$exerciseId").header("Authorization", "Bearer $otherToken"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.length()").value(0))
+    }
 }
