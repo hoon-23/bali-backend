@@ -14,6 +14,7 @@ import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Repository
 import org.springframework.transaction.annotation.Transactional
 import java.math.BigDecimal
+import java.time.Instant
 import java.time.LocalDate
 import java.util.UUID
 
@@ -48,15 +49,20 @@ class WorkoutSessionRepositoryAdapter(
         return sessions.map { it.toDomain(logsBySessionId[it.id] ?: emptyList()) }
     }
 
-    // 커서 이전 세션 목록을 date DESC, id DESC 순으로 최대 limit개, logs와 함께 조회 (무한스크롤용)
+    // 커서 이전 세션 목록을 date DESC, 완료(없으면 생성) 시각 DESC, id DESC 순으로 최대 limit개, logs와 함께 조회 (무한스크롤용)
     @Transactional
     override fun findPageByUserId(
         userId: UUID,
         from: LocalDate?, to: LocalDate?,
-        cursorDate: LocalDate?, cursorId: UUID?,
+        cursorDate: LocalDate?, cursorSortTime: Instant?, cursorId: UUID?,
         limit: Int,
     ): List<WorkoutSession> {
-        val sessions = sessionJpaRepository.findPageByUserId(userId, from, to, cursorDate, cursorId, PageRequest.of(0, limit))
+        // 구버전 커서(sortTime 없음)는 가리키는 세션의 현재 정렬 시각으로 보완하고, 그 세션이 이미 없으면 같은 date 전체를 건너뛰도록 EPOCH를 쓴다.
+        // cursorDate가 null이면 쿼리가 커서 조건을 무시하므로 EPOCH는 바인딩용 더미다
+        val sortTime = cursorSortTime
+            ?: cursorId?.let { sessionJpaRepository.findById(it).orElse(null) }?.let { it.completedAt ?: it.createdAt }
+            ?: Instant.EPOCH
+        val sessions = sessionJpaRepository.findPageByUserId(userId, from, to, cursorDate, sortTime, cursorId, PageRequest.of(0, limit))
         val logsBySessionId = logJpaRepository.findBySessionIdInOrderBySortOrderAsc(sessions.map { it.id }).groupBy { it.sessionId }
         return sessions.map { it.toDomain(logsBySessionId[it.id] ?: emptyList()) }
     }
@@ -65,11 +71,15 @@ class WorkoutSessionRepositoryAdapter(
     @Transactional
     override fun save(session: WorkoutSession): WorkoutSession {
         val sessionId = session.id ?: UUID.randomUUID()
+        val now = Instant.now()
         sessionJpaRepository.save(
             WorkoutSessionJpaEntity(
                 id = sessionId, userId = session.userId, date = session.date,
                 templateId = session.templateId, status = session.status,
                 perceivedDifficulty = session.perceivedDifficulty,
+                createdAt = session.createdAt ?: now,
+                // 이미 COMPLETED인 상태로 저장되는 경우(이관/테스트 등)에도 완료 시각이 비지 않게 한다
+                completedAt = session.completedAt ?: now.takeIf { session.status == SessionStatus.COMPLETED },
             )
         )
         val savedLogs = session.logs.map { logJpaRepository.save(it.toEntity(sessionId)) }
@@ -184,6 +194,9 @@ class WorkoutSessionRepositoryAdapter(
     @Transactional
     override fun updateStatus(sessionId: UUID, status: SessionStatus): WorkoutSession? {
         val entity = sessionJpaRepository.findById(sessionId).orElse(null) ?: return null
+        // COMPLETED로 새로 전이될 때만 완료 시각을 기록하고, COMPLETED에서 벗어나면 지운다
+        if (status == SessionStatus.COMPLETED && entity.status != SessionStatus.COMPLETED) entity.completedAt = Instant.now()
+        else if (status != SessionStatus.COMPLETED) entity.completedAt = null
         entity.status = status
         val saved = sessionJpaRepository.save(entity)
         return saved.toDomain(logJpaRepository.findBySessionIdOrderBySortOrderAsc(sessionId))
@@ -210,7 +223,7 @@ class WorkoutSessionRepositoryAdapter(
     // JPA 엔티티(+logs)를 도메인 모델로 변환
     private fun WorkoutSessionJpaEntity.toDomain(logs: List<SessionLogJpaEntity>) = WorkoutSession(
         id = id, userId = userId, date = date, templateId = templateId, status = status, logs = logs.map { it.toDomain() },
-        perceivedDifficulty = perceivedDifficulty,
+        perceivedDifficulty = perceivedDifficulty, createdAt = createdAt, completedAt = completedAt,
     )
 
     // SessionLog 도메인 모델을 JPA 엔티티로 변환

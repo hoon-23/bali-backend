@@ -9,6 +9,8 @@ import com.bali.infra.InfraTestConfig
 import com.bali.infra.exercise.ExerciseJpaEntity
 import com.bali.infra.exercise.ExerciseJpaRepository
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -94,11 +96,11 @@ class WorkoutSessionRepositoryAdapterTest {
     fun `findPageByUserId는 date DESC 순으로 limit개만 반환하고, 같은 date는 id DESC로 tie-break한다`() {
         val userId = UUID.randomUUID()
         val oldest = adapter.save(WorkoutSession(id = null, userId = userId, date = LocalDate.of(2026, 8, 1), templateId = null, status = SessionStatus.SCHEDULED, logs = emptyList()))
-        val sameDateA = adapter.save(WorkoutSession(id = null, userId = userId, date = LocalDate.of(2026, 8, 3), templateId = null, status = SessionStatus.SCHEDULED, logs = emptyList()))
-        val sameDateB = adapter.save(WorkoutSession(id = null, userId = userId, date = LocalDate.of(2026, 8, 3), templateId = null, status = SessionStatus.SCHEDULED, logs = emptyList()))
-        val expectedOrder = listOf(sameDateA, sameDateB).sortedByDescending { it.id.toString() }.map { it.id }
+        val sameDateA = adapter.save(WorkoutSession(id = null, userId = userId, date = LocalDate.of(2026, 8, 3), templateId = null, status = SessionStatus.SCHEDULED, logs = emptyList(), createdAt = Instant.parse("2026-08-03T09:00:00Z")))
+        val sameDateB = adapter.save(WorkoutSession(id = null, userId = userId, date = LocalDate.of(2026, 8, 3), templateId = null, status = SessionStatus.SCHEDULED, logs = emptyList(), createdAt = Instant.parse("2026-08-03T10:00:00Z")))
+        val expectedOrder = listOf(sameDateB.id, sameDateA.id) // 같은 date는 나중에 만든 세션이 먼저
 
-        val page = adapter.findPageByUserId(userId, from = null, to = null, cursorDate = null, cursorId = null, limit = 2)
+        val page = adapter.findPageByUserId(userId, from = null, to = null, cursorDate = null, cursorSortTime = null, cursorId = null, limit = 2)
 
         assertEquals(expectedOrder, page.map { it.id })
         assertTrue(page.none { it.id == oldest.id })
@@ -112,9 +114,51 @@ class WorkoutSessionRepositoryAdapterTest {
         val third = adapter.save(WorkoutSession(id = null, userId = userId, date = LocalDate.of(2026, 8, 3), templateId = null, status = SessionStatus.SCHEDULED, logs = emptyList()))
 
         // 커서를 third 자신의 (date, id)로 지정: id < 자기 자신은 항상 false이므로 third는 결정적으로 제외된다
-        val nextPage = adapter.findPageByUserId(userId, from = null, to = null, cursorDate = third.date, cursorId = third.id!!, limit = 10)
+        val nextPage = adapter.findPageByUserId(userId, from = null, to = null, cursorDate = third.date, cursorSortTime = third.completedAt ?: third.createdAt, cursorId = third.id!!, limit = 10)
 
         assertEquals(setOf(first.id, second.id), nextPage.map { it.id }.toSet())
+    }
+
+    @Test
+    fun `같은 date에서는 완료 시각이 늦은 세션이 먼저 나오고 완료 전 세션은 생성 시각으로 비교한다`() {
+        val userId = UUID.randomUUID()
+        val date = LocalDate.of(2026, 11, 18)
+        fun save(created: String, completed: String?) = adapter.save(WorkoutSession(
+            id = null, userId = userId, date = date, templateId = null,
+            status = if (completed != null) SessionStatus.COMPLETED else SessionStatus.SCHEDULED, logs = emptyList(),
+            createdAt = Instant.parse(created), completedAt = completed?.let { Instant.parse(it) },
+        ))
+        val earlyDone = save("2026-11-18T01:00:00Z", "2026-11-18T02:00:00Z")
+        val lateDone = save("2026-11-18T00:30:00Z", "2026-11-18T05:00:00Z")
+        val scheduled = save("2026-11-18T03:00:00Z", null)
+
+        val page = adapter.findPageByUserId(userId, null, null, null, null, null, limit = 10)
+
+        assertEquals(listOf(lateDone.id, scheduled.id, earlyDone.id), page.map { it.id })
+    }
+
+    @Test
+    fun `구버전 커서(sortTime 없음)는 가리키는 세션의 정렬 시각으로 보완해 이어서 조회한다`() {
+        val userId = UUID.randomUUID()
+        val date = LocalDate.of(2026, 11, 18)
+        val older = adapter.save(WorkoutSession(id = null, userId = userId, date = date, templateId = null, status = SessionStatus.SCHEDULED, logs = emptyList(), createdAt = Instant.parse("2026-11-18T01:00:00Z")))
+        val newer = adapter.save(WorkoutSession(id = null, userId = userId, date = date, templateId = null, status = SessionStatus.SCHEDULED, logs = emptyList(), createdAt = Instant.parse("2026-11-18T02:00:00Z")))
+
+        val page = adapter.findPageByUserId(userId, null, null, date, null, newer.id!!, limit = 10)
+
+        assertEquals(listOf(older.id), page.map { it.id })
+    }
+
+    @Test
+    fun `updateStatus는 COMPLETED로 전이할 때만 completedAt을 기록한다`() {
+        val saved = adapter.save(WorkoutSession(id = null, userId = UUID.randomUUID(), date = LocalDate.of(2026, 11, 18), templateId = null, status = SessionStatus.IN_PROGRESS, logs = emptyList()))
+        assertNull(saved.completedAt)
+
+        val completed = adapter.updateStatus(saved.id!!, SessionStatus.COMPLETED)!!
+        assertNotNull(completed.completedAt)
+
+        val firstCompletedAt = completed.completedAt
+        assertEquals(firstCompletedAt, adapter.updateStatus(saved.id!!, SessionStatus.COMPLETED)!!.completedAt)
     }
 
     @Test
@@ -123,7 +167,7 @@ class WorkoutSessionRepositoryAdapterTest {
         val inRange = adapter.save(WorkoutSession(id = null, userId = userId, date = LocalDate.of(2026, 8, 15), templateId = null, status = SessionStatus.SCHEDULED, logs = emptyList()))
         adapter.save(WorkoutSession(id = null, userId = userId, date = LocalDate.of(2026, 1, 1), templateId = null, status = SessionStatus.SCHEDULED, logs = emptyList()))
 
-        val page = adapter.findPageByUserId(userId, from = LocalDate.of(2026, 8, 1), to = LocalDate.of(2026, 8, 31), cursorDate = null, cursorId = null, limit = 10)
+        val page = adapter.findPageByUserId(userId, from = LocalDate.of(2026, 8, 1), to = LocalDate.of(2026, 8, 31), cursorDate = null, cursorSortTime = null, cursorId = null, limit = 10)
 
         assertEquals(listOf(inRange.id), page.map { it.id })
     }

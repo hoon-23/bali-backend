@@ -21,6 +21,9 @@ data class SessionResponse(
     val logs: List<SessionLogResponse>,
     val perceivedDifficulty: Int?,
     val title: String,
+    // 세션 생성 시각과 COMPLETED 전이 시각(완료 전이거나 시각을 복원하지 못한 과거 세션이면 null)
+    val createdAt: Instant?,
+    val completedAt: Instant?,
     // 이 요청으로 세션이 COMPLETED로 전이됐을 때만 값이 있는 XP 내역 (그 외 응답은 null)
     val xp: XpGainResponse? = null,
 ) {
@@ -36,6 +39,8 @@ data class SessionResponse(
             logs = session.logs.map { SessionLogResponse.from(it, lastWeightByExerciseId[it.exerciseId]) },
             perceivedDifficulty = session.perceivedDifficulty,
             title = title,
+            createdAt = session.createdAt,
+            completedAt = session.completedAt,
         )
     }
 }

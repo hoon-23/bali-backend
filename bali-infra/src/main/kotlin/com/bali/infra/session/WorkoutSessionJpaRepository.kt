@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
+import java.time.Instant
 import java.time.LocalDate
 import java.util.UUID
 
@@ -18,8 +19,9 @@ interface WorkoutSessionJpaRepository : JpaRepository<WorkoutSessionJpaEntity, U
         @Param("to") to: LocalDate,
     ): List<WorkoutSessionJpaEntity>
 
-    // 커서(date, id) 이전 세션을 date DESC, id DESC로 조회 (동일 date가 여러 건이라 id를 2차 정렬 기준으로 써야 커서가 안정적).
-    // cursorDate가 null이면 커서 조건을 건너뛰어 최신부터 시작. Pageable로 개수(limit)만 제어하고 페이지 offset은 항상 0을 쓴다(오프셋 방식이 아니라 커서로 위치를 지정하므로)
+    // 커서(date, sortTime, id) 이전 세션을 date DESC, COALESCE(completedAt, createdAt) DESC, id DESC로 조회
+    // (동일 date가 여러 건이라 정렬 시각, 같은 시각이면 id까지 써야 커서가 안정적).
+    // cursorDate가 null이면 커서 조건을 건너뛰어 최신부터 시작(이때 cursorSortTime은 바인딩용 더미값). Pageable로 개수(limit)만 제어하고 페이지 offset은 항상 0을 쓴다(오프셋 방식이 아니라 커서로 위치를 지정하므로)
     @Query("""
         SELECT s FROM WorkoutSessionJpaEntity s
         WHERE s.userId = :userId
@@ -28,15 +30,19 @@ interface WorkoutSessionJpaRepository : JpaRepository<WorkoutSessionJpaEntity, U
           AND (
             CAST(:cursorDate AS date) IS NULL
             OR s.date < :cursorDate
-            OR (s.date = :cursorDate AND s.id < CAST(:cursorId AS uuid))
+            OR (s.date = :cursorDate AND (
+                  COALESCE(s.completedAt, s.createdAt) < :cursorSortTime
+                  OR (COALESCE(s.completedAt, s.createdAt) = :cursorSortTime AND s.id < CAST(:cursorId AS uuid))
+            ))
           )
-        ORDER BY s.date DESC, s.id DESC
+        ORDER BY s.date DESC, COALESCE(s.completedAt, s.createdAt) DESC, s.id DESC
     """)
     fun findPageByUserId(
         @Param("userId") userId: UUID,
         @Param("from") from: LocalDate?,
         @Param("to") to: LocalDate?,
         @Param("cursorDate") cursorDate: LocalDate?,
+        @Param("cursorSortTime") cursorSortTime: Instant,
         @Param("cursorId") cursorId: UUID?,
         pageable: Pageable,
     ): List<WorkoutSessionJpaEntity>

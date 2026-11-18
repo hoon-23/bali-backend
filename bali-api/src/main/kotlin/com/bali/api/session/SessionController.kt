@@ -77,7 +77,7 @@ class SessionController(
     // 세션 목록 커서(무한스크롤) 조회. from/to는 선택이며 있으면 그 범위 내에서, 없으면 전체 이력에서 date DESC로 조회한다
     @Operation(
         summary = "세션 목록 조회 (커서 기반)",
-        description = "date DESC로 최대 size개를 반환한다. cursor를 생략하면 최신부터 시작하고, 응답의 nextCursor를 다음 요청에 그대로 넣으면 이어서 조회된다. from/to는 선택 파라미터로 범위를 좁힐 때만 쓴다",
+        description = "date DESC(같은 date는 완료 시각, 없으면 생성 시각 DESC)로 최대 size개를 반환한다. cursor를 생략하면 최신부터 시작하고, 응답의 nextCursor를 다음 요청에 그대로 넣으면 이어서 조회된다. from/to는 선택 파라미터로 범위를 좁힐 때만 쓴다",
     )
     @GetMapping
     fun list(
@@ -91,7 +91,7 @@ class SessionController(
 
         val sessions = sessionRepository.findPageByUserId(
             currentUserId(), from, to,
-            cursorDate = decodedCursor?.date, cursorId = decodedCursor?.id,
+            cursorDate = decodedCursor?.date, cursorSortTime = decodedCursor?.sortTime, cursorId = decodedCursor?.id,
             limit = size + 1,
         )
         val hasNext = sessions.size > size
@@ -102,7 +102,7 @@ class SessionController(
         return SessionPageResponse(
             content = page.map { SessionResponse.from(it, resolveTitle(it, exercisesById), lastWeights) },
             hasNext = hasNext,
-            nextCursor = if (hasNext) page.last().let { SessionCursor(it.date, it.id!!).encode() } else null,
+            nextCursor = if (hasNext) page.last().let { SessionCursor(it.date, it.completedAt ?: it.createdAt, it.id!!).encode() } else null,
         )
     }
 
