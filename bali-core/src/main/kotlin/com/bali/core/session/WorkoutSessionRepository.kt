@@ -1,6 +1,7 @@
 package com.bali.core.session
 
 import java.math.BigDecimal
+import java.time.Instant
 import java.time.LocalDate
 import java.util.UUID
 
@@ -12,12 +13,13 @@ interface WorkoutSessionRepository {
     // 특정 유저의 기간 내(from~to, inclusive) 세션 목록 조회
     fun findAllByUserId(userId: UUID, from: LocalDate, to: LocalDate): List<WorkoutSession>
 
-    // 커서(date, id) 이전 세션을 date DESC, id DESC 순으로 최대 limit개 조회 (무한스크롤용).
-    // cursorDate/cursorId가 null이면 최신부터 시작. from/to가 있으면 그 범위 내에서만 조회
+    // 커서(date, sortTime, id) 이전 세션을 date DESC, COALESCE(completedAt, createdAt) DESC, id DESC 순으로 최대 limit개 조회 (무한스크롤용).
+    // cursorDate/cursorId가 null이면 최신부터 시작. cursorSortTime이 null이고 cursorId가 있으면(구버전 커서) 그 세션의 현재 정렬 시각으로 대체한다.
+    // from/to가 있으면 그 범위 내에서만 조회
     fun findPageByUserId(
         userId: UUID,
         from: LocalDate?, to: LocalDate?,
-        cursorDate: LocalDate?, cursorId: UUID?,
+        cursorDate: LocalDate?, cursorSortTime: Instant?, cursorId: UUID?,
         limit: Int,
     ): List<WorkoutSession>
 

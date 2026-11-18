@@ -6,6 +6,7 @@ import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated
 import jakarta.persistence.Id
 import jakarta.persistence.Table
+import java.time.Instant
 import java.time.LocalDate
 import java.util.UUID
 
@@ -21,4 +22,6 @@ class WorkoutSessionJpaEntity(
     @Enumerated(EnumType.STRING)
     var status: SessionStatus = SessionStatus.SCHEDULED,
     var perceivedDifficulty: Int? = null,
+    var createdAt: Instant = Instant.now(),
+    var completedAt: Instant? = null,
 )
