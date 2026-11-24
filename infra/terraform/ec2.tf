@@ -145,6 +145,8 @@ resource "aws_iam_role_policy" "app" {
           aws_secretsmanager_secret.apple_private_key.arn,
           aws_secretsmanager_secret.app_db_password.arn,
           aws_secretsmanager_secret.origin_verify.arn,
+          # 이전(마이그레이션) 중 RDS 덤프용. 이전이 끝나면 이 줄과 아래 SG 규칙을 함께 제거한다
+          aws_db_instance.main.master_user_secret[0].secret_arn,
         ]
       },
       {
@@ -211,4 +213,15 @@ resource "aws_eip" "app" {
   instance = aws_instance.app.id
   domain   = "vpc"
   tags     = { Name = "${var.project}-app-eip" }
+}
+
+# [임시] 이전 중 EC2에서 RDS로 덤프를 뜨기 위한 인바운드 규칙. RDS 삭제 시 함께 제거한다
+resource "aws_security_group_rule" "rds_from_app" {
+  type                     = "ingress"
+  from_port                = 5432
+  to_port                  = 5432
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.rds.id
+  source_security_group_id = aws_security_group.app.id
+  description              = "temporary: migration dump from app EC2"
 }

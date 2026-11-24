@@ -1,0 +1,14 @@
+# /etc/cron.d/bali (deploy.sh가 설치). 호스트 시간대가 KST라 시각은 모두 한국 시간이다.
+SHELL=/bin/bash
+PATH=/usr/local/bin:/usr/bin:/bin
+# DB 백업: 매일 03:00
+0 3 * * * root /opt/bali/backup.sh >> /var/log/bali-backup.log 2>&1
+
+# 배치 (기존 EventBridge 스케줄 7개와 같은 시각). state/batch-enabled 가 있어야 실제로 실행된다
+0 0 * * 1  root /opt/bali/batch-run.sh weekly >> /var/log/bali-batch.log 2>&1
+0 13 * * 1 root /opt/bali/batch-run.sh weekly-summary-push >> /var/log/bali-batch.log 2>&1
+0 0 1 * *  root /opt/bali/batch-run.sh monthly >> /var/log/bali-batch.log 2>&1
+0 13 1 * * root /opt/bali/batch-run.sh monthly-summary-push >> /var/log/bali-batch.log 2>&1
+0 12 * * * root /opt/bali/batch-run.sh inactivity-alert >> /var/log/bali-batch.log 2>&1
+0 9 * * *  root /opt/bali/batch-run.sh routine-reminder >> /var/log/bali-batch.log 2>&1
+5 0 * * *  root /opt/bali/batch-run.sh abandon-stale-sessions >> /var/log/bali-batch.log 2>&1

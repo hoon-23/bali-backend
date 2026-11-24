@@ -1,12 +1,15 @@
 #!/bin/bash
 # 블루/그린 무중단 배포: 반대 색상으로 새 버전을 띄우고, 헬스체크가 통과하면 nginx를 전환한 뒤 이전 버전을 내린다.
-# 사용법: deploy.sh <image-tag>   (종료 코드 0 = 전환 성공, 1 = 전환 안 함·기존 버전 유지)
+# 사용법: deploy.sh <image-tag> [batch-image-tag]   (종료 코드 0 = 전환 성공, 1 = 전환 안 함·기존 버전 유지)
 set -euo pipefail
 TAG=${1:?image tag required}
+BATCH_TAG=${2:-}   # 선택: 배치 이미지 태그 (주면 이 태그로 갱신)
 REGION=ap-northeast-2
 cd /opt/bali
 
 ./fetch-env.sh
+# 백업/배치 cron을 최신 정의로 갱신한다
+install -m 644 bali.cron /etc/cron.d/bali
 ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
 IMAGE="$ACCOUNT.dkr.ecr.$REGION.amazonaws.com/bali-dev-bali-api:$TAG"
 
@@ -15,6 +18,12 @@ if [ "$ACTIVE" = blue ]; then NEW=green; NEW_PORT=8082; else NEW=blue; NEW_PORT=
 mkdir -p state nginx/dyn
 
 docker compose --env-file .env up -d postgres
+
+if [ -n "$BATCH_TAG" ]; then
+  BIMAGE="$ACCOUNT.dkr.ecr.$REGION.amazonaws.com/bali-dev-bali-batch:$BATCH_TAG"
+  docker image inspect "$BIMAGE" >/dev/null 2>&1 || docker pull "$BIMAGE"
+  echo "$BATCH_TAG" > state/batch-tag
+fi
 # 로컬에 이미 있는 이미지(리허설용 빌드)는 pull하지 않는다
 docker image inspect "$IMAGE" >/dev/null 2>&1 || docker pull "$IMAGE"
 
