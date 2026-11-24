@@ -70,7 +70,7 @@ LLM 연동은 로드맵에서 제외했습니다.
 
 ## 7. 운영 환경
 
-AWS dev 환경(CloudFront → ALB → ECS Fargate → RDS)이 Terraform으로 구성돼 있고, develop에
-푸시하면 CD가 배포합니다. 배치는 EventBridge Scheduler가 트리거합니다. 로컬에서는 Airflow가
-같은 역할을 합니다. 비용 때문에 ECS `desired_count`를 0으로 내려 두는 일이 있으니, 서버가 503이면
-장애보다 먼저 이 값을 확인합니다. 절차는 `docs/runbooks/`를 봅니다.
+운영 환경은 단일 EC2 서버(CloudFront → nginx → API 컨테이너, PostgreSQL 컨테이너)이고 Terraform으로
+구성돼 있습니다. `main`에 병합하면 CD가 이미지를 빌드해 블루/그린 방식으로 무중단 배포합니다. 배치는
+서버의 cron이 실행하고, 로컬에서는 Airflow가 같은 역할을 합니다. 자세한 구조는
+[`architecture.md`](./architecture.md)를 봅니다.
