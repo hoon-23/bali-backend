@@ -7,6 +7,10 @@ BATCH_TAG=${2:-}   # 선택: 배치 이미지 태그 (주면 이 태그로 갱�
 REGION=ap-northeast-2
 cd /opt/bali
 
+# 배포가 겹쳐 실행되면 blue/green 상태가 꼬이므로 하나씩만 실행한다 (뒤 실행은 앞 실행이 끝날 때까지 대기)
+exec 9>/var/lock/bali-deploy.lock
+flock 9
+
 ./fetch-env.sh
 # 백업/배치 cron을 최신 정의로 갱신한다
 install -m 644 bali.cron /etc/cron.d/bali

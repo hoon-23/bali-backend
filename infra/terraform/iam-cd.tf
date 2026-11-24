@@ -45,6 +45,36 @@ resource "aws_iam_user_policy" "cd" {
         ]
         Resource = aws_ecs_service.bali_api.id
       },
+      {
+        Sid      = "DeployFilesSync"
+        Effect   = "Allow"
+        Action   = ["s3:PutObject", "s3:DeleteObject", "s3:GetObject"]
+        Resource = "${aws_s3_bucket.db_backup.arn}/deploy/*"
+      },
+      {
+        Sid      = "DeployFilesList"
+        Effect   = "Allow"
+        Action   = ["s3:ListBucket"]
+        Resource = aws_s3_bucket.db_backup.arn
+      },
+      {
+        Sid      = "SsmRunOnAppInstance"
+        Effect   = "Allow"
+        Action   = ["ssm:SendCommand"]
+        Resource = [aws_instance.app.arn, "arn:aws:ssm:${var.aws_region}::document/AWS-RunShellScript"]
+      },
+      {
+        Sid      = "SsmReadResult"
+        Effect   = "Allow"
+        Action   = ["ssm:GetCommandInvocation", "ssm:ListCommandInvocations"]
+        Resource = "*"
+      },
+      {
+        Sid      = "FindAppInstance"
+        Effect   = "Allow"
+        Action   = ["ec2:DescribeInstances"]
+        Resource = "*"
+      },
     ]
   })
 }
