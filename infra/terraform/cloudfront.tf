@@ -3,10 +3,11 @@ resource "aws_cloudfront_distribution" "main" {
   comment = "${var.project} bali-api"
 
   origin {
-    domain_name = aws_lb.main.dns_name
+    # 컷오버(2026-11-24): origin을 ALB에서 단일 EC2(nginx)로 교체했다. origin_id는 behavior 참조를 유지하려고 그대로 둔다
+    domain_name = aws_eip.app.public_dns
     origin_id   = "alb-origin"
 
-    # ALB가 이 헤더를 검증해 CloudFront를 거치지 않은 직접 호출을 거부한다 (alb.tf 리스너 규칙)
+    # EC2의 nginx가 이 헤더를 검증해 CloudFront를 거치지 않은 직접 호출을 거부한다
     custom_header {
       name  = "X-Origin-Verify"
       value = random_password.origin_verify.result
