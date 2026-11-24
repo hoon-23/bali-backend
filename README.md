@@ -24,7 +24,7 @@
 | Auth | 소셜 로그인(Google/Kakao/Naver/Apple) OIDC ID Token 검증 + 자체 JWT 발급 |
 | API Docs | springdoc-openapi (Swagger UI) |
 | Test | Kotest (도메인 단위), JUnit5 + 로컬 PostgreSQL (리포지토리/API 통합) |
-| Infra | Docker, AWS(ECS Fargate, RDS, ALB, CloudFront, EventBridge Scheduler; Terraform) |
+| Infra | Docker, AWS(단일 EC2, CloudFront, S3, ECR; Terraform), nginx 블루/그린 배포 |
 | CI/CD | GitHub Actions |
 
 ## 모듈 구조
@@ -36,7 +36,8 @@ bali-backend/
 ├── bali-api/      # REST API 서버 (인증, 컨트롤러)
 ├── bali-batch/    # 분석/알림/세션 정리 배치 (독립 실행, 웹 서버 없음)
 ├── airflow/       # 로컬용 Airflow DAG
-└── infra/terraform/ # AWS 인프라 (dev)
+├── infra/terraform/ # AWS 인프라 (Terraform)
+└── infra/deploy/    # 서버에서 실행되는 배포·백업·배치 스크립트
 ```
 
 `bali-api`와 `bali-batch`는 `bali-core`/`bali-infra`를 공유하지만 서로 독립적으로
@@ -54,7 +55,7 @@ bali-backend/
 - **무료 플랜 한도**: 루틴·개인 운동·월간 인사이트 한도 제어(기본 꺼짐).
 - **개인정보 보호**: 탈퇴 시 PII 파기, [개인정보처리방침](./bali-api/src/main/resources/legal/privacy-policy.md) 공개 서빙.
 
-배치 작업(`bali-batch`)은 로컬 Airflow DAG, dev 환경의 EventBridge Scheduler로 트리거되며 주간/월간 분석, 푸시, 알림, 세션 정리를 담당합니다.
+배치 작업(`bali-batch`)은 로컬에서는 Airflow DAG, 운영 서버에서는 호스트 cron으로 실행되며 주간/월간 분석, 푸시, 알림, 세션 정리를 담당합니다.
 
 API 명세는 서버 실행 후 `/swagger-ui.html`에서 확인할 수 있고, 자세한 설계 문서는
 [`docs/specs/`](./docs/specs) 를 참고하세요.
@@ -78,4 +79,13 @@ docker compose up -d          # PostgreSQL, 로컬 Airflow(UI: localhost:8181) �
 
 ## 배포
 
-GitHub Actions CI(`./gradlew test` + PostgreSQL)와 CD(develop push → ECR + ECS 재배포)를 활용합니다. 인프라는 Terraform(`infra/terraform/`)으로 관리하며, 운영 절차는 [`docs/runbooks/`](./docs/runbooks)를 참고하세요.
+GitHub Actions CI(`./gradlew test` + PostgreSQL)는 `develop` push와 PR에서 실행됩니다. CD는 `main`에 병합될 때 실행되어 이미지를 빌드하고 서버에 블루/그린으로 배포합니다. 인프라는 Terraform(`infra/terraform/`)으로 관리합니다. 자세한 구조는 [`docs/architecture.md`](./docs/architecture.md)를 참고하세요.
+
+## 문서
+
+| 문서 | 내용 |
+|------|------|
+| [`docs/architecture.md`](./docs/architecture.md) | 현재 시스템 구조, 배포 흐름, 배치, 백업 (구조가 바뀔 때마다 갱신) |
+| [`docs/product-concept.md`](./docs/product-concept.md) | 제품 개요와 범위 |
+| [`docs/db-schema.md`](./docs/db-schema.md) | DB 스키마(ERD) |
+| [`docs/specs/`](./docs/specs/README.md) | 기능별 설계서 (작성 시점의 기록, 목차 참고) |

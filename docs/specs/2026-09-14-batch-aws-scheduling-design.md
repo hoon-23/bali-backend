@@ -1,5 +1,7 @@
 # 배치 AWS 배포 — EventBridge Scheduler + ECS RunTask 설계
 
+> **2026-11-24 단일 EC2 이전으로 대체된 구조를 설명합니다.** 현재 구조는 [architecture](../architecture.md)를 보세요. 이 문서는 당시 설계의 기록입니다.
+
 ## 배경
 
 `bali-batch`는 로컬 개발 환경에서 Airflow(LocalExecutor)가 트리거하는 구조로 이미 붙어 있었다
