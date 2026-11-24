@@ -88,4 +88,5 @@ GitHub Actions CI(`./gradlew test` + PostgreSQL)는 `develop` push와 PR에서 �
 | [`docs/architecture.md`](./docs/architecture.md) | 현재 시스템 구조, 배포 흐름, 배치, 백업 (구조가 바뀔 때마다 갱신) |
 | [`docs/product-concept.md`](./docs/product-concept.md) | 제품 개요와 범위 |
 | [`docs/db-schema.md`](./docs/db-schema.md) | DB 스키마(ERD) |
+| [`docs/adr/`](./docs/adr/README.md) | 아키텍처 결정 기록(ADR): 중요한 결정을 왜 그렇게 골랐는지 |
 | [`docs/specs/`](./docs/specs/README.md) | 기능별 설계서 (작성 시점의 기록, 목차 참고) |
