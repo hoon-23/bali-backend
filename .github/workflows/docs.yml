@@ -1,0 +1,53 @@
+name: Docs
+
+# 문서 사이트(MkDocs)를 빌드해 GitHub Pages에 배포한다. PR에서는 빌드만 해서 깨진 링크를 병합 전에 잡는다.
+# 배포는 main 병합 때만 한다(github-pages 환경의 기본 배포 브랜치 규칙). develop 변경은 main에 병합되어야 사이트에 반영된다.
+on:
+  push:
+    branches: [main]
+    paths: ['docs/**', 'mkdocs.yml', '.github/workflows/docs.yml']
+  pull_request:
+    paths: ['docs/**', 'mkdocs.yml', '.github/workflows/docs.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# 배포가 겹치면 차례로 실행한다(진행 중인 배포를 취소하지 않는다)
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - run: pip install -r docs/requirements.txt
+
+      # --strict: 깨진 링크나 설정 경고가 있으면 실패한다
+      - run: mkdocs build --strict -d site
+
+      - uses: actions/upload-pages-artifact@v3
+        if: github.event_name != 'pull_request'
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
