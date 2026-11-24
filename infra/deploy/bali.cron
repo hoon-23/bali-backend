@@ -12,3 +12,6 @@ PATH=/usr/local/bin:/usr/bin:/bin
 0 12 * * * root /opt/bali/batch-run.sh inactivity-alert >> /var/log/bali-batch.log 2>&1
 0 9 * * *  root /opt/bali/batch-run.sh routine-reminder >> /var/log/bali-batch.log 2>&1
 5 0 * * *  root /opt/bali/batch-run.sh abandon-stale-sessions >> /var/log/bali-batch.log 2>&1
+
+# 상태 점검(API, 디스크, 메모리): 5분마다
+*/5 * * * * root /opt/bali/monitor.sh >> /var/log/bali-monitor.log 2>&1
