@@ -10,6 +10,7 @@ exclude_docs: |
   plans/
   review/
   runbooks/
+  adr/0000-template.md
   requirements.txt
   .DS_Store
 
