@@ -140,6 +140,8 @@ resource "aws_scheduler_schedule" "bali_batch" {
   name                         = "${var.project}-batch-${each.key}"
   schedule_expression          = each.value.cron
   schedule_expression_timezone = "Asia/Seoul"
+  # 컷오버 후 배치는 EC2 호스트 cron이 실행한다. 중복 실행(푸시 중복)을 막기 위해 비활성화한다 (정리 단계에서 리소스째 제거)
+  state = "DISABLED"
 
   flexible_time_window {
     mode = "OFF"
