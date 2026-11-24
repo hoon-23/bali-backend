@@ -47,6 +47,16 @@ resource "aws_secretsmanager_secret_version" "app_db_password" {
   secret_string = random_password.app_db.result
 }
 
+# nginx가 검증할 CloudFront 헤더 값. ALB 리스너 규칙과 같은 값(random_password.origin_verify)을 EC2가 읽도록 공유한다
+resource "aws_secretsmanager_secret" "origin_verify" {
+  name = "${var.project}/origin-verify"
+}
+
+resource "aws_secretsmanager_secret_version" "origin_verify" {
+  secret_id     = aws_secretsmanager_secret.origin_verify.id
+  secret_string = random_password.origin_verify.result
+}
+
 # DB 덤프 보관용 버킷 (일 단위 백업, 30일 후 삭제)
 resource "aws_s3_bucket" "db_backup" {
   bucket = "${var.project}-db-backup"
@@ -134,6 +144,7 @@ resource "aws_iam_role_policy" "app" {
           aws_secretsmanager_secret.apple_key_id.arn,
           aws_secretsmanager_secret.apple_private_key.arn,
           aws_secretsmanager_secret.app_db_password.arn,
+          aws_secretsmanager_secret.origin_verify.arn,
         ]
       },
       {
