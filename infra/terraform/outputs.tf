@@ -41,3 +41,16 @@ output "ecs_service_name" {
 output "cloudfront_domain_name" {
   value = aws_cloudfront_distribution.main.domain_name
 }
+
+output "app_instance_id" {
+  value = aws_instance.app.id
+}
+
+output "app_public_dns" {
+  description = "CloudFront origin으로 쓸 EC2 퍼블릭 DNS"
+  value       = aws_eip.app.public_dns
+}
+
+output "db_backup_bucket" {
+  value = aws_s3_bucket.db_backup.bucket
+}
