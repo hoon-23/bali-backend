@@ -78,6 +78,15 @@ class AuthControllerTest {
             throw SocialProviderUnavailableException("provider가 응답하지 않습니다")
     }
 
+    // 인가 코드 경로(state가 있는 NAVER 요청)를 흉내내는 fake
+    private class CodeAwareVerifier(override val provider: AuthProvider) : SocialTokenVerifier {
+        override fun verify(token: String): SocialUserInfo = throw IllegalArgumentException("access token 경로는 쓰면 안 됨")
+        override fun verifyAuthorizationCode(code: String, state: String): SocialUserInfo {
+            if (code != "valid-code" || state != "valid-state") throw IllegalArgumentException("유효하지 않은 코드입니다")
+            return SocialUserInfo("naver-sub-1", null)
+        }
+    }
+
     private lateinit var mockMvc: MockMvc
     private lateinit var userRepository: InMemoryUserRepository
     private lateinit var refreshTokenRepository: InMemoryRefreshTokenRepository
@@ -142,6 +151,31 @@ class AuthControllerTest {
             post("/api/v1/auth/login")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""{"provider": "GOOGLE", "token": "valid-google-token", "email": "not-an-email"}""")
+        )
+            .andExpect(status().isBadRequest)
+    }
+
+    @Test
+    fun `state가 있는 NAVER 요청은 인가 코드 경로로 검증되어 200을 반환한다`() {
+        val naverMockMvc = buildMockMvc(listOf(CodeAwareVerifier(AuthProvider.NAVER)))
+
+        naverMockMvc.perform(
+            post("/api/v1/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"provider": "NAVER", "token": "valid-code", "state": "valid-state"}""")
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.accessToken").exists())
+    }
+
+    @Test
+    fun `인가 코드 검증에 실패하면 400을 반환한다`() {
+        val naverMockMvc = buildMockMvc(listOf(CodeAwareVerifier(AuthProvider.NAVER)))
+
+        naverMockMvc.perform(
+            post("/api/v1/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"provider": "NAVER", "token": "bad-code", "state": "valid-state"}""")
         )
             .andExpect(status().isBadRequest)
     }

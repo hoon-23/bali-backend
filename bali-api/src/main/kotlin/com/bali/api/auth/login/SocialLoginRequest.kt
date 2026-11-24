@@ -13,4 +13,7 @@ data class SocialLoginRequest(
     @field:Email val email: String? = null,
     // Apple 로그인 시 앱이 함께 보내는 1회용 코드. 탈퇴 시 Apple 연동 revoke에 쓰이며, 구버전 앱은 생략하므로 선택값
     val authorizationCode: String? = null,
+    // NAVER 전용. 값이 있으면 token을 access token이 아니라 네이버 인가 코드로 보고 서버가 직접 교환한다(발급 대상 앱 검증).
+    // 없으면 기존처럼 access token으로 취급한다(구버전 앱 호환, 전환 기간에만 허용)
+    val state: String? = null,
 )

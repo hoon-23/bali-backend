@@ -18,6 +18,9 @@ class SocialAuthConfig(
     @Value("\${bali.oauth.apple.team-id:}") private val appleTeamId: String,
     @Value("\${bali.oauth.apple.key-id:}") private val appleKeyId: String,
     @Value("\${bali.oauth.apple.private-key:}") private val applePrivateKey: String,
+    @Value("\${bali.oauth.naver.client-id:}") private val naverClientId: String,
+    @Value("\${bali.oauth.naver.client-secret:}") private val naverClientSecret: String,
+    @Value("\${bali.oauth.naver.allow-legacy-token:true}") private val naverAllowLegacyToken: Boolean,
 ) {
     // Naver User-Info API 호출과 Google/Apple/Kakao JWKS fetch가 공유하는 기본 RestClient.
     // /api/v1/auth/login은 인증 없이 호출 가능한 엔드포인트라, provider가 느리거나 응답을 안 주면
@@ -77,8 +80,17 @@ class SocialAuthConfig(
         )
     )
 
-    // 네이버 access token 검증기: 네이버 "내 정보 조회" API 호출을 검증 수단으로 사용
+    // 네이버 인가 코드 교환 클라이언트: client id/secret이 모두 설정된 환경에서만 실제 호출하고, 아니면 Noop으로 대체한다
     @Bean
-    fun naverTokenVerifier(socialAuthRestClient: RestClient): NaverTokenVerifier =
-        NaverTokenVerifier(RestClientNaverUserInfoClient(socialAuthRestClient))
+    fun naverAuthClient(socialAuthRestClient: RestClient): NaverAuthClient =
+        if (naverClientId.isBlank() || naverClientSecret.isBlank()) {
+            NoopNaverAuthClient()
+        } else {
+            RestClientNaverAuthClient(socialAuthRestClient, naverClientId, naverClientSecret)
+        }
+
+    // 네이버 검증기: 인가 코드 교환 경로(발급 대상 앱 보장)와, 전환 기간 동안 허용하는 access token 직접 전달 경로
+    @Bean
+    fun naverTokenVerifier(socialAuthRestClient: RestClient, naverAuthClient: NaverAuthClient): NaverTokenVerifier =
+        NaverTokenVerifier(RestClientNaverUserInfoClient(socialAuthRestClient), naverAuthClient, naverAllowLegacyToken)
 }

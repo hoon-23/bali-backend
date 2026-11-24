@@ -4,6 +4,8 @@ set -euo pipefail
 REGION=ap-northeast-2
 P=bali-dev
 sec() { aws secretsmanager get-secret-value --region $REGION --secret-id "$P/$1" --query SecretString --output text; }
+# 아직 값이 설정되지 않았을 수 있는 선택 시크릿(예: 네이버 코드 로그인)은 없으면 빈 값으로 둔다
+sec_opt() { sec "$1" 2>/dev/null || true; }
 
 umask 077
 cd /opt/bali
@@ -19,6 +21,8 @@ cd /opt/bali
   echo "APPLE_TEAM_ID=$(sec apple-team-id)"
   echo "APPLE_KEY_ID=$(sec apple-key-id)"
   # 개행이 들어 있는 PEM 키는 env 파일에서 한 줄로 깨지므로 \n 이스케이프 형태로 저장한다
+  echo "NAVER_CLIENT_ID=$(sec_opt naver-client-id)"
+  echo "NAVER_CLIENT_SECRET=$(sec_opt naver-client-secret)"
   echo "APPLE_PRIVATE_KEY=$(sec apple-private-key | awk 'BEGIN{ORS="\\n"} {print}')"
 } > .env.new
 mv .env.new .env

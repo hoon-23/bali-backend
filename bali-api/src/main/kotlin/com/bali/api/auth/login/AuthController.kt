@@ -24,7 +24,7 @@ class AuthController(
     @Operation(summary = "소셜 로그인", description = "provider 토큰을 검증해 로그인/가입 처리 후 access/refresh 토큰 쌍을 발급한다")
     @PostMapping("/login")
     fun login(@Valid @RequestBody request: SocialLoginRequest): ResponseEntity<TokenPair> {
-        val tokens = socialLoginService.login(request.provider, request.token, request.email, request.authorizationCode)
+        val tokens = socialLoginService.login(request.provider, request.token, request.email, request.authorizationCode, request.state)
         return ResponseEntity.ok(tokens)
     }
 

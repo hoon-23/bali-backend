@@ -67,6 +67,19 @@ class SocialLoginServiceTest {
             infoByToken[token] ?: throw IllegalArgumentException("알 수 없는 토큰: $token")
     }
 
+    // 인가 코드 경로를 지원하는 fake. 어느 경로로 검증됐는지 기록한다
+    private class CodeAwareVerifier(override val provider: AuthProvider) : SocialTokenVerifier {
+        val calls = mutableListOf<String>()
+        override fun verify(token: String): SocialUserInfo {
+            calls += "token:$token"
+            return SocialUserInfo(providerId = "naver-by-token", email = null)
+        }
+        override fun verifyAuthorizationCode(code: String, state: String): SocialUserInfo {
+            calls += "code:$code/$state"
+            return SocialUserInfo(providerId = "naver-by-code", email = null)
+        }
+    }
+
     private fun newTokenIssuer() = TokenIssuer(
         JwtTokenProvider(secret = "test-secret-key-must-be-at-least-32-bytes-long!!", expirationMillis = 3600_000),
         InMemoryRefreshTokenRepository(),
@@ -272,6 +285,39 @@ class SocialLoginServiceTest {
         val service = SocialLoginService(listOf(verifier), userRepository, newTokenIssuer(), noopAppleAccountService())
 
         val tokens = service.login(AuthProvider.APPLE, "apple-token", email = null)
+
+        assertNotNull(tokens.accessToken)
+    }
+
+    @Test
+    fun `NAVER 요청에 state가 있으면 token을 인가 코드로 보고 코드 경로로 검증한다`() {
+        val userRepository = InMemoryUserRepository()
+        val verifier = CodeAwareVerifier(AuthProvider.NAVER)
+        val service = SocialLoginService(listOf(verifier), userRepository, newTokenIssuer(), noopAppleAccountService())
+
+        service.login(AuthProvider.NAVER, "the-code", email = null, state = "the-state")
+
+        assertEquals(listOf("code:the-code/the-state"), verifier.calls)
+        assertNotNull(userRepository.findByProviderAndProviderId(AuthProvider.NAVER, "naver-by-code"))
+    }
+
+    @Test
+    fun `NAVER 요청에 state가 없으면 기존 access token 경로로 검증한다`() {
+        val verifier = CodeAwareVerifier(AuthProvider.NAVER)
+        val service = SocialLoginService(listOf(verifier), InMemoryUserRepository(), newTokenIssuer(), noopAppleAccountService())
+
+        service.login(AuthProvider.NAVER, "access-token", email = null)
+
+        assertEquals(listOf("token:access-token"), verifier.calls)
+    }
+
+    // state는 NAVER 전용이다. 다른 provider에 실수로 붙어 와도 기존 검증 경로가 그대로 쓰여야 한다
+    @Test
+    fun `NAVER가 아닌 provider는 state가 있어도 기존 경로로 검증한다`() {
+        val verifier = FakeVerifier(AuthProvider.GOOGLE, mapOf("token-1" to SocialUserInfo("google-sub-9", null)))
+        val service = SocialLoginService(listOf(verifier), InMemoryUserRepository(), newTokenIssuer(), noopAppleAccountService())
+
+        val tokens = service.login(AuthProvider.GOOGLE, "token-1", email = null, state = "ignored")
 
         assertNotNull(tokens.accessToken)
     }
