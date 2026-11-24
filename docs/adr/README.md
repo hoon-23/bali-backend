@@ -6,7 +6,18 @@
 
 ## 목차
 
-(작성 중)
+| 번호 | 결정 | 상태 | 결정일 |
+|------|------|------|--------|
+| 0001 | [운영 환경을 ECS+RDS+ALB에서 단일 EC2로 이전](./0001-single-ec2-over-ecs-rds-alb.md) | 채택됨 | 2026-11-02 (이행: 2026-11-24) |
+| 0002 | [nginx 블루/그린으로 무중단 배포](./0002-blue-green-deploy-with-nginx.md) | 채택됨 | 2026-11-24 |
+| 0003 | [arm64(Graviton) 인스턴스와 네이티브 arm64 빌드](./0003-arm64-instance-and-native-build.md) | 채택됨 | 2026-11-24 |
+| 0004 | [배치 실행을 서버의 호스트 cron으로 통일](./0004-batch-via-host-cron.md) | 채택됨 | 2026-11-24 |
+| 0005 | [브랜치 전략: main 병합이 운영 배포, develop은 CI만](./0005-main-deploys-develop-ci-only.md) | 채택됨 | 2026-11-24 |
+| 0006 | [소셜 로그인은 클라이언트가 받은 토큰을 서버가 검증](./0006-social-login-client-token-verification.md) | 채택됨 | 2026-08-11 |
+| 0007 | [회원 탈퇴는 PII 익명화로 처리](./0007-withdrawal-by-pii-anonymization.md) | 채택됨 | 2026-08-18 |
+| 0008 | [레벨·경험치는 저장하지 않고 조회 때 계산](./0008-level-xp-computed-on-read.md) | 채택됨 | 2026-10-02 |
+| 0009 | [Spring Batch를 쓰지 않고 순수 Kotlin 러너로 배치 구현](./0009-plain-kotlin-batch-runner.md) | 채택됨 | 2026-08-07 |
+| 0010 | [인사이트는 통계와 규칙 기반으로 만들고 LLM을 쓰지 않음](./0010-stats-and-rules-insight-without-llm.md) | 채택됨 | 2026-08-07 (자연어 질의 API 폐기: 2026-09-10) |
 
 ## 작성 규칙
 
