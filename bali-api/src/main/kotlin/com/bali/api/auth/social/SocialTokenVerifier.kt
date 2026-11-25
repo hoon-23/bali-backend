@@ -10,6 +10,11 @@ interface SocialTokenVerifier {
     // 장애(5xx/연결 실패)와 토큰 무효를 구분할 수 있는 경우 SocialProviderUnavailableException을
     // 대신 던질 수 있다 - ApiExceptionHandler가 이를 502로 별도 매핑한다
     fun verify(token: String): SocialUserInfo
+
+    // provider가 발급 대상 앱을 토큰으로 증명하지 못해 서버가 인가 코드를 직접 교환해야 하는 경우(Naver)에 쓴다.
+    // 지원하지 않는 provider는 이 메서드를 호출하면 안 된다
+    fun verifyAuthorizationCode(code: String, state: String): SocialUserInfo =
+        throw IllegalArgumentException("${provider.name}은(는) 인가 코드 로그인을 지원하지 않습니다")
 }
 
 // 검증된 신원 정보. email은 Apple 재로그인, 카카오 비즈 미검수 등으로 비어있을 수 있어 nullable

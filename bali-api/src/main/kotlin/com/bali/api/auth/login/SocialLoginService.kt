@@ -23,9 +23,20 @@ class SocialLoginService(
     private val appleAccountService: AppleAccountService,
 ) {
     // provider 토큰을 검증해 기존/신규 유저를 확인하고 access/refresh 토큰 쌍을 발급한다
-    fun login(provider: AuthProvider, token: String, email: String?, authorizationCode: String? = null): TokenPair {
+    fun login(
+        provider: AuthProvider,
+        token: String,
+        email: String?,
+        authorizationCode: String? = null,
+        state: String? = null,
+    ): TokenPair {
         val verifier = verifiers.first { it.provider == provider }
-        val info = verifier.verify(token)
+        // 네이버는 state가 있으면 token이 인가 코드라서 서버가 교환한다. 그 외 provider는 항상 토큰 검증 경로를 쓴다
+        val info = if (provider == AuthProvider.NAVER && state != null) {
+            verifier.verifyAuthorizationCode(token, state)
+        } else {
+            verifier.verify(token)
+        }
 
         // status 조건 없이 provider+providerId로만 조회하므로, WITHDRAWN 상태로 탈퇴한 유저가
         // 같은 provider 계정으로 재로그인하면 상태 변경 없이 그대로 로그인된다(재활성화 정책은 범위 밖)

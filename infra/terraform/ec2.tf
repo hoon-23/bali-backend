@@ -57,6 +57,16 @@ resource "aws_secretsmanager_secret_version" "origin_verify" {
   secret_string = random_password.origin_verify.result
 }
 
+# 네이버 로그인 인가 코드 교환용 client id/secret. 값은 Terraform에 넣지 않고 사용자가 직접 설정한다(Apple 시크릿과 같은 방식).
+# 값이 비어 있으면 서버는 코드 로그인을 설정 오류로 거부하고, 구버전 앱의 access token 방식은 그대로 동작한다
+resource "aws_secretsmanager_secret" "naver_client_id" {
+  name = "${var.project}/naver-client-id"
+}
+
+resource "aws_secretsmanager_secret" "naver_client_secret" {
+  name = "${var.project}/naver-client-secret"
+}
+
 # DB 덤프 보관용 버킷 (일 단위 백업, 30일 후 삭제)
 resource "aws_s3_bucket" "db_backup" {
   bucket = "${var.project}-db-backup"
@@ -145,6 +155,8 @@ resource "aws_iam_role_policy" "app" {
           aws_secretsmanager_secret.apple_private_key.arn,
           aws_secretsmanager_secret.app_db_password.arn,
           aws_secretsmanager_secret.origin_verify.arn,
+          aws_secretsmanager_secret.naver_client_id.arn,
+          aws_secretsmanager_secret.naver_client_secret.arn,
           # 이전(마이그레이션) 중 RDS 덤프용. 이전이 끝나면 이 줄과 아래 SG 규칙을 함께 제거한다
           aws_db_instance.main.master_user_secret[0].secret_arn,
         ]
