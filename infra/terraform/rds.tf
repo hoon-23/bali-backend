@@ -35,6 +35,8 @@ resource "aws_db_instance" "main" {
   publicly_accessible    = false
   multi_az               = false
 
-  skip_final_snapshot = true
-  deletion_protection = false
+  # RDS를 삭제할 때 최종 스냅샷을 남긴다 (2026-11-25 단일 EC2 이전 후 정리 준비)
+  skip_final_snapshot       = false
+  final_snapshot_identifier = "${var.project}-postgres-final-20261125"
+  deletion_protection       = false
 }
