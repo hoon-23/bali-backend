@@ -39,73 +39,7 @@ resource "aws_sns_topic_policy" "alerts" {
 
 data "aws_caller_identity" "current" {}
 
-# ALB 뒤 앱(타겟)이 5분간 5xx를 5건 이상 내면 알린다
-resource "aws_cloudwatch_metric_alarm" "alb_target_5xx" {
-  alarm_name          = "${var.project}-alb-target-5xx"
-  alarm_description   = "bali-api가 5분간 5xx를 5건 이상 반환"
-  namespace           = "AWS/ApplicationELB"
-  metric_name         = "HTTPCode_Target_5XX_Count"
-  dimensions          = { LoadBalancer = aws_lb.main.arn_suffix }
-  statistic           = "Sum"
-  period              = 300
-  evaluation_periods  = 1
-  threshold           = 5
-  comparison_operator = "GreaterThanOrEqualToThreshold"
-  treat_missing_data  = "notBreaching"
-  alarm_actions       = [aws_sns_topic.alerts.arn]
-  ok_actions          = [aws_sns_topic.alerts.arn]
-}
-
-# 정상 타겟이 3분 연속 0개면(태스크 다운/기동 실패) 알린다. 배포 중에는 새 태스크가 뜬 뒤 기존 태스크가 내려가므로 오탐하지 않는다
-resource "aws_cloudwatch_metric_alarm" "api_no_healthy_host" {
-  alarm_name        = "${var.project}-api-no-healthy-host"
-  alarm_description = "bali-api 정상 타겟이 3분 연속 0개"
-  namespace         = "AWS/ApplicationELB"
-  metric_name       = "HealthyHostCount"
-  dimensions = {
-    LoadBalancer = aws_lb.main.arn_suffix
-    TargetGroup  = aws_lb_target_group.bali_api.arn_suffix
-  }
-  statistic           = "Minimum"
-  period              = 60
-  evaluation_periods  = 3
-  threshold           = 1
-  comparison_operator = "LessThanThreshold"
-  treat_missing_data  = "notBreaching"
-  alarm_actions       = [aws_sns_topic.alerts.arn]
-  ok_actions          = [aws_sns_topic.alerts.arn]
-}
-
-# 배치 태스크가 0이 아닌 종료 코드로 끝나면(= 러너가 1을 반환) 알린다
-resource "aws_cloudwatch_event_rule" "batch_task_failed" {
-  name        = "${var.project}-batch-task-failed"
-  description = "bali-batch ECS 태스크가 비정상 종료"
-
-  event_pattern = jsonencode({
-    source        = ["aws.ecs"]
-    "detail-type" = ["ECS Task State Change"]
-    detail = {
-      clusterArn        = [aws_ecs_cluster.main.arn]
-      lastStatus        = ["STOPPED"]
-      taskDefinitionArn = [{ prefix = "arn:aws:ecs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:task-definition/${var.project}-bali-batch:" }]
-      containers        = { exitCode = [{ "anything-but" = 0 }] }
-    }
-  })
-}
-
-resource "aws_cloudwatch_event_target" "batch_task_failed" {
-  rule      = aws_cloudwatch_event_rule.batch_task_failed.name
-  target_id = "sns"
-  arn       = aws_sns_topic.alerts.arn
-
-  # 원본 이벤트 JSON 대신 사람이 읽을 수 있는 한 줄 메시지로 보낸다
-  input_transformer {
-    input_paths    = { task = "$.detail.taskArn", reason = "$.detail.stoppedReason", time = "$.time" }
-    input_template = "\"[bali-batch 실패] <time> 태스크 <task> 비정상 종료: <reason>\""
-  }
-}
-
-# --- 단일 EC2 구조용 알람 (ALB/ECS 알람은 컷오버 후 정리 단계에서 제거한다) ---
+# --- 운영 서버(단일 EC2) 알람 ---
 
 # EC2 상태 점검(인스턴스/시스템)이 연속 실패하면 알린다
 resource "aws_cloudwatch_metric_alarm" "app_status_check" {
