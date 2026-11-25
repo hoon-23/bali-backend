@@ -1,6 +1,8 @@
-# /etc/cron.d/bali (deploy.sh가 설치). 호스트 시간대가 KST라 시각은 모두 한국 시간이다.
+# /etc/cron.d/bali (deploy.sh가 설치). 시각은 모두 한국 시간이다.
+# CRON_TZ를 명시하는 이유: 서버가 처음 켜질 때 cron 데몬이 시간대 설정(KST) 전에 시작되어 UTC로 일정을 해석한 적이 있다(2026-11-25 발견).
 SHELL=/bin/bash
 PATH=/usr/local/bin:/usr/bin:/bin
+CRON_TZ=Asia/Seoul
 # DB 백업: 매일 03:00
 0 3 * * * root /opt/bali/backup.sh >> /var/log/bali-backup.log 2>&1
 
