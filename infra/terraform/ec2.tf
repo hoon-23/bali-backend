@@ -157,8 +157,6 @@ resource "aws_iam_role_policy" "app" {
           aws_secretsmanager_secret.origin_verify.arn,
           aws_secretsmanager_secret.naver_client_id.arn,
           aws_secretsmanager_secret.naver_client_secret.arn,
-          # 이전(마이그레이션) 중 RDS 덤프용. 이전이 끝나면 이 줄과 아래 SG 규칙을 함께 제거한다
-          aws_db_instance.main.master_user_secret[0].secret_arn,
         ]
       },
       {
@@ -227,13 +225,14 @@ resource "aws_eip" "app" {
   tags     = { Name = "${var.project}-app-eip" }
 }
 
-# [임시] 이전 중 EC2에서 RDS로 덤프를 뜨기 위한 인바운드 규칙. RDS 삭제 시 함께 제거한다
-resource "aws_security_group_rule" "rds_from_app" {
-  type                     = "ingress"
-  from_port                = 5432
-  to_port                  = 5432
-  protocol                 = "tcp"
-  security_group_id        = aws_security_group.rds.id
-  source_security_group_id = aws_security_group.app.id
-  description              = "temporary: migration dump from app EC2"
+
+# CloudFront origin-facing 접두사 목록. 서버 보안 그룹이 80 포트를 CloudFront에서만 받도록 쓴다
+data "aws_ec2_managed_prefix_list" "cloudfront" {
+  name = "com.amazonaws.global.cloudfront.origin-facing"
+}
+
+# CloudFront가 origin 요청마다 붙이는 비밀 헤더 값. 서버의 nginx가 이 값을 검증해 직접 접근을 막는다
+resource "random_password" "origin_verify" {
+  length  = 40
+  special = false
 }
