@@ -83,6 +83,8 @@ GitHub Actions CI(`./gradlew test` + PostgreSQL)는 `develop` push와 PR에서 �
 
 ## 문서
 
+웹에서 보기: https://hoon-23.github.io/bali-backend/ (`main` 병합 시 자동 갱신)
+
 | 문서 | 내용 |
 |------|------|
 | [`docs/architecture.md`](./docs/architecture.md) | 현재 시스템 구조, 배포 흐름, 배치, 백업 (구조가 바뀔 때마다 갱신) |
